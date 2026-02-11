@@ -72,6 +72,7 @@ abstract class MoveTestFixture() {
             }
             module cvlm::nondet {
                 public native fun nondet<T>(): T;
+                public native fun is_nondet_type<T>(): bool;
             }
             module cvlm::manifest {
                 public native fun rule(ruleFunName: vector<u8>);

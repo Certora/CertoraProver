@@ -70,4 +70,99 @@ class FieldAccessTest : MoveTestFixture() {
         """.trimIndent())
         assertTrue(verify())
     }
+
+    @Test
+    fun `field access on non-struct fails`() {
+        addMoveSource("""
+            $testModule
+            use 0::access::getX;
+            public fun test() {
+                let x = 42;
+                getX(&x);
+            }
+        """.trimIndent())
+        addMoveSource("""
+            module 0::access;
+            public fun cvlm_manifest() {
+                cvlm::manifest::field_access(b"getX", b"x");
+            }
+            public native fun getX<T>(f: &T): &u64;
+        """.trimIndent())
+        assertFalse(verify())
+    }
+
+    @Test
+    fun `field access on nondet type fails`() {
+        addMoveSource("""
+            $testModule
+            use 0::access::getX;
+            public fun test<T>(t: &T) {
+                getX(t);
+            }
+        """.trimIndent())
+        addMoveSource("""
+            module 0::access;
+            public fun cvlm_manifest() {
+                cvlm::manifest::field_access(b"getX", b"x");
+            }
+            public native fun getX<T>(f: &T): &u64;
+        """.trimIndent())
+        assertFalse(verify())
+    }
+
+    @Test
+    fun `conditional field access on struct passes`() {
+        addMoveSource("""
+            $testModule
+            use 0::access::getX;
+            public struct Foo has copy, drop {
+                x: u64,
+            }
+            fun maybeGetX<T>(f: &T): u64 {
+                if (cvlm::nondet::is_nondet_type<T>()) {
+                    0
+                } else {
+                    *getX(f)
+                }
+            }
+            public fun test() {
+                let f = Foo { x: 42 };
+                cvlm_assert(maybeGetX(&f) == 42);
+            }
+        """.trimIndent())
+        addMoveSource("""
+            module 0::access;
+            public fun cvlm_manifest() {
+                cvlm::manifest::field_access(b"getX", b"x");
+            }
+            public native fun getX<T>(f: &T): &u64;
+        """.trimIndent())
+        assertTrue(verify())
+    }
+
+    @Test
+    fun `conditional field access on nondet type passes`() {
+        addMoveSource("""
+            $testModule
+            use 0::access::getX;
+            fun maybeGetX<T>(f: &T): u64 {
+                if (cvlm::nondet::is_nondet_type<T>()) {
+                    0
+                } else {
+                    *getX(f)
+                }
+            }
+            public fun test<T>(t: &T) {
+                cvlm_assert(maybeGetX(t) == 0);
+            }
+        """.trimIndent())
+        addMoveSource("""
+            module 0::access;
+            public fun cvlm_manifest() {
+                cvlm::manifest::field_access(b"getX", b"x");
+            }
+            public native fun getX<T>(f: &T): &u64;
+        """.trimIndent())
+        assertTrue(verify())
+    }
 }

@@ -631,6 +631,7 @@ class CvlmManifest(val scene: MoveScene) {
 
         addSummarizer(accessorName) { call ->
             singleBlockSummary(call) {
+                val returnType = (call.callee.returns[0] as MoveType.Reference).refType
                 val dstRef = call.returns[0]
                 val srcRef = call.args[0]
 
@@ -638,9 +639,29 @@ class CvlmManifest(val scene: MoveScene) {
                 val refTag = srcRef.tag as MoveTag.Ref
                 val structType = refTag.refType as? MoveType.Struct
                 if (structType == null) {
-                    throw CertoraException(
-                        CertoraErrorType.CVL,
-                        "Field accessor ${call.callee.name} is called on a non-struct type ${refTag.refType}."
+                    // Summaries can dynamically check:
+                    // ```
+                    // if (cvlm::nondet::is_nondet_type<T>()) {
+                    //   ...
+                    // } else {
+                    //   field_accessor<T>(...)
+                    // }
+                    // ```
+                    // So we don't want to fail the whole rule; instead, we just add an assertion at the point of the
+                    // field access.
+                    //
+                    // Note that we still assign a havoc'd value to the return ref, to ensure the ref analysis has a
+                    // definition for it.
+                    val dummyValue = TACKeyword.TMP(returnType.toTag(), "dummyValue").ensureHavocInit()
+                    return@singleBlockSummary mergeMany(
+                        TACCmd.Move.BorrowLocCmd(
+                            ref = dstRef,
+                            loc = dummyValue
+                        ).withDecls(dstRef, dummyValue),
+                        TACCmd.Simple.AssertCmd(
+                            TACSymbol.False,
+                            "Field accessor ${call.callee.name} is called on a non-struct type ${refTag.refType}."
+                        ).withDecls()
                     )
                 }
 
@@ -657,7 +678,6 @@ class CvlmManifest(val scene: MoveScene) {
                     )
                 }
                 val fieldType = fields[fieldIndex].type
-                val returnType = (call.callee.returns[0] as MoveType.Reference).refType
                 if (fieldType != returnType) {
                     throw CertoraException(
                         CertoraErrorType.CVL,

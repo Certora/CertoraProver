@@ -267,6 +267,22 @@ class CvlmApi(scene: MoveScene) {
                 call.callee.typeArguments[0].assignHavoc(call.returns[0])
             }
         }
+
+        /*
+            ```
+            public native fun is_nondet_type<T>(): bool;
+            ```
+         */
+        addSummary(nondetModule, "is_nondet_type") { call ->
+            singleBlockSummary(call) {
+                assign(call.returns[0]) {
+                    when (call.callee.typeArguments[0]) {
+                        is MoveType.Nondet -> TACSymbol.True.asSym()
+                        else -> TACSymbol.False.asSym()
+                    }
+                }
+            }
+         }
     }
 
     private fun addGhostSummaries() {
