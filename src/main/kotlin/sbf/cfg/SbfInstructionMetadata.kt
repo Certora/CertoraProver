@@ -72,8 +72,8 @@ object SbfMeta {
     val SET_GLOBAL = MetaKey<String>("set_global")
     // If a call to a function is mocking a call to another function, this is the original function
     val MOCK_FOR = MetaKey<String>("mock_for")
-    // for source line information
-    val RANGE = MetaKey<Range.Range>("range")
+    // for source line information coming from CVLR.
+    val CVLR_RANGE = MetaKey<Range.Range>("cvlr.range")
 
     // These keys have empty strings as values. The values are irrelevant
     val HINT_OPTIMIZED_WIDE_STORE =  MetaKey<Unit>("hint_optimized_wide_store")
@@ -145,7 +145,7 @@ fun toString(metaData: MetaData): String {
                 }
             }
             SbfMeta.MANGLED_NAME -> {}
-            SbfMeta.RANGE -> {}
+            SbfMeta.CVLR_RANGE -> {}
         }
     }
     return strB.toString()

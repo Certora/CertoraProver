@@ -22,6 +22,7 @@ import report.calltrace.*
 import report.calltrace.formatter.CallTraceValue
 import report.calltrace.formatter.CallTraceValueFormatter
 import report.calltrace.sarif.FmtArg
+import sbf.support.SolanaCalltraceUtil
 import sbf.tac.*
 import scene.ISceneIdentifiers
 import solver.CounterexampleModel
@@ -175,6 +176,8 @@ internal class SolanaCallTraceGenerator(
      * ranges were already attached at SBF -> TAC translation
      */
     override fun resolveAttachedLocation(stmt: TACCmd.Simple.AnnotationCmd): Range.Range? {
-        return stmt.meta[TACMeta.CVL_RANGE]?.nonEmpty()
+        return stmt.meta[TACMeta.CVL_RANGE]?.nonEmpty() ?: stmt.meta[TACMeta.SBF_ADDRESS]?.let{
+            SolanaCalltraceUtil.sbfAddressToRangeWithHeuristic(it.toULong())
+        }
     }
 }
