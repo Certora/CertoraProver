@@ -287,11 +287,11 @@ sealed class ConfigType<T : Serializable>(
     )
 
     open class AssertFilterCmdLine(
-        default: HashSet<String>?,
+        default: HashSet<cli.AssertFilterEntry>?,
         option: Option,
         aliases: List<Option> = listOf(),
         pythonName: String? = null
-    ) : CmdLine<HashSet<String>>(
+    ) : CmdLine<HashSet<cli.AssertFilterEntry>>(
         default,
         AssertFilterConverter, option, aliases, pythonName
     )

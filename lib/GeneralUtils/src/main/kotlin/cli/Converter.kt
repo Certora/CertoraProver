@@ -87,6 +87,37 @@ class AssertFilterException(entry: String, reason: String) :
         "Expected format: comma-separated list of indices (e.g., '1,2,3') or file locations (e.g., 'spec.rs:10,spec.rs:30')")
 
 /**
+ * Parses a single filter entry string.
+ * Returns an Index if it's a valid integer, or a FileLocation if it matches the "file:line" pattern.
+ * Throws AssertFilterException if the entry is invalid.
+ */
+fun parseAssertFilterEntry(entry: String): AssertFilterEntry {
+    // Try parsing as integer index first
+    entry.toIntOrNull()?.let {
+        if (it <= 0) {
+            throw AssertFilterException(entry, "index must be positive (1-based)")
+        }
+        return AssertFilterEntry.Index(it)
+    }
+
+    // Try parsing as file:line format
+    // Find the last colon to handle file paths that may contain colons (e.g., Windows paths)
+    val lastColonIndex = entry.lastIndexOf(':')
+    if (lastColonIndex > 0 && lastColonIndex < entry.length - 1) {
+        val file = entry.substring(0, lastColonIndex)
+        val lineStr = entry.substring(lastColonIndex + 1)
+        lineStr.toIntOrNull()?.let { line ->
+            if (line <= 0) {
+                throw AssertFilterException(entry, "line number must be positive")
+            }
+            return AssertFilterEntry.FileLocation(file, line)
+        }
+    }
+
+    throw AssertFilterException(entry, "not a valid index or file:line format")
+}
+
+/**
  * Converter for -solanaAssertFilter flag.
  * Validates that each entry is either:
  * - A positive integer (1-based assert index)
@@ -98,36 +129,7 @@ val AssertFilterConverter = Converter { input ->
         throw AssertFilterException(input, "empty input")
     }
 
-    for (entry in entries) {
-        // Try parsing as integer index
-        val asInt = entry.toIntOrNull()
-        if (asInt != null) {
-            if (asInt <= 0) {
-                throw AssertFilterException(entry, "index must be positive (1-based)")
-            }
-            continue
-        }
-
-        // Try parsing as file:line format
-        val lastColonIndex = entry.lastIndexOf(':')
-        if (lastColonIndex <= 0) {
-            throw AssertFilterException(entry, "not a valid index or file:line format")
-        }
-        if (lastColonIndex >= entry.length - 1) {
-            throw AssertFilterException(entry, "missing line number after ':'")
-        }
-
-        val lineStr = entry.substring(lastColonIndex + 1)
-        val lineNum = lineStr.toIntOrNull()
-        if (lineNum == null) {
-            throw AssertFilterException(entry, "'$lineStr' is not a valid line number")
-        }
-        if (lineNum <= 0) {
-            throw AssertFilterException(entry, "line number must be positive")
-        }
-    }
-
-    entries.toHashSet()
+    entries.map { parseAssertFilterEntry(it) }.toHashSet()
 }
 
 /**

@@ -31,27 +31,7 @@ import utils.Range
 import spec.cvlast.SpecType
 import vc.data.find
 import sbf.SolanaConfig
-
-/** Represents a filter entry for assertions: either by index or by file location */
-private sealed class AssertFilterEntry {
-    data class Index(val value: Int) : AssertFilterEntry()
-    data class FileLocation(val file: String, val line: Int) : AssertFilterEntry() {
-        /**
-         * Checks if this file location matches the given Range.
-         * Compares file name (ignoring path) and line number.
-         * Column information in the Range is ignored.
-         */
-        fun matches(range: Range): Boolean {
-            if (range is Range.Empty) {
-                return false
-            }
-            val rangeData = range as Range.Range
-            val rangeFileName = rangeData.specFile.substringAfterLast('/')
-            val filterFileName = file.substringAfterLast('/')
-            return filterFileName == rangeFileName && line == rangeData.start.lineForIDE
-        }
-    }
-}
+import cli.AssertFilterEntry
 
 object TACMultiAssert {
 
@@ -111,35 +91,27 @@ object TACMultiAssert {
     }
 
     /**
-     * Parses a single filter entry string.
-     * Returns an Index if it's a valid integer, or a FileLocation if it matches the "file:line" pattern.
-     */
-    private fun parseFilterEntry(entry: String): AssertFilterEntry? {
-        // Try parsing as an integer index first
-        entry.toIntOrNull()?.let { return AssertFilterEntry.Index(it) }
-
-        // Try parsing as file:line format
-        // Find the last colon to handle file paths that may contain colons (e.g., Windows paths)
-        val lastColonIndex = entry.lastIndexOf(':')
-        if (lastColonIndex > 0 && lastColonIndex < entry.length - 1) {
-            val file = entry.substring(0, lastColonIndex)
-            val lineStr = entry.substring(lastColonIndex + 1)
-            lineStr.toIntOrNull()?.let { line ->
-                return AssertFilterEntry.FileLocation(file, line)
-            }
-        }
-
-        return null
-    }
-
-    /**
-     * Parses the assert filter from SolanaConfig.AssertFilter.
+     * Gets the assert filter from SolanaConfig.AssertFilter.
      * Returns null if no filter is specified, otherwise returns a list of filter entries.
      * Supports both integer indices (1-based) and file locations (file:line format).
      */
-    private fun parseAssertFilter(): List<AssertFilterEntry>? {
-        val filterStrings = SolanaConfig.AssertFilter.getOrNull() ?: return null
-        return filterStrings.mapNotNull { parseFilterEntry(it) }.ifEmpty { null }
+    private fun getAssertFilter(): List<AssertFilterEntry>? {
+        return SolanaConfig.AssertFilter.getOrNull()?.toList()
+    }
+
+    /**
+     * Checks if a file location filter matches the given Range.
+     * Compares file name (ignoring path) and line number.
+     * Column information in the Range is ignored.
+     */
+    private fun AssertFilterEntry.FileLocation.matches(range: Range): Boolean {
+        if (range is Range.Empty) {
+            return false
+        }
+        val rangeData = range as Range.Range
+        val rangeFileName = rangeData.specFile.substringAfterLast('/')
+        val filterFileName = file.substringAfterLast('/')
+        return filterFileName == rangeFileName && line == rangeData.start.lineForIDE
     }
 
     /**
@@ -150,7 +122,7 @@ object TACMultiAssert {
      **/
     fun transformMulti(compiledRule: CompiledGenericRule.Compiled): List<CompiledGenericRule.Compiled> {
         val idToPtr = assertIdToAssertPtr(compiledRule.code)
-        val assertFilter = parseAssertFilter()
+        val assertFilter = getAssertFilter()
 
         // Separate filter entries by type for efficient matching
         val indexFilters = assertFilter?.filterIsInstance<AssertFilterEntry.Index>()?.map { it.value }?.toSet()
