@@ -14,9 +14,9 @@ function showCmd(cmdId) {
 }
 
 function setDisplayClass(elem, className) {
-   var wrapper = elem.closest(".cmds-list");
-   wrapper.classList.remove("all", "uc-only", "close-to-uc");
-   wrapper.classList.add(className);
+    var wrapper = elem.closest(".cmds-list");
+    wrapper.classList.remove("all", "uc-only", "close-to-uc");
+    wrapper.classList.add(className);
 }
 
 function highlightActiveButton(elem, classNameToHighlight, wrapper) {
@@ -29,33 +29,50 @@ function highlightActiveButton(elem, classNameToHighlight, wrapper) {
     elem.style.backgroundColor = 'rgb(255, 237, 78)';
 }
 
-var showUcCmdsOnly = function() {
+var showUcCmdsOnly = function () {
     highlightActiveButton(this)
     setDisplayClass(this, "uc-only")
 }
 
-var showCmdsCloseToUc = function() {
+var showCmdsCloseToUc = function () {
     highlightActiveButton(this)
     setDisplayClass(this, "close-to-uc")
 }
 
-var showAllCmds = function() {
+var showAllCmds = function () {
     highlightActiveButton(this)
     setDisplayClass(this, "all");
+}
+
+// ============================================================================
+// Constants and Helpers
+// ============================================================================
+
+var SVG_NS = "http://www.w3.org/2000/svg";
+var COPY_FEEDBACK_DURATION = 1500;
+
+function setAttrs(el, attrs) {
+    Object.keys(attrs).forEach(function (k) { el.setAttribute(k, attrs[k]); });
+}
+
+function setStyles(el, styles) {
+    Object.keys(styles).forEach(function (k) { el.style[k] = styles[k]; });
 }
 
 // ============================================================================
 // State Variables
 // ============================================================================
 
+var currentSVG = "0";
+var mainPanZoom = null;
+var dataflowPanZoom = null;
+var lastDataflowFocus = null;
+
 var highlightedAnchor = null;
 var highlightedDef = null;
 var highlightedUseCls = null;
 var highlightedIntFun = null;
-var lastSvgEventListener = null;
-var currentSVG = "0";
 
-// Dataflow state (dataflowMap is injected by Kotlin before this script loads)
 var highlightedInputs = [];
 var highlightedOutputs = [];
 var dataflowGraph = {
@@ -63,7 +80,6 @@ var dataflowGraph = {
     focusVar: null     // Currently focused variable
 };
 
-// Layout cache for dataflow graph
 var layoutCache = {
     layout: null,
     selectedVarsKey: "",
@@ -98,7 +114,7 @@ function renderCexPanel() {
     if (!container || typeof cexValues === 'undefined') return;
 
     var html = "";
-    Object.keys(cexValues).forEach(function(varName) {
+    Object.keys(cexValues).forEach(function (varName) {
         var value = cexValues[varName];
         var escapedName = escapeHtml(varName);
         var escapedValue = escapeHtml(value);
@@ -138,6 +154,12 @@ function findInCurrentContainer(elementId) {
     return container ? container.querySelector("#" + CSS.escape(elementId)) : document.getElementById(elementId);
 }
 
+// Find all elements within the currently visible blocks container matching a selector
+function findAllInCurrentContainer(selector) {
+    var container = document.getElementById("blocksAndEdges" + currentSVG);
+    return container ? container.querySelectorAll(selector) : document.querySelectorAll(selector);
+}
+
 // Find SVG node within the currently visible SVG
 function findNodeInCurrentSVG(nodeId) {
     var svgContainer = document.getElementById("svgOf" + currentSVG);
@@ -158,20 +180,14 @@ function findNodeInAnySVG(nodeId) {
 }
 
 // Find which graph contains a variable's definition
-// Note: Same element IDs can appear in different sub-graphs, so we search each container.
 function findGraphWithDef(varName) {
     var containers = getAllContainers();
     for (var i = 0; i < containers.length; i++) {
-        if (containers[i].querySelector('#def_' + CSS.escape(varName))) {
+        if (containers[i].querySelector('.def_' + CSS.escape(varName))) {
             return containers[i].id.replace("blocksAndEdges", "");
         }
     }
     return null;
-}
-
-// Set background color on element if it exists
-function setBackground(el, color) {
-    if (el) el.style.backgroundColor = color;
 }
 
 // Toggle visibility between two elements
@@ -187,12 +203,20 @@ function toggleVisibility(currentId, newId, prefix, useDisplay) {
     }
 }
 
+// Set background color on element if it exists
+function setBackground(el, color) {
+    if (el) el.style.backgroundColor = color;
+}
+
+
 // Apply operation across all containers for a variable
 function forEachContainerWithVar(varName, callback) {
     var containers = getAllContainers();
     for (var c = 0; c < containers.length; c++) {
-        var el = containers[c].querySelector('#def_' + CSS.escape(varName));
-        if (el) callback(el, containers[c]);
+        var els = containers[c].querySelectorAll('.def_' + CSS.escape(varName));
+        for (var i = 0; i < els.length; i++) {
+            callback(els[i], containers[c]);
+        }
     }
 }
 
@@ -201,66 +225,149 @@ function forEachContainerWithVar(varName, callback) {
 // ============================================================================
 
 function pushNavigationState() {
-    var hash = currentSVG !== "0" ? '#svg=' + currentSVG : window.location.pathname;
-    history.pushState({ svg: currentSVG }, '', hash);
+    var params = [];
+    if (currentSVG !== "0") params.push('svg=' + encodeURIComponent(currentSVG));
+
+    // Only include highlights if they are in the current graph to avoid "ghost" state
+    var currentContainer = document.getElementById("blocksAndEdges" + currentSVG);
+    var targetVar = null;
+    var targetBlock = null;
+
+    if (currentContainer) {
+        if (highlightedDef && currentContainer.querySelector('.def_' + CSS.escape(highlightedDef))) {
+            targetVar = highlightedDef;
+            params.push('var=' + encodeURIComponent(targetVar));
+        }
+        if (highlightedAnchor && currentContainer.querySelector("#block" + CSS.escape(highlightedAnchor))) {
+            targetBlock = highlightedAnchor;
+            params.push('block=' + encodeURIComponent(targetBlock));
+        }
+    }
+
+    if (dataflowGraph.selectedVars.length > 0) {
+        params.push('dfVars=' + encodeURIComponent(dataflowGraph.selectedVars.join(',')));
+    }
+
+    var hash = params.length > 0 ? '#' + params.join('&') : "";
+
+    // Normalize comparison: window.location.hash includes the '#'
+    var currentHash = window.location.hash || "";
+    if (currentHash === hash) return;
+
+    var state = {
+        svg: currentSVG,
+        var: targetVar,
+        block: targetBlock,
+        dfVars: dataflowGraph.selectedVars.slice()
+    };
+
+    history.pushState(state, '', hash || window.location.pathname);
 }
 
 function restoreNavigationState(state) {
-    if (!state) {
-        var hash = window.location.hash;
-        var svg = "0";
-        if (hash && hash.indexOf('svg=') >= 0) {
-            svg = hash.split('svg=')[1].split('&')[0];
+    var svg = "0", varName = null, block = null, dfVars = [];
+
+    if (state) {
+        svg = state.svg || "0";
+        varName = state.var;
+        block = state.block;
+        dfVars = state.dfVars || [];
+    } else {
+        var hash = window.location.hash.substring(1);
+        if (hash) {
+            hash.split('&').forEach(function (pair) {
+                var parts = pair.split('=');
+                if (parts.length !== 2) return;
+                var k = parts[0], v = decodeURIComponent(parts[1]);
+                if (k === 'svg') svg = v;
+                else if (k === 'var') varName = v;
+                else if (k === 'block') block = v;
+                else if (k === 'dfVars') dfVars = v.split(',');
+            });
         }
-        state = { svg: svg };
     }
-    if (state.svg && state.svg !== currentSVG) {
-        switchToGraph(state.svg, false);
+
+    // Apply states in sequence
+    if (svg !== currentSVG) switchToGraph(svg, false);
+
+    // Sync dataflow list
+    dataflowGraph.selectedVars = dfVars;
+
+    // Restore highlights precisely
+    if (varName) {
+        highlightDef(varName, false);
+    } else {
+        clearDefHighlight();
+    }
+
+    if (block) {
+        highlightAnchor(block, false);
+    } else {
+        clearAnchorHighlight();
+    }
+
+    // Secondary UI sync for dataflow (if no var highlight triggered it)
+    if (!varName) {
+        if (dfVars.length > 0) renderDataflowGraph();
+        else clearDataflowGraph(false);
     }
 }
 
-window.addEventListener('popstate', function(event) {
+window.addEventListener('popstate', function (event) {
     restoreNavigationState(event.state);
 });
 
-window.addEventListener('DOMContentLoaded', function() {
+window.addEventListener('DOMContentLoaded', function () {
     if (window.location.hash) {
         restoreNavigationState(null);
     }
 });
 
-// ============================================================================
-// Graph Switching
-// ============================================================================
-
-// Core function to switch between graphs
+// Core function to switch between graphs (visibility and pan-zoom)
 function switchToGraph(newSvgId, pushHistory) {
+    if (newSvgId === currentSVG && mainPanZoom) return;
+
+    var oldSuffix = currentSVG === "0" ? "" : currentSVG;
+    var newSuffix = newSvgId === "0" ? "" : newSvgId;
+
+    // Destroy old pan-zoom
+    var pannedCurrent = document.getElementById("theSVG" + oldSuffix);
+    if (pannedCurrent) {
+        try { svgPanZoom(pannedCurrent).destroy(); } catch (e) { }
+    }
+
+    // Toggle visibility
     toggleVisibility(currentSVG, newSvgId, "svgOf", false);
     toggleVisibility(currentSVG, newSvgId, "blocksAndEdges", false);
     toggleVisibility(currentSVG, newSvgId, "mag_", false);
     toggleVisibility(currentSVG, newSvgId, "successorMap", true);
+
     currentSVG = newSvgId;
-    if (pushHistory) pushNavigationState();
-}
 
-function toggleSVG(svgId) {
-    switchToGraph(svgId, true);
-
-    // Handle SVG pan-zoom
-    var currentSuffix = currentSVG !== "0" ? currentSVG : "";
-    var newSuffix = svgId !== "0" ? svgId : "";
-    var pannedCurrent = document.getElementById("theSVG" + currentSuffix);
+    if (pushHistory) {
+        // Clear highlights when manually navigating to a new graph context
+        // This ensures the back button provides a clean "undo" state
+        clearDefHighlight();
+        clearAnchorHighlight();
+        pushNavigationState();
+    }
+    // Initialize new pan-zoom
     var pannedNew = document.getElementById("theSVG" + newSuffix);
-
-    if (pannedCurrent) svgPanZoom(pannedCurrent).destroy();
     if (pannedNew) {
-        lastSvgEventListener = svgPanZoom('#theSVG' + newSuffix, {
+        mainPanZoom = svgPanZoom(pannedNew, {
             zoomEnabled: true,
             controlIconsEnabled: true,
             fit: true,
             center: true
         });
     }
+
+    if (pushHistory) pushNavigationState();
+}
+
+// Legacy alias for Kotlin HTML clicks
+function toggleSVG(svgId) {
+    switchToGraph(svgId, true);
 }
 
 function toggleSize() {
@@ -274,23 +381,19 @@ function toggleSize() {
 // Highlight Clear Functions
 // ============================================================================
 
+// Clear all highlights (blocks, edges, SVG nodes)
 function clearAnchorHighlight() {
     if (!highlightedAnchor) return;
 
-    // Clear block/edge highlights across ALL containers (not just current)
-    // because the highlight might be in a different graph than the current one
-    var containers = getAllContainers();
-    for (var c = 0; c < containers.length; c++) {
-        var block = containers[c].querySelector("#block" + CSS.escape(highlightedAnchor));
-        if (block) {
-            setBackground(block, "white");
-            setBackground(containers[c].querySelector("#edgeS" + CSS.escape(highlightedAnchor)), "white");
-            setBackground(containers[c].querySelector("#edgeT" + CSS.escape(highlightedAnchor)), "white");
-            setBackground(containers[c].querySelector("#edgeP" + CSS.escape(highlightedAnchor)), "white");
-        }
-    }
+    var selector = "#block" + CSS.escape(highlightedAnchor) +
+        ", #edgeS" + CSS.escape(highlightedAnchor) +
+        ", #edgeT" + CSS.escape(highlightedAnchor) +
+        ", #edgeP" + CSS.escape(highlightedAnchor);
 
-    // Clear any highlighted SVG nodes across ALL graphs
+    getAllContainers().forEach(function (c) {
+        c.querySelectorAll(selector).forEach(function (el) { setBackground(el, "white"); });
+    });
+
     clearAllSvgHighlights();
     highlightedAnchor = null;
 }
@@ -298,10 +401,10 @@ function clearAnchorHighlight() {
 function clearAllSvgHighlights() {
     // Find all SVG nodes with yellow fill (our highlight color) and reset them
     var svgContainers = document.querySelectorAll('[id^="svgOf"]');
-    svgContainers.forEach(function(container) {
+    svgContainers.forEach(function (container) {
         // Look for polygon/ellipse elements with yellow fill
         var highlighted = container.querySelectorAll('[fill="yellow"]');
-        highlighted.forEach(function(el) {
+        highlighted.forEach(function (el) {
             // Restore original appearance from data attributes, or use defaults
             el.setAttribute("fill", el.getAttribute("data-orig-fill") || "white");
             el.setAttribute("stroke-width", el.getAttribute("data-orig-stroke-width") || "1px");
@@ -313,29 +416,23 @@ function clearAllSvgHighlights() {
 function clearDefHighlight() {
     if (!highlightedDef) return;
 
-    var containers = getAllContainers();
-    for (var c = 0; c < containers.length; c++) {
-        var defEl = containers[c].querySelector('#' + CSS.escape(highlightedDef));
-        if (defEl) defEl.style.removeProperty('background-color');
-
-        var useElements = containers[c].getElementsByClassName(highlightedUseCls);
-        for (var i = 0; i < useElements.length; i++) {
-            useElements[i].style.removeProperty('background-color');
-        }
-    }
+    var selector = '.def_' + CSS.escape(highlightedDef) + ', .' + CSS.escape(highlightedUseCls);
+    getAllContainers().forEach(function (c) {
+        c.querySelectorAll(selector).forEach(function (el) { el.style.removeProperty('background-color'); });
+    });
 
     // Also clear in the CEX (counterexample) panel
     var cexPanel = document.getElementById("cex");
     if (cexPanel) {
-        var cexUseElements = cexPanel.getElementsByClassName(highlightedUseCls);
-        for (var i = 0; i < cexUseElements.length; i++) {
-            cexUseElements[i].style.removeProperty('background-color');
-        }
+        cexPanel.querySelectorAll('.' + CSS.escape(highlightedUseCls)).forEach(function (el) {
+            el.style.removeProperty('background-color');
+        });
     }
 
     highlightedDef = null;
     highlightedUseCls = null;
 }
+
 
 function clearIntFunHighlight() {
     if (!highlightedIntFun) return;
@@ -347,8 +444,8 @@ function clearIntFunHighlight() {
 function clearDataflowHighlights() {
     // Clear outline styles for inputs and outputs
     var allVars = highlightedInputs.concat(highlightedOutputs);
-    allVars.forEach(function(varName) {
-        forEachContainerWithVar(varName, function(el) {
+    allVars.forEach(function (varName) {
+        forEachContainerWithVar(varName, function (el) {
             el.style.removeProperty('outline');
             el.style.removeProperty('outline-offset');
         });
@@ -361,16 +458,17 @@ function clearDataflowHighlights() {
 // Highlight Functions
 // ============================================================================
 
-function highlightAnchor(anchorId) {
+function highlightAnchor(anchorId, pushHistory) {
+    if (pushHistory === undefined) pushHistory = true;
     var messagesDiv = document.getElementById("messages");
     messagesDiv.innerHTML = "";
     clearAnchorHighlight();
     highlightedAnchor = anchorId;
 
     var newBlock = findInCurrentContainer("block" + anchorId);
-    var newEdgeS = findInCurrentContainer("edgeS" + anchorId);
-    var newEdgeT = findInCurrentContainer("edgeT" + anchorId);
-    var newEdgeP = findInCurrentContainer("edgeP" + anchorId);
+    var newEdgesS = findAllInCurrentContainer(".edgeS" + CSS.escape(anchorId));
+    var newEdgesT = findAllInCurrentContainer(".edgeT" + CSS.escape(anchorId));
+    var newEdgesP = findAllInCurrentContainer(".edgeP" + CSS.escape(anchorId));
     var newNode = findNodeInCurrentSVG(anchorId);
 
     if (newBlock) {
@@ -386,9 +484,9 @@ function highlightAnchor(anchorId) {
             newBlock.scrollIntoView({ block: 'start', behavior: 'smooth' });
         }
         setBackground(newBlock, "yellow");
-        setBackground(newEdgeS, "yellow");
-        setBackground(newEdgeT, "yellow");
-        setBackground(newEdgeP, "yellow");
+        if (newEdgesS.length) newEdgesS.forEach(function (el) { setBackground(el, "yellow"); });
+        if (newEdgesT.length) newEdgesT.forEach(function (el) { setBackground(el, "yellow"); });
+        if (newEdgesP.length) newEdgesP.forEach(function (el) { setBackground(el, "yellow"); });
     } else {
         messagesDiv.innerHTML += "block " + anchorId + " does not exist.<br/>";
     }
@@ -404,55 +502,53 @@ function highlightAnchor(anchorId) {
         nodeShape.setAttribute("stroke-dasharray", "10,4");
     }
 
-    if (newEdgeS) newEdgeS.scrollIntoView();
-    if (newEdgeP) newEdgeP.scrollIntoView();
+    if (newEdgesS.length > 0) newEdgesS[0].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (newEdgesP.length > 0) newEdgesP[0].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+    if (pushHistory) pushNavigationState();
 }
 
 // Core definition highlighting (without dataflow navigation)
 function doHighlightDef(def) {
     clearDefHighlight();
-    highlightedDef = "def_" + def;
+    highlightedDef = def;
     highlightedUseCls = "use_" + def;
 
-    var containers = getAllContainers();
-    for (var c = 0; c < containers.length; c++) {
-        var defEl = containers[c].querySelector('#def_' + CSS.escape(def));
-        if (defEl) defEl.style.backgroundColor = "yellow";
-
-        var useElements = containers[c].getElementsByClassName(highlightedUseCls);
-        for (var i = 0; i < useElements.length; i++) {
-            useElements[i].style.backgroundColor = "yellow";
-        }
-    }
+    var selector = '.def_' + CSS.escape(def) + ', .' + CSS.escape(highlightedUseCls);
+    getAllContainers().forEach(function (c) {
+        c.querySelectorAll(selector).forEach(function (el) { el.style.backgroundColor = "yellow"; });
+    });
 
     // Also highlight in the CEX (counterexample) panel
     var cexPanel = document.getElementById("cex");
     if (cexPanel) {
-        var cexUseElements = cexPanel.getElementsByClassName(highlightedUseCls);
-        for (var i = 0; i < cexUseElements.length; i++) {
-            cexUseElements[i].style.backgroundColor = "yellow";
-        }
+        cexPanel.querySelectorAll('.' + CSS.escape(highlightedUseCls)).forEach(function (el) {
+            el.style.backgroundColor = "yellow";
+        });
     }
 
-    var defInCurrentGraph = findInCurrentContainer(highlightedDef);
-    if (defInCurrentGraph) {
-        defInCurrentGraph.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    var currentDefs = document.querySelectorAll('#blocksAndEdges' + currentSVG + ' .def_' + CSS.escape(def));
+    if (currentDefs.length > 0) {
+        currentDefs[0].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
 }
 
-function highlightDef(def) {
+function highlightDef(def, pushHistory) {
+    if (pushHistory === undefined) pushHistory = true;
     var messagesDiv = document.getElementById("messages");
     messagesDiv.innerHTML = "";
     messagesDiv.style.backgroundColor = "";
 
+    // Automatically jump to the correct subgraph if definition is found elsewhere
+    var graphId = findGraphWithDef(def);
+    if (graphId && graphId !== currentSVG) {
+        switchToGraph(graphId, false);
+    }
+
     doHighlightDef(def);
 
     // Check if def was found
-    var defFound = getAllContainers().length > 0 &&
-        Array.prototype.some.call(getAllContainers(), function(c) {
-            return c.querySelector('#def_' + CSS.escape(def));
-        });
-
+    var defFound = graphId !== null;
     if (!defFound) {
         messagesDiv.innerHTML = "def " + def + " does not exist in any method.";
         messagesDiv.style.backgroundColor = "red";
@@ -464,13 +560,13 @@ function highlightDef(def) {
     var isConnected = isConnectedToGraph(def);
 
     if (isAlreadySelected || isHighlighted || isConnected) {
-        // Add to graph (or just change focus if already selected)
         addToDataflowGraph(def);
     } else {
-        // Disconnected - clear and start fresh
-        clearDataflowGraph();
+        clearDataflowGraph(false);
         addToDataflowGraph(def);
     }
+
+    if (pushHistory) pushNavigationState();
 }
 
 function toggleInternalFun(id) {
@@ -509,16 +605,20 @@ function addToDataflowGraph(varName) {
         dataflowGraph.selectedVars.push(varName);
     }
     dataflowGraph.focusVar = varName;
+
     showDataflowHighlights(varName);
     renderDataflowGraph();
 }
 
 // Clear the graph
-function clearDataflowGraph() {
+function clearDataflowGraph(pushHistory) {
+    if (pushHistory === undefined) pushHistory = true;
     dataflowGraph.selectedVars = [];
     dataflowGraph.focusVar = null;
+    lastDataflowFocus = null; // Clear focus tracking to trigger fit on next var choice
     clearDataflowHighlights();
     renderDataflowGraph();
+    if (pushHistory) pushNavigationState();
 }
 
 // Highlight inputs/outputs of focused variable in the code
@@ -529,13 +629,12 @@ function showDataflowHighlights(varName) {
 
     var colors = getDataflowColors();
     function highlight(vars, color, arr) {
-        (vars || []).forEach(function(v) {
-            var el = findInCurrentContainer("def_" + v);
-            if (el) {
+        (vars || []).forEach(function (v) {
+            forEachContainerWithVar(v, function (el) {
                 el.style.outline = "2px solid " + color;
                 el.style.outlineOffset = "1px";
                 arr.push(v);
-            }
+            });
         });
     }
     highlight(info.inputs, colors.input, highlightedInputs);
@@ -565,165 +664,74 @@ function computeGraphLayout(forceRecompute) {
     return layout;
 }
 
-// Internal: actual layout computation (BFS from focus)
+// Internal: actual layout computation using Dagre
 function doComputeGraphLayout() {
     var focus = dataflowGraph.focusVar;
-    var selectedSet = new Set(dataflowGraph.selectedVars);
-    var nodeLayer = {};
-    var visited = new Set();
-
-    // BFS from focus
-    nodeLayer[focus] = 0;
-    visited.add(focus);
-    var queue = [{ v: focus, layer: 0 }];
-
-    while (queue.length > 0) {
-        var cur = queue.shift();
-        var v = cur.v;
-        var layer = cur.layer;
-        var vInfo = dataflowMap[v] || { inputs: [], outputs: [] };
-
-        // Check inputs (upstream, layer - 1)
-        (vInfo.inputs || []).forEach(function(inp) {
-            if (!visited.has(inp) && selectedSet.has(inp)) {
-                visited.add(inp);
-                nodeLayer[inp] = layer - 1;
-                queue.push({ v: inp, layer: layer - 1 });
-            }
-        });
-
-        // Check outputs (downstream, layer + 1)
-        (vInfo.outputs || []).forEach(function(out) {
-            if (!visited.has(out) && selectedSet.has(out)) {
-                visited.add(out);
-                nodeLayer[out] = layer + 1;
-                queue.push({ v: out, layer: layer + 1 });
-            }
-        });
-
-        // Also check reverse direction (in case dataflowMap is asymmetric)
-        selectedSet.forEach(function(sel) {
-            if (visited.has(sel)) return;
-            var selInfo = dataflowMap[sel] || { inputs: [], outputs: [] };
-
-            // sel is upstream of v if v is in sel's outputs
-            if (selInfo.outputs && selInfo.outputs.indexOf(v) >= 0) {
-                visited.add(sel);
-                nodeLayer[sel] = layer - 1;
-                queue.push({ v: sel, layer: layer - 1 });
-            }
-            // sel is downstream of v if v is in sel's inputs
-            else if (selInfo.inputs && selInfo.inputs.indexOf(v) >= 0) {
-                visited.add(sel);
-                nodeLayer[sel] = layer + 1;
-                queue.push({ v: sel, layer: layer + 1 });
-            }
-        });
-    }
-
-    // Place any unvisited selected vars at far left
-    var minLayer = Math.min.apply(null, Object.values(nodeLayer).concat([0]));
-    dataflowGraph.selectedVars.forEach(function(v) {
-        if (nodeLayer[v] === undefined) {
-            minLayer--;
-            nodeLayer[v] = minLayer;
-        }
-    });
-
-    // Add transient nodes (inputs/outputs of focus not in selectedVars)
     var focusInfo = dataflowMap[focus] || { inputs: [], outputs: [] };
-    (focusInfo.inputs || []).forEach(function(inp) {
-        if (nodeLayer[inp] === undefined) nodeLayer[inp] = -1;
-    });
-    (focusInfo.outputs || []).forEach(function(out) {
-        if (nodeLayer[out] === undefined) nodeLayer[out] = 1;
-    });
 
-    // Adjust layers to ensure proper left-to-right flow
-    // If there's an edge a -> b, then layer[b] must be > layer[a]
-    // This handles diamond patterns like x->y, y->z, x->z where z should be right of y
-    var visibleNodes = Object.keys(nodeLayer);
-    var changed = true;
-    var maxIterations = visibleNodes.length + 1; // Prevent infinite loops
-    while (changed && maxIterations-- > 0) {
-        changed = false;
-        visibleNodes.forEach(function(v) {
-            var vInfo = dataflowMap[v] || { inputs: [], outputs: [] };
-            (vInfo.outputs || []).forEach(function(out) {
-                if (nodeLayer[out] !== undefined && nodeLayer[out] <= nodeLayer[v]) {
-                    nodeLayer[out] = nodeLayer[v] + 1;
-                    changed = true;
-                }
-            });
-        });
-    }
+    // Collect and sort nodes
+    var visibleNodes = new Set(dataflowGraph.selectedVars);
+    [focusInfo.inputs, focusInfo.outputs].forEach(function (arr) {
+        (arr || []).forEach(function (v) { visibleNodes.add(v); });
+    });
+    var sortedNodes = Array.from(visibleNodes).sort();
 
-    // Build layers
-    var layers = {};
-    Object.keys(nodeLayer).forEach(function(v) {
-        var l = nodeLayer[v];
-        if (!layers[l]) layers[l] = [];
-        layers[l].push(v);
+    var g = new graphlib.Graph();
+    g.setGraph({ rankdir: 'LR', nodesep: 40, ranksep: 80, marginx: 40, marginy: 40 });
+    g.setDefaultEdgeLabel(function () { return {}; });
+
+    var nodeH = 24;
+    sortedNodes.forEach(function (v) {
+        g.setNode(v, { label: v, width: Math.max(80, v.length * 7 + 16), height: nodeH });
     });
 
-    // Compute edges from dataflowMap
-    var edges = [];
-    var edgeSet = new Set();
-    Object.keys(nodeLayer).forEach(function(v) {
-        var vInfo = dataflowMap[v] || { inputs: [], outputs: [] };
-        (vInfo.outputs || []).forEach(function(out) {
-            if (nodeLayer[out] !== undefined) {
-                var key = v + "→" + out;
-                if (!edgeSet.has(key)) {
-                    edgeSet.add(key);
-                    edges.push({ from: v, to: out });
-                }
-            }
+    // Add edges (deterministically)
+    var edgeList = [];
+    sortedNodes.forEach(function (v) {
+        (dataflowMap[v]?.outputs || []).forEach(function (out) {
+            if (visibleNodes.has(out)) edgeList.push({ v: v, w: out });
         });
     });
 
-    return { layers: layers, nodeLayer: nodeLayer, edges: edges };
+    edgeList.sort(function (a, b) { return a.v.localeCompare(b.v) || a.w.localeCompare(b.w); })
+        .forEach(function (e) { g.setEdge(e.v, e.w); });
+
+    dagre.layout(g);
+
+    var nodePositions = {};
+    g.nodes().forEach(function (v) {
+        var node = g.node(v);
+        if (node) nodePositions[v] = { x: node.x, y: node.y, width: node.width, height: node.height };
+    });
+
+    var graphInfo = g.graph();
+    return {
+        nodePositions: nodePositions,
+        edges: g.edges().map(function (e) {
+            return { from: e.v, to: e.w, points: g.edge(e).points || [] };
+        }),
+        graphWidth: graphInfo.width || 200,
+        graphHeight: graphInfo.height || 100
+    };
 }
 
-// Clear SVG edges while preserving the defs element (arrow markers)
-function clearSvgEdges(edgesSvg) {
-    // Remove all children except defs
-    var children = Array.from(edgesSvg.children);
-    children.forEach(function(child) {
-        if (child.tagName.toLowerCase() !== 'defs') {
-            edgesSvg.removeChild(child);
-        }
-    });
-}
 
 // Redraw dataflow edges (uses cached layout)
-function redrawDataflowEdges() {
+function redrawDataflowEdges(forceFit) {
     if (!dataflowGraph.focusVar) return;
-
-    var container = document.getElementById("dataflow-graph-container");
-    var edgesSvg = document.getElementById("dataflow-edges");
-    var nodesDiv = document.getElementById("dataflow-nodes");
-    if (!container || !edgesSvg || !nodesDiv) return;
-
-    clearSvgEdges(edgesSvg);
-    var layout = computeGraphLayout();
-    drawGraphEdges(container, nodesDiv, edgesSvg, layout);
+    renderDataflowGraph(forceFit);
 }
 
 // Render the graph
-function renderDataflowGraph() {
-    var container = document.getElementById("dataflow-graph-container");
-    var nodesDiv = document.getElementById("dataflow-nodes");
-    var edgesSvg = document.getElementById("dataflow-edges");
+function renderDataflowGraph(forceFit) {
+    var svg = document.getElementById("dataflow-svg");
+    var viewport = document.getElementById("dataflow-viewport");
     var hint = document.getElementById("dataflow-hint");
     var clearBtn = document.getElementById("dataflow-clear-btn");
-
-    if (!container || !nodesDiv || !edgesSvg) return;
-
-    nodesDiv.innerHTML = "";
-    clearSvgEdges(edgesSvg);
+    if (!svg || !viewport) return;
 
     if (!dataflowGraph.focusVar) {
+        viewport.innerHTML = "";
         if (hint) hint.style.display = "block";
         if (clearBtn) clearBtn.style.display = "none";
         return;
@@ -732,143 +740,102 @@ function renderDataflowGraph() {
     if (hint) hint.style.display = "none";
     if (clearBtn) clearBtn.style.display = "inline-block";
 
-    var layout = computeGraphLayout();
-    var layerKeys = Object.keys(layout.layers).map(Number).sort(function(a, b) { return a - b; });
-    if (layerKeys.length === 0) return;
+    var layout = computeGraphLayout(), selectedSet = new Set(dataflowGraph.selectedVars);
 
-    var selectedSet = new Set(dataflowGraph.selectedVars);
-
-    // Create nodes
-    layerKeys.forEach(function(layerIdx) {
-        var vars = layout.layers[layerIdx];
-        var layerDiv = document.createElement("div");
-        layerDiv.className = "dataflow-layer";
-
-        vars.forEach(function(varName) {
-            var nodeDiv = document.createElement("div");
-            var isFocus = varName === dataflowGraph.focusVar;
-            var isSelected = selectedSet.has(varName);
-            var nodeClass = "dataflow-node";
-
-            if (isFocus) nodeClass += " focus";
-            else if (isSelected) nodeClass += " selected";
-            else if (layerIdx < 0) nodeClass += " input";
-            else nodeClass += " output";
-
-            nodeDiv.className = nodeClass;
-            nodeDiv.textContent = varName;
-            nodeDiv.setAttribute("data-var", varName);
-            nodeDiv.onclick = function() { onGraphNodeClick(varName); };
-
-            // Add mouse-following tooltip with counter-example value if available
-            var cexValue = getCexValue(varName);
-            if (cexValue) {
-                nodeDiv.addEventListener('mouseenter', function() {
-                    var tooltip = document.getElementById('dataflow-tooltip');
-                    if (tooltip) {
-                        tooltip.textContent = varName + ' = ' + cexValue;
-                        tooltip.style.display = 'block';
-                    }
-                });
-                nodeDiv.addEventListener('mouseleave', function() {
-                    var tooltip = document.getElementById('dataflow-tooltip');
-                    if (tooltip) tooltip.style.display = 'none';
-                });
-                nodeDiv.addEventListener('mousemove', function(e) {
-                    var tooltip = document.getElementById('dataflow-tooltip');
-                    if (tooltip) {
-                        tooltip.style.left = (e.clientX + 10) + 'px';
-                        tooltip.style.top = (e.clientY + 10) + 'px';
-                    }
-                });
-            }
-
-            layerDiv.appendChild(nodeDiv);
-        });
-        nodesDiv.appendChild(layerDiv);
+    // Track existing elements in viewport
+    var existing = {};
+    Array.from(viewport.children).forEach(function (el) {
+        var id = el.getAttribute("data-id") || el.getAttribute("data-edge-id");
+        if (id) existing[id] = el;
     });
 
-    // Draw edges after layout
-    requestAnimationFrame(function() {
-        drawGraphEdges(container, nodesDiv, edgesSvg, layout);
+    // Render Nodes (foreignObject)
+    Object.keys(layout.nodePositions).forEach(function (v) {
+        var pos = layout.nodePositions[v], el = existing[v];
+        if (!el) {
+            el = document.createElementNS(SVG_NS, "g");
+            el.setAttribute("data-id", v);
+            var fo = document.createElementNS(SVG_NS, "foreignObject");
+            fo.appendChild(createNodeElement(v, selectedSet));
+            el.appendChild(fo);
+            viewport.appendChild(el);
+        } else {
+            var isF = v === dataflowGraph.focusVar, isS = selectedSet.has(v);
+            var div = el.querySelector(".dataflow-node");
+            if (div) div.className = "dataflow-node" + (isF ? " focus" : isS ? " selected" : " output");
+        }
+        delete existing[v];
+
+        var fo = el.querySelector("foreignObject");
+        setAttrs(fo, { x: pos.x - pos.width / 2, y: pos.y - pos.height / 2, width: pos.width, height: pos.height });
     });
+
+    // Render Edges
+    var colors = getDataflowColors(), focus = dataflowGraph.focusVar, fI = dataflowMap[focus] || { inputs: [], outputs: [] };
+    layout.edges.forEach(function (edge) {
+        var key = "e:" + edge.from + "→" + edge.to, el = existing[key];
+        if (!el) {
+            el = document.createElementNS(SVG_NS, "path");
+            el.setAttribute("data-edge-id", key);
+            viewport.appendChild(el);
+        }
+        delete existing[key];
+
+        if (edge.points?.length >= 2) {
+            var d = "M " + edge.points[0].x + " " + edge.points[0].y;
+            for (var i = 1; i < edge.points.length; i++) d += " L " + edge.points[i].x + " " + edge.points[i].y;
+            var isIn = edge.to === focus && fI.inputs?.indexOf(edge.from) >= 0;
+            var isOut = edge.from === focus && fI.outputs?.indexOf(edge.to) >= 0;
+            setAttrs(el, { d: d, stroke: isIn ? colors.input : isOut ? colors.output : "#888", "marker-end": "url(#dataflow-arrow-" + (isIn ? "input" : isOut ? "output" : "neutral") + ")", fill: "none", "stroke-width": "1.5" });
+        }
+    });
+
+    // Remove old elements
+    Object.keys(existing).forEach(function (k) { viewport.removeChild(existing[k]); });
+
+    // Initialize or update pan-zoom
+    if (!dataflowPanZoom) {
+        dataflowPanZoom = svgPanZoom('#dataflow-svg', { viewportSelector: '#dataflow-viewport', zoomEnabled: true, controlIconsEnabled: true, fit: true, center: true });
+        lastDataflowFocus = null; // Force first fit check below
+    }
+
+    dataflowPanZoom.resize();
+    dataflowPanZoom.updateBBox();
+
+    // Only auto-fit if explicitly requested (resize) or if no focus was set (initial/reset)
+    if (forceFit || !lastDataflowFocus) {
+        dataflowPanZoom.fit().center();
+        // Avoid extreme zoom for small graphs/large containers
+        if (dataflowPanZoom.getZoom() > 0.8) {
+            dataflowPanZoom.zoom(0.8).center();
+        }
+    }
+    lastDataflowFocus = dataflowGraph.focusVar;
 }
 
-function drawGraphEdges(container, nodesDiv, edgesSvg, layout) {
-    var containerRect = container.getBoundingClientRect();
-    var scrollLeft = container.scrollLeft;
-    var scrollTop = container.scrollTop;
-    var nodeRects = {};
+// Create a node element with common properties
+function createNodeElement(v, selectedSet) {
+    var el = document.createElement("div"), isF = v === dataflowGraph.focusVar, isS = selectedSet.has(v);
+    el.className = "dataflow-node" + (isF ? " focus" : isS ? " selected" : " output");
+    el.textContent = v;
+    el.setAttribute("data-var", v);
+    el.onclick = function () { onGraphNodeClick(v); };
 
-    nodesDiv.querySelectorAll(".dataflow-node").forEach(function(el) {
-        var v = el.getAttribute("data-var");
-        var rect = el.getBoundingClientRect();
-        nodeRects[v] = {
-            cx: rect.left - containerRect.left + scrollLeft + rect.width / 2,
-            cy: rect.top - containerRect.top + scrollTop + rect.height / 2,
-            w: rect.width, h: rect.height
-        };
-    });
-
-    // Size SVG to full scrollable area
-    var svgWidth = Math.max(nodesDiv.scrollWidth, containerRect.width);
-    var svgHeight = Math.max(nodesDiv.scrollHeight, containerRect.height);
-    edgesSvg.setAttribute("width", svgWidth);
-    edgesSvg.setAttribute("height", svgHeight);
-
-    // Get colors from CSS custom properties
-    var colors = getDataflowColors();
-
-    layout.edges.forEach(function(edge) {
-        var from = nodeRects[edge.from];
-        var to = nodeRects[edge.to];
-        if (!from || !to) return;
-
-        var dx = to.cx - from.cx;
-        var dy = to.cy - from.cy;
-        var dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist === 0) return;
-
-        // Shorten line to node edges
-        var x1 = from.cx + (dx / dist) * (from.w / 2 + 2);
-        var y1 = from.cy + (dy / dist) * (from.h / 2 + 2);
-        var x2 = to.cx - (dx / dist) * (to.w / 2 + 8);
-        var y2 = to.cy - (dy / dist) * (to.h / 2 + 8);
-
-        // Color by relationship to focus:
-        // - Blue: edge target is focus (input to focus)
-        // - Green: edge source is focus (output from focus)
-        // - Gray: other edges
-        var focus = dataflowGraph.focusVar;
-        var edgeColor, markerEnd;
-        if (edge.to === focus) {
-            edgeColor = colors.input;
-            markerEnd = "url(#dataflow-arrow-input)";
-        } else if (edge.from === focus) {
-            edgeColor = colors.output;
-            markerEnd = "url(#dataflow-arrow-output)";
-        } else {
-            edgeColor = "#888";
-            markerEnd = "url(#dataflow-arrow-neutral)";
-        }
-
-        var line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line.setAttribute("x1", x1);
-        line.setAttribute("y1", y1);
-        line.setAttribute("x2", x2);
-        line.setAttribute("y2", y2);
-        line.setAttribute("stroke", edgeColor);
-        line.setAttribute("stroke-width", "2");
-        line.setAttribute("marker-end", markerEnd);
-        edgesSvg.appendChild(line);
-    });
+    var val = getCexValue(v);
+    if (val) {
+        var tt = document.getElementById('dataflow-tooltip');
+        el.onmouseenter = function () { if (tt) { tt.textContent = v + ' = ' + val; tt.style.display = 'block'; } };
+        el.onmouseleave = function () { if (tt) tt.style.display = 'none'; };
+        el.onmousemove = function (e) { if (tt) setStyles(tt, { left: (e.clientX + 10) + 'px', top: (e.clientY + 10) + 'px' }); };
+    }
+    return el;
 }
 
 function onGraphNodeClick(varName) {
     var graphId = findGraphWithDef(varName);
-    if (graphId && graphId !== currentSVG) toggleSVG(graphId);
-    doHighlightDef(varName);
-    addToDataflowGraph(varName);
+    // Don't push history here, let highlightDef do it once at the end
+    if (graphId && graphId !== currentSVG) switchToGraph(graphId, false);
+    highlightDef(varName, true);
 }
 
 // ============================================================================
@@ -901,7 +868,7 @@ function showTooltip(tooltipSpan) {
     var tooltipId = tt && tt.getAttribute('tooltipatt');
     if (tooltipId && tooltip_cache[tooltipId]) {
         tt.innerHTML = '<span class="tooltip-content">' + tooltip_cache[tooltipId] + '</span>' +
-                       '<span class="copy-hint">(press c to copy)</span>';
+            '<span class="copy-hint">(press c to copy)</span>';
         tt.style.visibility = "visible";
         tt.classList.remove('copied');
         activeTooltip = tooltipSpan;
@@ -921,9 +888,9 @@ function copyToClipboard(tooltiptext) {
     var contentSpan = tooltiptext.querySelector('.tooltip-content');
     var text = contentSpan ? contentSpan.innerHTML : tooltiptext.innerHTML;
     if (text) {
-        navigator.clipboard.writeText(text).then(function() {
+        navigator.clipboard.writeText(text).then(function () {
             tooltiptext.classList.add('copied');
-            setTimeout(function() {
+            setTimeout(function () {
                 tooltiptext.classList.remove('copied');
             }, COPY_FEEDBACK_DURATION);
         });
@@ -931,7 +898,11 @@ function copyToClipboard(tooltiptext) {
 }
 
 // ============================================================================
-// Initialization
+// Internal Helpers
+// ============================================================================
+
+// ============================================================================
+// DOM Utilities
 // ============================================================================
 
 /**
@@ -949,32 +920,30 @@ function initTacDump() {
     document.body.appendChild(dfTooltip);
 
     // Set up tooltip event listeners
-    var tooltips_spans = document.getElementsByClassName('tooltip');
-    for (var i = 0; i < tooltips_spans.length; i++) {
-        var me = tooltips_spans[i];
+    Array.from(document.getElementsByClassName('tooltip')).forEach(function (me) {
         var tooltiptext = me.querySelector('.tooltiptext');
 
-        me.addEventListener("mouseenter", function() {
+        me.addEventListener("mouseenter", function () {
             hoveredTooltipSpan = this;
             showTooltip(this);
         });
 
-        me.addEventListener("mouseleave", function() {
+        me.addEventListener("mouseleave", function () {
             hoveredTooltipSpan = null;
             hideTooltip(this);
         });
 
         if (tooltiptext) {
-            tooltiptext.addEventListener("click", function(e) {
+            tooltiptext.addEventListener("click", function (e) {
                 e.stopPropagation();
                 copyToClipboard(this);
             });
         }
-    }
+    });
 
     // Keyboard shortcut to copy tooltip content while hovering
     // Press 'c' to copy the tooltip text of the currently hovered element
-    document.addEventListener("keydown", function(e) {
+    document.addEventListener("keydown", function (e) {
         if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
             // Only trigger if not typing in an input field
             var tagName = document.activeElement.tagName.toLowerCase();
@@ -985,51 +954,17 @@ function initTacDump() {
     });
 
     // Initialize SVG pan-zoom for the main graph
-    lastSvgEventListener = svgPanZoom('#theSVG', {
+    mainPanZoom = svgPanZoom('#theSVG', {
         zoomEnabled: true,
         controlIconsEnabled: true,
         fit: true,
         center: true
     });
 
-    // Set up dataflow graph panning
-    var dfContainer = document.getElementById("dataflow-graph-container");
-    if (dfContainer) {
-        var isPanning = false;
-        var panStart = { x: 0, y: 0, scrollLeft: 0, scrollTop: 0 };
-
-        dfContainer.addEventListener('mousedown', function(e) {
-            if (e.target.classList.contains('dataflow-node')) return;
-            isPanning = true;
-            panStart = {
-                x: e.clientX,
-                y: e.clientY,
-                scrollLeft: dfContainer.scrollLeft,
-                scrollTop: dfContainer.scrollTop
-            };
-            dfContainer.style.cursor = 'grabbing';
-            e.preventDefault();
-        });
-
-        document.addEventListener('mousemove', function(e) {
-            if (!isPanning) return;
-            var dx = e.clientX - panStart.x;
-            var dy = e.clientY - panStart.y;
-            dfContainer.scrollLeft = panStart.scrollLeft - dx;
-            dfContainer.scrollTop = panStart.scrollTop - dy;
-        });
-
-        document.addEventListener('mouseup', function() {
-            if (isPanning) {
-                isPanning = false;
-                dfContainer.style.cursor = 'grab';
-            }
-        });
-
-        // Redraw edges on scroll
-        dfContainer.addEventListener('scroll', function() {
-            redrawDataflowEdges();
-        });
+    // Set up dataflow graph tooltip (SVG doesn't support fixed positioning easily, so keep it in document.body)
+    var dfSvg = document.getElementById("dataflow-svg");
+    if (dfSvg) {
+        // svg-pan-zoom will be initialized on first render in renderDataflowGraph
     }
 
     // Set up bottom bar section resizing via dividers
@@ -1070,7 +1005,7 @@ function initBottomBarResizers() {
 
     // Vertical resizer mousedown
     if (vertResizer) {
-        vertResizer.addEventListener('mousedown', function(e) {
+        vertResizer.addEventListener('mousedown', function (e) {
             resizeState.active = true;
             resizeState.type = 'vertical';
             resizeState.startY = e.clientY;
@@ -1081,7 +1016,7 @@ function initBottomBarResizers() {
     }
 
     // Horizontal resizers mousedown (using event delegation on bottom bar)
-    bottomBar.addEventListener('mousedown', function(e) {
+    bottomBar.addEventListener('mousedown', function (e) {
         if (!e.target.classList.contains('section-resizer')) return;
 
         var resizerEl = e.target;
@@ -1106,7 +1041,7 @@ function initBottomBarResizers() {
     });
 
     // Single document-level mousemove handler
-    document.addEventListener('mousemove', function(e) {
+    document.addEventListener('mousemove', function (e) {
         if (!resizeState.active) return;
 
         if (resizeState.type === 'vertical') {
@@ -1117,12 +1052,12 @@ function initBottomBarResizers() {
             if (vertResizer) vertResizer.style.bottom = heightPercent + '%';
 
             // Update blocks container height
-            document.querySelectorAll('.blocks-container').forEach(function(c) {
+            document.querySelectorAll('.blocks-container').forEach(function (c) {
                 c.style.height = (100 - heightPercent) + '%';
             });
 
             // Redraw dataflow edges
-            requestAnimationFrame(redrawDataflowEdges);
+            requestAnimationFrame(function () { redrawDataflowEdges(true); });
         } else if (resizeState.type === 'horizontal') {
             if (!resizeState.leftSection || !resizeState.rightSection) return;
 
@@ -1137,13 +1072,13 @@ function initBottomBarResizers() {
             // Redraw dataflow edges if resizing affects that section
             if (resizeState.leftSection.id === 'dataflow-section' ||
                 resizeState.rightSection.id === 'dataflow-section') {
-                requestAnimationFrame(redrawDataflowEdges);
+                requestAnimationFrame(function () { redrawDataflowEdges(true); });
             }
         }
     });
 
     // Single document-level mouseup handler
-    document.addEventListener('mouseup', function() {
+    document.addEventListener('mouseup', function () {
         if (resizeState.active) {
             resizeState.active = false;
             resizeState.type = null;

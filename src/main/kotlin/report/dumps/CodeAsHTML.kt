@@ -20,6 +20,8 @@ package report.dumps
 import algorithms.topologicalOrderOrNull
 import config.Config
 import datastructures.stdcollections.*
+import kotlinx.html.*
+import kotlinx.html.stream.createHTML
 import log.*
 import org.owasp.html.PolicyFactory
 import org.owasp.html.Sanitizers
@@ -70,6 +72,12 @@ object DumpGraphHTML {
     }
     private val svgPanZoomJs: String by utils.lazy {
         loadResource("js/svg-pan-zoom.min.js", "// svg-pan-zoom not found\nfunction svgPanZoom() { return { destroy: function() {} }; }")
+    }
+    private val graphlibJs: String by utils.lazy {
+        loadResource("js/graphlib.min.js", "// graphlib not found")
+    }
+    private val dagreJs: String by utils.lazy {
+        loadResource("js/dagre.min.js", "// dagre not found")
     }
 
     // ============================================================================
@@ -176,81 +184,106 @@ object DumpGraphHTML {
         // Timeout explanation (empty if not in timeout case)
         val timeoutExplanation = codeMap.colorExplanation?.let { timeoutExplanationBoxHtml(it, codeMap.name) }.orEmpty()
 
-        // Build HTML using DSL
-        return html {
+        // Build HTML using kotlinx.html DSL
+        return "<!DOCTYPE html>\n" + createHTML().html {
             head {
                 title { +codeMap.name; +" - Code Map" }
-                meta("charset" to "utf-8")
-                style { raw(styles) }
-                script { raw(svgPanZoomJs) }
-                script { raw(tacDumpJs) }
+                meta { charset = "utf-8" }
+                style { unsafe { raw(styles) } }
+                script { unsafe { raw(svgPanZoomJs) } }
+                script { unsafe { raw(graphlibJs) } }
+                // Shim: make graphlib available to dagre's require("@dagrejs/graphlib")
+                script { unsafe { raw("var require = function(m) { if (m === '@dagrejs/graphlib') return graphlib; throw new Error('Unknown module: ' + m); };") } }
+                script { unsafe { raw(dagreJs) } }
+                script { unsafe { raw(tacDumpJs) } }
             }
             body {
                 // CEX (counterexample) panel
-                div("id" to "cex", "class" to "fixed-panel", "ondblclick" to "toggleSize()") {
+                div {
+                    id = "cex"
+                    classes = setOf("fixed-panel")
+                    onDoubleClick = "toggleSize()"
                     div {
                         if (hasCex) {
                             +"Full variable assignments"
-                            br()
+                            br
                         }
                         if (timeoutExplanation.isNotEmpty()) {
                             +"Meanings of node colors:"
-                            br()
+                            br
                         }
                         b { +"Double click to show/hide" }
-                        br()
-                        br()
-                        div("id" to "cex-values")
-                        raw(timeoutExplanation)
+                        br
+                        br
+                        div { id = "cex-values" }
+                        unsafe { raw(timeoutExplanation) }
                     }
                 }
 
                 // Method calls quick lookup panel
-                div("id" to "tabs", "class" to "fixed-panel") {
+                div {
+                    id = "tabs"
+                    classes = setOf("fixed-panel")
                     div {
                         +"Method calls quick lookup:"
-                        br()
-                        raw(methodIndexAsHtml(codeMap))
+                        br
+                        unsafe { raw(methodIndexAsHtml(codeMap)) }
                     }
                 }
 
                 // Messages div (for errors/warnings)
-                div("id" to "messages", "class" to "fixed-panel")
+                div {
+                    id = "messages"
+                    classes = setOf("fixed-panel")
+                }
 
                 // SVG graphs
-                raw(generateSVGWithId(codeMap.dotMain, MAIN_GRAPH_ID))
+                unsafe { raw(generateSVGWithId(codeMap.dotMain, MAIN_GRAPH_ID)) }
                 codeMap.subDots.forEachEntry { (callId, dotDigraph) ->
-                    raw(generateSVGWithId(dotDigraph, callId))
+                    unsafe { raw(generateSVGWithId(dotDigraph, callId)) }
                 }
 
                 // Blocks - main
-                div("id" to "blocksAndEdges0", "class" to "blocks-container") {
-                    raw(blocksHtml0)
+                div {
+                    id = "blocksAndEdges0"
+                    classes = setOf("blocks-container")
+                    unsafe { raw(blocksHtml0) }
                 }
 
                 // Blocks - sub-graphs (hidden by default)
-                callIds.filter { it != 0 }.forEach { id ->
-                    div(
-                        "id" to "blocksAndEdges$id",
-                        "class" to "blocks-container",
-                        "style" to "visibility:hidden;"
-                    ) {
-                        raw(codeMap.blocksToHtml(codeMap.subAsts[id] ?: CoreTACProgram.empty(""), id.toString()))
+                callIds.filter { it != 0 }.forEach { subId ->
+                    div {
+                        id = "blocksAndEdges$subId"
+                        classes = setOf("blocks-container")
+                        style = "visibility:hidden;"
+                        unsafe { raw(codeMap.blocksToHtml(codeMap.subAsts[subId] ?: CoreTACProgram.empty(""), subId.toString())) }
                     }
                 }
 
                 // Bottom bar with dataflow, successor map, and predecessor map
-                div("id" to "bottom-bar-resizer")
-                div("id" to "bottom-bar") {
+                div { id = "bottom-bar-resizer" }
+                div {
+                    id = "bottom-bar"
                     // Dataflow section (graph-based visualization)
-                    div("id" to "dataflow-section") {
-                        div("class" to "section-header") {
-                            span("class" to "section-title") { +"Dataflow" }
-                            button("id" to "dataflow-clear-btn", "onclick" to "clearDataflowGraph()") { +"Clear" }
+                    div {
+                        id = "dataflow-section"
+                        div {
+                            classes = setOf("section-header")
+                            span {
+                                classes = setOf("section-title")
+                                +"Dataflow"
+                            }
+                            button {
+                                id = "dataflow-clear-btn"
+                                onClick = "clearDataflowGraph()"
+                                +"Clear"
+                            }
                         }
-                        div("id" to "dataflow-graph-container") {
-                            // SVG with pre-defined arrow markers (avoids recreating them on each edge draw)
-                            raw("""<svg id="dataflow-edges">
+                        div {
+                            id = "dataflow-graph-container"
+                            // Pure SVG container for nodes and edges
+                            unsafe {
+                                raw("""<svg id="dataflow-svg">
   <defs>
     <marker id="dataflow-arrow-input" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--dataflow-input-color, #0066cc)"/>
@@ -262,39 +295,52 @@ object DumpGraphHTML {
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#888"/>
     </marker>
   </defs>
+  <g id="dataflow-viewport"></g>
 </svg>""")
-                            div("id" to "dataflow-nodes")
-                            div("id" to "dataflow-hint") {
+                            }
+                            div {
+                                id = "dataflow-hint"
                                 +"Click a variable to see dataflow"
                             }
                         }
                     }
 
                     // Successor map section
-                    div("id" to "successor-section") {
-                        div("class" to "section-title") { +"Successor Map" }
+                    div {
+                        id = "successor-section"
+                        div {
+                            classes = setOf("section-title")
+                            +"Successor Map"
+                        }
                         // Main successor map (visible by default)
-                        div("id" to "successorMap0") {
-                            raw(codeMap.getSuccessorMapHtml())
+                        div {
+                            id = "successorMap0"
+                            unsafe { raw(codeMap.getSuccessorMapHtml()) }
                         }
                         // Sub-graph successor maps (hidden by default)
-                        callIds.filter { it != 0 }.forEach { id ->
-                            div("id" to "successorMap$id", "style" to "display:none;") {
-                                raw(codeMap.getSuccessorMapHtml(id.toString()))
+                        callIds.filter { it != 0 }.forEach { subId ->
+                            div {
+                                id = "successorMap$subId"
+                                style = "display:none;"
+                                unsafe { raw(codeMap.getSuccessorMapHtml(subId.toString())) }
                             }
                         }
                     }
 
                     // Predecessor map section
-                    div("id" to "predecessor-section") {
-                        div("class" to "section-title") { +"Predecessor Map" }
-                        raw(previousMapping)
+                    div {
+                        id = "predecessor-section"
+                        div {
+                            classes = setOf("section-title")
+                            +"Predecessor Map"
+                        }
+                        unsafe { raw(previousMapping) }
                     }
                 }
 
                 // Data injection and initialization script
                 script {
-                    raw(generateDataInjectionScript(codeMap, hasCex, timeoutExplanation.isNotEmpty()))
+                    unsafe { raw(generateDataInjectionScript(codeMap, hasCex, timeoutExplanation.isNotEmpty())) }
                 }
             }
         }

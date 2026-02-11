@@ -71,8 +71,8 @@ import kotlin.math.min
 
 private val logger = Logger(LoggerTypes.UI)
 
-val rarrow = "<span style=\"color:${colorToRGBString(Color.GREEN)};\"><b>→</b></span>" // entry
-val larrow = "<span style=\"color:${colorToRGBString(Color.RED)};\"><b>←</b></span>" // exit
+val rarrow = "<span style=\"color:${Color.GREEN};\"><b>→</b></span>" // entry
+val larrow = "<span style=\"color:${Color.RED};\"><b>←</b></span>" // exit
 
 /**
  * @param subAsts the [TACProgram] for each given [CallId]; includes [ast] under callId [MAIN_GRAPH_ID] ; NB: subCfgs or subprograms would be more apt names
@@ -347,7 +347,7 @@ data class CodeMap(
         fun getHtmlRepAnchor(s: TACSymbol): String {
             // wrap with a clickable anchor for the definition site
             val t = s.toSMTRep().sanitize()
-            return "<a href=\"#\" id=\"def_$t\" class=\"deflink\" onclick=\"highlightDef('$t'); return false;\">$t</a>"
+            return "<a href=\"#\" class=\"deflink def_$t\" onclick=\"highlightDef('$t'); return false;\">$t</a>"
         }
 
         fun getHtmlRepExpr(e: TACExpr): String {
@@ -1351,6 +1351,7 @@ ${edgeHrefWithAnchor(trg, "edgeP")} <- ${srcs.map { edgeHref(it) }.joinToString(
         val sortedBlocks = ast.blockgraph.let { blocks ->
             topologicalOrderOrNull(blocks)?.reversed() ?: blocks.keys
         }.filter { isInSubsetToShow(it) } // running toposort on blockgraph may include previously filtered-out blocks if we filter early, so filter now
+         .filter { it.getCallId() == (id.toIntOrNull() ?: 0) }
         val htmlOfBlocks = sortedBlocks.map { nbId ->
             val cmds = ast.code[nbId]!!
             // write the difficulty stats directly under the block number in the code, with a violet background
@@ -1394,8 +1395,8 @@ $difficultyStats$codeAsHtml
                     it.toPrintRep { v -> v.toSMTRep() }
                 }
 """
-Edge <a name="edgeS${keyEdge.src}" id="edgeS${keyEdge.src}" href="#" onclick="highlightAnchor('${keyEdge.src}'); return false;">${keyEdge.src}</a>
-    -> <a name="edgeT${keyEdge.trg}" id="edgeT${keyEdge.trg}" href="#" onclick="highlightAnchor('${keyEdge.trg}'); return false;">${keyEdge.trg}</a>:
+Edge <a name="edgeS${keyEdge.src}" class="edgeS${keyEdge.src}" href="#" onclick="highlightAnchor('${keyEdge.src}'); return false;">${keyEdge.src}</a>
+    -> <a name="edgeT${keyEdge.trg}" class="edgeT${keyEdge.trg}" href="#" onclick="highlightAnchor('${keyEdge.trg}'); return false;">${keyEdge.trg}</a>:
 $expressionAsHtml
 """
             }
