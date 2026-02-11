@@ -8,19 +8,18 @@ publish = false
 [lib]
 crate-type = ["cdylib"]
 
-[dependencies]
-soroban-sdk = { version = "21.6.0" }
+[dependencies.cvlr]
+version = "=0.5.0"
+default-features = false
 
-nondet = {git = "https://github.com/Certora/solana-cvt.git", branch="dev-soroban", default-features=false, features=["soroban"]}
-certora = {git = "https://github.com/Certora/solana-cvt.git", branch="dev-soroban", default-features=false, features=[]}
-certora-soroban = {git = "https://github.com/Certora/solana-cvt.git", branch="dev-soroban", default-features=false}
-certora-soroban-macros = {git = "https://github.com/Certora/solana-cvt.git", branch="dev-soroban", default-features=false}
+[dependencies.cvlr-soroban-derive]
+version = "=0.4.0"
+
+[dependencies.soroban-sdk]
+version = "=22.0.9"
 
 [features]
 certora = []
-
-[dev-dependencies]
-soroban-sdk = { version = "21.6.0", features = ["testutils"] }
 
 [profile.release]
 opt-level = "z"
