@@ -1903,6 +1903,17 @@ class SuiProverAttributes(CommonAttributes, InternalUseAttributes, BackendAttrib
         )
     )
 
+    BUILD_SCRIPT = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_exec_file,
+        help_msg="script to build a Move project",
+        default_desc="Using default building command",
+        argparse_args={
+            'action': AttrUtil.UniqueStore
+        },
+        affects_build_cache_key=False,
+        disables_build_cache=False
+    )
+
     RULE = AttrUtil.AttributeDefinition(
         arg_type=AttrUtil.AttrArgType.LIST,
         attr_validation_func=Vf.validate_move_rule_name,
