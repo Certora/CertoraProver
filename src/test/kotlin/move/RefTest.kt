@@ -141,4 +141,17 @@ class RefTest : MoveTestFixture() {
         """.trimIndent())
         assertTrue(verify())
     }
+
+    @Test
+    fun `conditional ref temp vector`() {
+        addMoveSource("""
+            $testModule
+            public fun test(cond: bool, v1: vector<u64>) {
+                cvlm_assume(v1.length() == 1);
+                let r = if (cond) { &v1 } else { &vector[2, 3] };
+                cvlm_assert(r.length() == 1 || r.length() == 2);
+            }
+        """.trimIndent())
+        assertTrue(verify(loadStdlib = true))
+    }
 }

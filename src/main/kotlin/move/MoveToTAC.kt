@@ -1031,6 +1031,9 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
                     is MoveInstruction.BorrowLoc -> {
                         val loc = locals[inst.index]
+                        // Ensure the local is initialized regardless of flow, so that flow-insensitive analyses won't
+                        // think it's uninitialized if we dereference this reference later.
+                        loc.s.ensureHavocInit()
                         TACCmd.Move.BorrowLocCmd(
                             ref = push(MoveType.Reference(loc.type as MoveType.Value)),
                             loc = loc.s,
