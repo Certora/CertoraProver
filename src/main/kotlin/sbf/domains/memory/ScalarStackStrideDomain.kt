@@ -850,6 +850,7 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
         private val globalState: GlobalState
 ) : MutableAbstractDomain<ScalarStackStridePredicateDomain<TNum, TOffset>>,
     ScalarValueProvider<TNum, TOffset>,
+    MutableScalarValueUpdater<TNum, TOffset>,
     MemoryDomainScalarOps<TNum, TOffset> {
 
     val sbfTypeFac: ISbfTypeFactory<TNum, TOffset> = scalars.sbfTypeFac
@@ -1067,9 +1068,9 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
     override fun analyze(
         b: SbfBasicBlock,
         listener: InstructionListener<ScalarStackStridePredicateDomain<TNum, TOffset>>
-    ): ScalarStackStridePredicateDomain<TNum, TOffset> {
-        dbg { "=== Scalar+StackStridePredicate domain analyzing ${b.getLabel()} ===\nAt entry: $this\n" }
-        return analyzeBlock(
+    ): ScalarStackStridePredicateDomain<TNum, TOffset> =
+        analyzeBlockMut(
+            domainName = "ScalarDomain x StackStridePredicateDomain",
             b,
             inState = this,
             transferFunction = { mutState, locInst ->
@@ -1077,7 +1078,6 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
             },
             listener
         )
-    }
 
     override fun toString() =
         if (predicates.isTop()) {

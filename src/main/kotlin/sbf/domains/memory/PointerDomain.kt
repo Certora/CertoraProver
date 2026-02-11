@@ -3092,7 +3092,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     ): ScalarDomain
     where
         ScalarDomain: MutableAbstractDomain<ScalarDomain>,
-        ScalarDomain: MemoryDomainScalarOps<TNum, TOffset> =
+        ScalarDomain: MutableScalarValueUpdater<TNum, TOffset> =
         scalars.deepCopy().apply {
             setScalarValue(dst, ScalarValue(sbfTypesFac.toNum(value.v)))
         }
@@ -3103,7 +3103,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     ) where
         ScalarDomain: ScalarValueProvider<TNum, TOffset>,
         ScalarDomain: MutableAbstractDomain<ScalarDomain>,
-        ScalarDomain: MemoryDomainScalarOps<TNum, TOffset>
+        ScalarDomain: MutableScalarValueUpdater<TNum, TOffset>
     {
         val inst = locInst.inst
         check(inst is SbfInstruction.Select) {"doSelect expects a select instruction instead of $inst"}

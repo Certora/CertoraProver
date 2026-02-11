@@ -71,19 +71,6 @@ const val enableDefensiveChecks = false
 
 class MemoryDomainError(msg: String): SolanaInternalError("MemoryDomain error: $msg")
 
-/** Special operations that [MemoryDomain] needs from the scalar domain **/
-interface MemoryDomainScalarOps<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
-    fun setScalarValue(reg: Value.Reg, newVal: ScalarValue<TNum, TOffset>)
-    fun setStackContent(offset: Long, width: Byte, value: ScalarValue<TNum, TOffset>)
-    /**
-     * This function returns the scalar value for [reg] similar to `getAsScalarValue`.
-     *
-     * However, if the scalar value is a number then it tries to cast it to a pointer
-     * in cases where that number is a known pointer address.
-     */
-    fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg): ScalarValue<TNum, TOffset>
-}
-
 private typealias TScalarDomain<TNum, TOffset> = ScalarStackStridePredicateDomain<TNum, TOffset>
 
 /**

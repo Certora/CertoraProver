@@ -144,8 +144,38 @@ class DefaultInstructionListener<T>: InstructionListener<T> {
     override fun instructionEvent(locInst: LocatedSbfInstruction, pre: T, post: T){}
 }
 
-
+/** Operations to query scalar values from a scalar domain  **/
 interface ScalarValueProvider<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
     fun getAsScalarValue(value: Value): ScalarValue<TNum, TOffset>
     fun getStackContent(offset: Long, width: Byte): ScalarValue<TNum, TOffset>
+}
+
+/**
+ * Operations to update a scalar domain.
+ * These operations allow other domains to refine a scalar domain.
+ **/
+interface MutableScalarValueUpdater<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
+    fun setScalarValue(reg: Value.Reg, newVal: ScalarValue<TNum, TOffset>)
+    fun setStackContent(offset: Long, width: Byte, value: ScalarValue<TNum, TOffset>)
+}
+
+/** Special operations that [MemoryDomain] needs from the scalar domain **/
+interface MemoryDomainScalarOps<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
+    /**
+     * This function returns the scalar value for [reg] similar to `getAsScalarValue`.
+     * However, if the scalar value is a number then it tries to cast it to a pointer
+     * in cases where that number is a known pointer address.
+     */
+    fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg): ScalarValue<TNum, TOffset>
+}
+
+data class StackLocation(val offset: Long, val width: Byte) {
+    override fun toString() = "*Stack_${offset}_$width"
+}
+
+interface StackLocationQuery {
+    /**
+     * Returns the stack location from which [reg] was loaded, if known.
+     */
+    fun getStackSource(reg: Value.Reg): StackLocation?
 }

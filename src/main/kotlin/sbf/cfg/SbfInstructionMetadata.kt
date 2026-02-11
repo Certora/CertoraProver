@@ -56,8 +56,6 @@ object SbfMeta {
     val MANGLED_NAME = MetaKey<String>("mangled_name")
     // number of registers used by the call
     val KNOWN_ARITY = MetaKey<Int>("external_function_arity")
-    // keep track of some equalities
-    val EQUALITY_REG_AND_STACK = MetaKey<Pair<Value.Reg, StackContentMeta>>("equality_reg_and_stack")
     // type of a register (used by the pointer analysis)
     val REG_TYPE =  MetaKey<Pair<Value.Reg, SbfRegisterType>>("reg_type")
     // Address of the instruction
@@ -99,8 +97,6 @@ data class MetaKey<T>(val name: String)
 
 operator fun MetaKey<Unit>.invoke() = this to Unit
 
-data class StackContentMeta(val offset: Long, val width: Short)
-
 fun toString(metaData: MetaData): String {
     val strB = StringBuilder()
 
@@ -128,7 +124,7 @@ fun toString(metaData: MetaData): String {
                 strB.append(" /* 0x${address.toString(16)} */")
             }
             SbfMeta.LOWERED_ASSUME -> {}
-            SbfMeta.KNOWN_ARITY, SbfMeta.EQUALITY_REG_AND_STACK -> {}
+            SbfMeta.KNOWN_ARITY -> {}
             SbfMeta.UNREACHABLE_FROM_COI -> {}
             SbfMeta.COMMENT -> {}
             SbfMeta.PROMOTED_OVERFLOW_CHECK -> {

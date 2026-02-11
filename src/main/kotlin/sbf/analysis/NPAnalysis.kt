@@ -37,39 +37,58 @@ import sbf.domains.*
  */
 data class NPDomainState<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, ScalarDomain>(
     val state: NPDomain<ScalarDomain, TNum, TOffset>)
-    where ScalarDomain: AbstractDomain<ScalarDomain>, ScalarDomain: ScalarValueProvider<TNum, TOffset> {
+    where ScalarDomain: AbstractDomain<ScalarDomain>,
+          ScalarDomain: ScalarValueProvider<TNum, TOffset>,
+          ScalarDomain: StackLocationQuery {
 
     companion object {
         fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, ScalarDomain> mkBottom(
             sbfTypeFac: ISbfTypeFactory<TNum, TOffset>
-        ) where ScalarDomain: AbstractDomain<ScalarDomain>, ScalarDomain: ScalarValueProvider<TNum, TOffset> =
+        ) where
+            ScalarDomain: AbstractDomain<ScalarDomain>,
+            ScalarDomain: ScalarValueProvider<TNum, TOffset>,
+            ScalarDomain: StackLocationQuery =
             NPDomainState<TNum, TOffset, ScalarDomain>(NPDomain.mkBottom(sbfTypeFac))
 
         fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, ScalarDomain> join(
             x: NPDomainState<TNum, TOffset, ScalarDomain>, y: NPDomainState<TNum, TOffset, ScalarDomain>
-        ) where ScalarDomain: AbstractDomain<ScalarDomain>, ScalarDomain: ScalarValueProvider<TNum, TOffset> =
+        ) where
+            ScalarDomain: AbstractDomain<ScalarDomain>,
+            ScalarDomain: ScalarValueProvider<TNum, TOffset>,
+            ScalarDomain: StackLocationQuery =
             NPDomainState(x.state.join(y.state))
 
         fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, ScalarDomain> equiv(
             x: NPDomainState<TNum, TOffset, ScalarDomain>, y: NPDomainState<TNum, TOffset, ScalarDomain>
-        ) where ScalarDomain: AbstractDomain<ScalarDomain>, ScalarDomain: ScalarValueProvider<TNum, TOffset> =
+        ) where
+            ScalarDomain: AbstractDomain<ScalarDomain>,
+            ScalarDomain: ScalarValueProvider<TNum, TOffset>,
+            ScalarDomain: StackLocationQuery =
             x.state.lessOrEqual(y.state) && y.state.lessOrEqual(x.state)
     }
 }
 
 private fun <TNum, TOffset, ScalarDomain> lattice(): JoinLattice<NPDomainState<TNum, TOffset, ScalarDomain>>
     where TNum : INumValue<TNum>, TOffset : IOffset<TOffset>,
-          ScalarDomain: AbstractDomain<ScalarDomain>, ScalarDomain: ScalarValueProvider<TNum, TOffset> =
+          ScalarDomain: AbstractDomain<ScalarDomain>,
+          ScalarDomain: ScalarValueProvider<TNum, TOffset>,
+          ScalarDomain: StackLocationQuery =
     object : JoinLattice<NPDomainState<TNum, TOffset, ScalarDomain>> {
-        override fun join(x: NPDomainState<TNum, TOffset, ScalarDomain>, y: NPDomainState<TNum, TOffset, ScalarDomain>) = NPDomainState.join(x, y)
-        override fun equiv(x: NPDomainState<TNum, TOffset, ScalarDomain>, y: NPDomainState<TNum, TOffset, ScalarDomain>) = NPDomainState.equiv(x,y)
+        override fun join(
+            x: NPDomainState<TNum, TOffset, ScalarDomain>,
+            y: NPDomainState<TNum, TOffset, ScalarDomain>
+        ) = NPDomainState.join(x, y)
+        override fun equiv(
+            x: NPDomainState<TNum, TOffset, ScalarDomain>,
+            y: NPDomainState<TNum, TOffset, ScalarDomain>
+        ) = NPDomainState.equiv(x,y)
     }
 
 // For simplicity, [NPAnalysis] is not parametric
 // We choose here the scalar domain used by the forward analysis
 private typealias TNum = ConstantSet
 private typealias TOffset= ConstantSet
-private typealias TScalarDomain = ScalarDomain<TNum, TOffset>
+private typealias TScalarDomain = ScalarRegisterStackEqualityDomain<TNum, TOffset>
 
 typealias NPDomainT = NPDomain<TScalarDomain, TNum, TOffset>
 private typealias NPDomainStateT = NPDomainState<TNum, TOffset, TScalarDomain>
@@ -78,7 +97,8 @@ class NPAnalysis(
     val cfg: MutableSbfCFG,
     globals: GlobalVariables,
     memSummaries: MemorySummaries,
-    val sbfTypeFac: ISbfTypeFactory<TNum, TOffset> = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
+    val sbfTypeFac: ISbfTypeFactory<TNum, TOffset> =
+        ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
 ) :
     SbfBlockDataflowAnalysis<NPDomainStateT>(
         cfg,
@@ -96,15 +116,18 @@ class NPAnalysis(
      * 2) remove unreachable blocks.
      *    Note that to make the analysis more precise, we use set-value abstraction in scalar analysis.
      **/
-    private val fwdAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypeFac)
-    val registerTypes = AnalysisRegisterTypes(fwdAnalysis)
+    private val fwdAnalysis = GenericScalarAnalysis(
+        cfg,
+        globals,
+        memSummaries,
+        sbfTypeFac,
+        ScalarRegisterStackEqualityDomainFactory()
+    )
+    val registerTypes = AnalysisRegisterTypes(fwdAnalysis, AnalysisCacheOptions.typesAndAssumes())
     /** Exit blocks of the cfg **/
     val exits: MutableSet<Label> = mutableSetOf()
 
     init {
-        // Annotate the cfg with extra info that might help analysis precision
-        propagateAssumptions(cfg, registerTypes) /* this requires cfg to be mutable */
-
         // Collect exits of the cfg
         for (b in cfg.getBlocks().values) {
             if (b.getInstructions().any {inst -> inst.isAssertOrSatisfy()}) {
@@ -114,9 +137,6 @@ class NPAnalysis(
 
         // run the backward analysis
         runAnalysis()
-
-        // Remove the annotations inserted by `propagateAssumptions`
-        cfg.removeAnnotations(listOf(SbfMeta.EQUALITY_REG_AND_STACK))
     }
 
     fun getPreconditionsAtEntry(label: Label): NPDomainT? {

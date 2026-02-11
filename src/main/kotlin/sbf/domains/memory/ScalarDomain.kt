@@ -123,6 +123,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
     val globalState: GlobalState
 ) : MutableAbstractDomain<ScalarDomain<TNum, TOffset>>,
     ScalarValueProvider<TNum, TOffset>,
+    MutableScalarValueUpdater<TNum, TOffset>,
     MemoryDomainScalarOps<TNum, TOffset> {
 
     constructor(
@@ -1464,7 +1465,6 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
 
     fun analyze(locInst: LocatedSbfInstruction) {
         val s = locInst.inst
-        dbg { "$s\n" }
         if (!isBottom()) {
             when (s) {
                 is SbfInstruction.Un -> analyzeUn(s)
@@ -1486,15 +1486,14 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                 is SbfInstruction.Debug -> {}
             }
         }
-        dbg { "$this\n" }
     }
 
     override fun analyze(
         b: SbfBasicBlock,
         listener: InstructionListener<ScalarDomain<TNum, TOffset>>
-    ): ScalarDomain<TNum, TOffset> {
-        dbg { "=== Scalar domain analyzing ${b.getLabel()} ===\nAt entry: $this\n" }
-        return analyzeBlock(
+    ): ScalarDomain<TNum, TOffset> =
+        analyzeBlockMut(
+            domainName = "ScalarDomain",
             b,
             inState = this,
             transferFunction = { mutState, locInst ->
@@ -1502,44 +1501,59 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
             },
             listener
         )
-    }
 
     override fun toString() = base.toString()
 }
 
-/** To be reused by other scalar domain variants **/
-fun<ScalarDomain: AbstractDomain<ScalarDomain>> analyzeBlock(
+
+typealias MutableTransferFunction<T> = (mutState: T, locInst: LocatedSbfInstruction) -> Unit
+typealias ImmutableTransferFunction<T> = (state: T, locInst: LocatedSbfInstruction) -> T
+
+/**
+ * Analyzes a basic block by applying a transfer function to each instruction.
+ * This version is for MUTABLE scalar domains where transfer functions modify state in-place.
+ *
+ * @param domainName The name of the abstract domain for debugging purposes.
+ * @param b The basic block to analyze
+ * @param inState The initial abstract state at block entry
+ * @param transferFunction Function that updates the abstract state for each instruction
+ * @param listener Callback for instruction analysis events
+ * @return The final abstract state after analyzing all instructions
+ */
+fun<ScalarDomain: MutableAbstractDomain<ScalarDomain>> analyzeBlockMut(
+    domainName: String,
     b: SbfBasicBlock,
     inState: ScalarDomain,
-    transferFunction: (mutState: ScalarDomain, locInst: LocatedSbfInstruction) -> Unit,
-    listener: InstructionListener<ScalarDomain>): ScalarDomain {
+    transferFunction: MutableTransferFunction<ScalarDomain>,
+    listener: InstructionListener<ScalarDomain>
+): ScalarDomain {
+
+    dbg { "=== $domainName analyzing ${b.getLabel()} ===\nAt entry: $inState\n" }
 
     if (listener is DefaultInstructionListener) {
-        /**
-         * No need to remember abstract states before and after each instruction
-         **/
+        // Fast path: shortcut when bottom is detected and avoid deep copies
         if (inState.isBottom()) {
             return inState
         }
 
         val outState = inState.deepCopy()
         for (locInst in b.getLocatedInstructions()) {
+            dbg { "${locInst.inst}\n" }
             transferFunction(outState, locInst)
+            dbg { "$outState\n" }
             if (outState.isBottom()) {
                 break
             }
         }
         return outState
     } else {
-        /**
-         * This case is when call to reconstruct abstract states at each instruction.
-         * Extra deep copies for the listener.
-         **/
         var before = inState
         for (locInst in b.getLocatedInstructions()) {
             val after = before.deepCopy()
             listener.instructionEventBefore(locInst, before)
+            dbg { "${locInst.inst}\n" }
             transferFunction(after, locInst)
+            dbg { "$after\n" }
             listener.instructionEventAfter(locInst, after)
             // Calling to this listener requires to make an extra copy
             // It's used by class AnnotateWithTypesListener defined in AnnotateCFG.kt
@@ -1548,4 +1562,58 @@ fun<ScalarDomain: AbstractDomain<ScalarDomain>> analyzeBlock(
         }
         return before
     }
+}
+
+/**
+ * Analyzes a basic block by applying a transfer function to each instruction.
+ * This version is for IMMUTABLE scalar domains where transfer functions return new states.
+ *
+ * @param domainName The name of the abstract domain for debugging purposes
+ * @param b The basic block to analyze
+ * @param state The initial abstract state at block entry
+ * @param transferFunction Function that returns a new abstract state for each instruction
+ * @param listener Callback for instruction analysis events
+ * @return The final abstract state after analyzing all instructions
+ */
+fun<ScalarDomain: AbstractDomain<ScalarDomain>> analyzeBlock(
+    domainName: String,
+    b: SbfBasicBlock,
+    state: ScalarDomain,
+    transferFunction: ImmutableTransferFunction<ScalarDomain>,
+    listener: InstructionListener<ScalarDomain>
+): ScalarDomain {
+
+    dbg { "=== $domainName analyzing ${b.getLabel()} ===\nAt entry: $state\n" }
+
+    // Fast path: shortcut when bottom is detected
+    if (listener is DefaultInstructionListener) {
+        if (state.isBottom()) {
+            return state
+        }
+
+        var outState = state
+        for (locInst in b.getLocatedInstructions()) {
+            dbg { "${locInst.inst}\n" }
+            outState = transferFunction(outState, locInst)
+            dbg { "$outState\n" }
+            if (outState.isBottom()) {
+                break
+            }
+        }
+        return outState
+    }
+
+    // Full tracking path: even if bottom is detected we call the listener
+    var currentState = state
+    for (locInst in b.getLocatedInstructions()) {
+        dbg { "${locInst.inst}\n" }
+        val inState = currentState
+        listener.instructionEventBefore(locInst, inState)
+        val outState = transferFunction(inState, locInst)
+        dbg { "$outState\n" }
+        listener.instructionEventAfter(locInst, outState)
+        listener.instructionEvent(locInst, inState, outState)
+        currentState = outState
+    }
+    return currentState
 }
