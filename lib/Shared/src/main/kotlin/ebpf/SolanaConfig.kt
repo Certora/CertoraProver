@@ -484,7 +484,7 @@ object SolanaConfig {
         ),
     ) {}
 
-    val AssertFilter: ConfigType.StringSetCmdLine = object : ConfigType.StringSetCmdLine(
+    val AssertFilter: ConfigType.AssertFilterCmdLine = object : ConfigType.AssertFilterCmdLine(
         null,
         Option(
             "solanaAssertFilter",

@@ -286,6 +286,16 @@ sealed class ConfigType<T : Serializable>(
         StringSetConverter, option, aliases, pythonName
     )
 
+    open class AssertFilterCmdLine(
+        default: HashSet<String>?,
+        option: Option,
+        aliases: List<Option> = listOf(),
+        pythonName: String? = null
+    ) : CmdLine<HashSet<String>>(
+        default,
+        AssertFilterConverter, option, aliases, pythonName
+    )
+
     open class SolverProgramCmdLine(
         default: Array<SolverConfig>,
         option: Option,
