@@ -1,0 +1,17 @@
+{
+	"rules": {
+		"assignmentToPreDeclaredBoolVar": "SUCCESS",
+		"assignmentToPreDeclaredUintVar": "SUCCESS",
+		"commandFormWorksWithVoid": "SUCCESS",
+		"doubleWildcard": "SUCCESS",
+		"explicitBoolTypeDispatchesToA": "SUCCESS",
+		"multiReturnTwoVarsDispatchesToC": "SUCCESS",
+		"multipleMatchingContractsBool": "SUCCESS",
+		"singleReturnDispatchesToD": "SUCCESS",
+		"subtypeUint8ToUint256": "SUCCESS",
+		"tripleReturnValues": "SUCCESS",
+		"tupleOrderBoolUint": "SUCCESS",
+		"tupleOrderUintBool": "SUCCESS",
+		"wildcardWithOneVar": "SUCCESS"
+	}
+}

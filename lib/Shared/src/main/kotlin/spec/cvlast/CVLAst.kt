@@ -3511,6 +3511,12 @@ sealed class CVLExp : HasCVLExpTag, AmbiSerializable {
             return "$contractStr$methodId(${args.joinToString(",")})".wrapWithParens()
         }
 
+        // Keeps LHSs pre-typechecking to allow inferring the return type after their types become available
+        @KSerializable
+        data class ReturnTypeHint(
+            val lhsIds: List<CVLLhs>
+        ) : ExpressionAnnotation
+
         override fun eval(): Constant.NumberLit? = null
 
         override fun hashCode() = hash {

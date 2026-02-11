@@ -282,6 +282,29 @@ class CVLCmdTypeChecker(
         }
     }
 
+
+    /**
+     * Given an "output" list [t] of type [T], and a source [l] which expects length([t])-ary variables,
+     * do the pointwise typechecking according to [errorCheck].
+     * Assumes [l] and [t] have the same size.
+     */
+    companion object {
+        fun <T> typeCheckMultiReturnGeneral(
+            l: List<CVLType.PureCVLType>,
+            t: List<T>,
+            errorCheck: (CVLType.PureCVLType, T) -> VoidResult<String>
+        ): CollectingResult<List<Unit>, String> {
+            return l.zip(t).map { (lhs, rhs) ->
+                if (lhs == CVLType.PureCVLType.Bottom) {
+                    ok
+                } else {
+                    errorCheck(lhs, rhs)
+                }
+            }.flatten()
+        }
+    }
+
+
     private fun typeCheckDefinitionCmd(cmd: CVLCmd.Simple.Definition): CollectingResult<CVLCmd.Simple.Definition, CVLError> {
         if (cmd.type == null) {
             // because no types are given, this command must be an assignment so all vars on the lhs must already
@@ -316,16 +339,13 @@ class CVLCmdTypeChecker(
                     "Cannot assign ${t.size}-ary function to ${cmd.idL.size} variable${cmd.idL.singleOrNull()?.let { "" } ?: "s"}"
                 ).asError()
             } else {
-                cmd.idL.map { it.tag.getCVLTypeOrNull() as CVLType.PureCVLType }.zip(t)
-                    .map { (lhs, rhs) ->
-                        if (lhs == CVLType.PureCVLType.Bottom) {
-                            ok
-                        } else {
-                            errorCheck(lhs, rhs)
-                        }
-                    }.flatten().map {
-                        cmd
-                    }.mapErrors { e -> CVLError.General(cmd.range, e) }
+                typeCheckMultiReturnGeneral(
+                    cmd.idL.map { it.tag.getCVLTypeOrNull() as CVLType.PureCVLType },
+                    t,
+                    errorCheck
+                ).map {
+                    cmd
+                }.mapErrors { e -> CVLError.General(cmd.range, e) }
             }
         }
 
