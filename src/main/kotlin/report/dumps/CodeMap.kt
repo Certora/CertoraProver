@@ -56,6 +56,7 @@ import vc.data.*
 import vc.data.TACMeta.CVL_LABEL_END
 import vc.data.TACMeta.CVL_LABEL_START
 import vc.data.TACMeta.CVL_LABEL_START_ID
+import vc.data.TACMeta.CVL_RANGE
 import vc.data.TACMeta.REVERT_PATH
 import vc.data.TACMeta.SCOPE_SNIPPET_END
 import vc.data.state.ConcreteTacValue
@@ -382,7 +383,7 @@ data class CodeMap(
                     is SnippetCmd.SolanaSnippetCmd.ExternalCall -> colorText("SbfExt ${metaValue.symbols.joinToString(", ") { getHtmlRep(it) }} = ${metaValue.displayMessage.shortRustForHTML()} ", Color.DARKBLUE).withTitle(metaValue.toString())
                     is SnippetCmd.SolanaSnippetCmd.VariableBecomingLive -> colorText("Source variable named `${metaValue.variableName}` composed of: ${metaValue.expressions}", Color.DARKBLUE)
                     is SnippetCmd.SolanaSnippetCmd.DirectMemoryAccess -> colorText("Direct memory access on source variable `${metaValue.variableName}` at ${metaValue.offsetIntoStruct} (expression: ${metaValue.expression})", Color.DARKBLUE)
-                    is SnippetCmd.CvlrSnippetCmd.CexPrintTag -> colorText("log(${metaValue.displayMessage.sanitize()})", Color.GREEN)
+                    is SnippetCmd.CvlrSnippetCmd.CexPrintTag -> colorText("log: ${metaValue.displayMessage.sanitize()}", Color.GREEN)
                     is SnippetCmd.CvlrSnippetCmd.CexAttachLocation -> colorText("${metaValue.filepath.sanitize()}:${metaValue.lineNumber}", Color.DARKGREY)
                     is SnippetCmd.CvlrSnippetCmd.CexPrintLocation -> colorText("${metaValue.filepath.sanitize()}:${metaValue.lineNumber}", Color.DARKGREY)
                     is SnippetCmd.CvlrSnippetCmd.CexPrintValues -> colorText("${metaValue.displayMessage.sanitize()}: ${metaValue.symbols.joinToString(", ") { getHtmlRep(it) }}", Color.ORANGE)
@@ -402,6 +403,8 @@ data class CodeMap(
                             color=Color.ORANGE
                         )
                     }
+                    is SnippetCmd.CvlrSnippetCmd.ScopeStart -> colorText("$rarrow ${metaValue.scopeName.sanitize()}", Color.DARKBLUE)
+                    is SnippetCmd.CvlrSnippetCmd.ScopeEnd -> colorText("$larrow ${metaValue.scopeName.sanitize()}", Color.DARKBLUE)
                     is InternalFuncStartAnnotation -> colorText("$rarrow Method call ${wrapInternalFunStart(metaValue.id)} to ${
                         if (metaValue.args.isNotEmpty() && metaValue.args.size == metaValue.methodSignature.params.size) {
                             metaValue.methodSignature.let { sig ->
@@ -955,14 +958,34 @@ data class CodeMap(
             }
 
             TACCmd.Simple.NopCmd -> "NOP".asRaw()
-            is TACCmd.Simple.AssumeCmd -> colorText("assume ${getHtmlRep(c.cond)}, ${c.msg.sanitize()}", Color.DARKPINK)
-            is TACCmd.Simple.AssumeNotCmd -> colorText("assume !${getHtmlRep(c.cond)}", Color.DARKPINK)
-            is TACCmd.Simple.AssumeExpCmd -> colorText("assume ${getHtmlRepExpr(c.cond)}", Color.DARKPINK)
+            is TACCmd.Simple.AssumeCmd -> {
+                val baseHtml = colorText("assume ${getHtmlRep(c.cond)}, ${c.msg.sanitize()}", Color.DARKPINK)
+                c.meta.find(CVL_RANGE)?.let { range ->
+                    baseHtml.withTitle(range.toString().sanitize())
+                } ?: baseHtml
+            }
+            is TACCmd.Simple.AssumeNotCmd -> {
+                val baseHtml = colorText("assume !${getHtmlRep(c.cond)}", Color.DARKPINK)
+                c.meta.find(CVL_RANGE)?.let { range ->
+                    baseHtml.withTitle(range.toString().sanitize())
+                } ?: baseHtml
+            }
+            is TACCmd.Simple.AssumeExpCmd -> {
+                val baseHtml = colorText("assume ${getHtmlRepExpr(c.cond)}", Color.DARKPINK)
+                c.meta.find(CVL_RANGE)?.let { range ->
+                    baseHtml.withTitle(range.toString().sanitize())
+                } ?: baseHtml
+            }
 //            is TACCmd.Simple.AssignSelect2DCmd -> "${getHtmlRep(c.lhs)} = ${getHtmlRep(c.map)}[${c.loc1}][${getHtmlRep(c.loc2)}]"
 //            is TACCmd.Simple.AssignStore2DCmd -> "${getHtmlRep(c.lhs)}[${c.loc1}][${getHtmlRep(c.loc2)}] = ${getHtmlRep(c.rhs)}"
 //            is TACCmd.Simple.AssignInitArray -> "${getHtmlRep(c.lhs)} = array of ${c.defVal} (type ${c.mapType})"
             is TACCmd.Simple.AssigningCmd.AssignHavocCmd -> "${getHtmlRepAnchor(c.lhs)} = havoc".asRaw()
-            is TACCmd.Simple.AssertCmd -> colorText("assert ${getHtmlRep(c.o)}, ${c.msg.sanitize()}", Color.RED)
+            is TACCmd.Simple.AssertCmd -> {
+                val baseHtml = colorText("assert ${getHtmlRep(c.o)}, ${c.msg.sanitize()}", Color.RED)
+                c.meta.find(CVL_RANGE)?.let { range ->
+                    baseHtml.withTitle(range.toString().sanitize())
+                } ?: baseHtml
+            }
             //is TACCmd.Simple.AssignLAndCmd -> "${getHtmlRep(c.lhs)} = ${getHtmlRep(c.op1)} && ${getHtmlRep(c.op2)}"
             //is TACCmd.Simple.AssignLOrCmd -> "${getHtmlRep(c.lhs)} = ${getHtmlRep(c.op1)} || ${getHtmlRep(c.op2)}"
 
