@@ -1592,7 +1592,9 @@ class CertoraBuildGenerator:
                                 "evm.bytecode.functionDebugData"]
             ast_selection = ["id", "ast"]
         elif compiler_collector_lang == CompilerLangVy():
-            main_contract_for_output_selection = "*"
+            # Hack: keep the "*" if we did not provide vyper_custom_std_json_in_map
+            if self.context.vyper_custom_std_json_in_map:
+                main_contract_for_output_selection = contract_file_as_provided
             sources_dict = {}
             with open(contract_file_posix_abs) as f:
                 if self.context.vyper_custom_std_json_in_map and contract_file_as_provided in self.context.vyper_custom_std_json_in_map:
