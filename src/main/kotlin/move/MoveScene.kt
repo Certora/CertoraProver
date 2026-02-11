@@ -24,6 +24,7 @@ import datastructures.*
 import datastructures.stdcollections.*
 import java.math.BigInteger
 import java.nio.file.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.stream.*
 import kotlin.streams.*
 import log.*
@@ -37,6 +38,8 @@ import utils.CollectingResult.Companion.lift
 import vc.data.*
 
 private val logger = Logger(LoggerTypes.MOVE)
+private val loggerSetupHelpers = Logger(LoggerTypes.SETUP_HELPERS)
+
 
 /**
     Loads all move modules acessible to the Prover, including the spec module.
@@ -121,4 +124,22 @@ class MoveScene(
     }
 
     fun maybeAlias(address: BigInteger) = addressAliases[address]?.singleOrNull()
+
+
+    private val functionsChecked = ConcurrentHashMap.newKeySet<MoveFunctionName>()
+
+    /**
+        Does one-time "setup helper" checks of each function body that is used by a rule.
+     */
+    fun doSetupHelperFunctionBodyCheck(funcName: MoveFunctionName, code: MoveModule.CodeUnit) {
+        if (functionsChecked.add(funcName)) {
+            // Check for functions that simply abort.  These are often used as placeholders for dependencies, and may
+            // need to be summarized.
+            if (code.instructions.all { it is MoveModule.Instruction.Abort || it is MoveModule.Instruction.LdU64 }) {
+                loggerSetupHelpers.warn {
+                    "Function $funcName simply aborts.  It may be deprecated, or a stubbed-out dependency."
+                }
+            }
+        }
+    }
 }
