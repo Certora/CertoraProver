@@ -256,7 +256,7 @@ object DeepSanityChecker : InstrumentingBuiltinRuleChecker<DeepSanityGenerator>(
                 b to (reachIndicatorVar to reachCheck)
             }
 
-            graph.sinks.forEach { sink ->
+            graph.sinks.filter { !isRevertingBlock(it.ptr.block, graph) }.forEach { sink ->
                 logger.debug { "Adding asserts in sink ${sink.ptr}" }
                 logger.debug { "Variables to assert on: $varsForAssert" }
                 patching.addBefore(
