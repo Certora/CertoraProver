@@ -63,6 +63,9 @@ def is_evm_app_class(context: CertoraContext) -> bool:
 def is_rust_app_class(context: CertoraContext) -> bool:
     return issubclass(context.app, App.RustAppClass)
 
+def is_move_app_class(context: CertoraContext) -> bool:
+    return issubclass(context.app, App.MoveAppClass)
+
 def get_attr_value(context: CertoraContext, attr: AttrUtil.AttributeDefinition) -> Any:
     conf_key = attr.get_conf_key()
     return getattr(context, conf_key, None)
@@ -297,6 +300,8 @@ def get_args(args_list: List[str], app: Type[App.CertoraApp]) -> CertoraContext:
         validator.handle_concord_attrs()
     if is_rust_app_class(context):
         validator.check_rust_args_post_argparse()
+    if is_move_app_class(context):
+        validator.check_move_args_post_argparse()
 
     attrs_to_relative(context)
     # Setup defaults (defaults are not recorded in conf file)

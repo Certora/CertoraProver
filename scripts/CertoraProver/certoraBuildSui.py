@@ -55,20 +55,22 @@ def build_sui_project(context: CertoraContext, timings: Dict) -> None:
 def set_sui_build_directory(context: CertoraContext) -> None:
     sources: Set[Path] = set()
 
-    # If no move_path was specified, try to build the package
-    if not context.move_path:
-        if context.build_script:
-            raise Util.CertoraUserInputError("move_path must be specified when using build_script.")
+    if context.move_path:
+        # If move_path is specified, we assume the user has already built the spec package separately
+        assert not context.build_script, "cannot have move_path and build_script together"
+    else:
+        # If no move_path was specified, try to build the package
         move_toml_file = Util.find_file_in_parents("Move.toml")
         if not move_toml_file:
             raise Util.CertoraUserInputError("Could not find Move.toml, and no move_path was specified.")
         sources.add(move_toml_file.absolute())
         context.move_path = str(move_toml_file.parent / "build")
-        run_sui_build(context, ["sui", "move", "build", "--test", "--path", str(move_toml_file.parent)])
-    elif context.build_script:
-        script_path = Path(context.build_script).resolve()
-        sources.add(script_path)
-        run_sui_build(context, [str(script_path)])
+        if context.build_script:
+            script_path = Path(context.build_script).resolve()
+            sources.add(script_path)
+            run_sui_build(context, [str(script_path), str(move_toml_file.parent)])
+        else:
+            run_sui_build(context, ["sui", "move", "build", "--test", "--path", str(move_toml_file.parent)])
 
     assert context.move_path, "expecting move_path to be set after build"
     move_dir = Path(context.move_path)
