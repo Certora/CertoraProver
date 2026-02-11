@@ -890,7 +890,7 @@ class CertoraBuildGenerator:
                 #       same name but used separately could exist right?
                 # Add to the current contract all public/external functions, and internal/private ones if
                 # this is the declaring contract.
-                if func_visibility in ("public", "external") or (c_name == contract_name):
+                if func_visibility in ("public", "external") or (c_name == contract_name and c_file == contract_file):
                     funcs.append(func)
                     ast_logger.debug(f"Function {func.source_code_signature()} added")
 
@@ -1114,11 +1114,12 @@ class CertoraBuildGenerator:
                 assert "baseName" in bc and "referencedDeclaration" in bc["baseName"]
                 next_bc_ref = bc["baseName"]["referencedDeclaration"]
                 next_bc = self.get_contract_file_of(build_arg_contract_file, next_bc_ref)
-                if next_bc not in base_contracts_lst:
+                next_bc_name = self.asts[build_arg_contract_file][next_bc][next_bc_ref]["name"]
+                if (next_bc, next_bc_name) not in [(e[0], e[1]) for e in base_contracts_lst]:
                     base_contracts_lst.append(
-                        (next_bc, self.asts[build_arg_contract_file][next_bc][next_bc_ref]["name"],
+                        (next_bc, next_bc_name,
                          self.is_library_def_node(next_bc, next_bc_ref, build_arg_contract_file)))
-                    base_contracts_queue.insert(0, (next_bc, bc["baseName"]["referencedDeclaration"]))
+                    base_contracts_queue.insert(0, (next_bc, next_bc_ref))
 
             if base_contracts_queue:
                 retrieve_base_contracts_list_rec(base_contracts_queue, base_contracts_lst)
@@ -2483,8 +2484,8 @@ class CertoraBuildGenerator:
         return f"{contract}_{address}"
 
     @staticmethod
-    def get_primary_contract_from_sdc(contracts: List[ContractInSDC], primary: str) -> List[ContractInSDC]:
-        return [x for x in contracts if x.name == primary]
+    def get_primary_contract_from_sdc(contracts: List[ContractInSDC], primary: str, primary_file: str) -> List[ContractInSDC]:
+        return [x for x in contracts if x.name == primary and Util.abs_norm_path(x.original_file) == Util.abs_norm_path(primary_file)]
 
     @staticmethod
     def generate_library_import(file_absolute_path: str, library_name: str) -> str:
@@ -2945,7 +2946,7 @@ class CertoraBuildGenerator:
                                   sdc.original_srclist,
                                   sdc.report_srclist,
                                   f"{sdc.sdc_name}_{library_contract.name}",
-                                  self.get_primary_contract_from_sdc(sdc.contracts, library_contract.name),
+                                  self.get_primary_contract_from_sdc(sdc.contracts, library_contract.name, library_contract.original_file),
                                   [],
                                   {},
                                   {},
@@ -2956,7 +2957,7 @@ class CertoraBuildGenerator:
                     self.SDCs[self.get_sdc_key(sdc_lib.primary_contract, sdc_lib.primary_contract_address)] = sdc_lib
 
                 # Filter out irrelevant contracts, now that we extracted the libraries, leave just the primary
-                sdc.contracts = self.get_primary_contract_from_sdc(sdc.contracts, sdc.primary_contract)
+                sdc.contracts = self.get_primary_contract_from_sdc(sdc.contracts, sdc.primary_contract, sdc.sdc_origin_file)
                 assert len(
                     sdc.contracts) == 1, f"Found multiple primary contracts ({sdc.contracts}) in SDC {sdc.sdc_name}"
 
