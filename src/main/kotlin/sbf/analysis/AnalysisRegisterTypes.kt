@@ -20,60 +20,134 @@ package sbf.analysis
 import datastructures.stdcollections.*
 import sbf.callgraph.CVTCalltrace
 import sbf.cfg.*
+import sbf.disassembler.Label
 import sbf.disassembler.SbfRegister
 import sbf.domains.*
 
 /**
- * Retrieves SbfTypes from [analysis]
+ * Configuration for controlling what analysis results to cache.
+ */
+data class AnalysisCacheOptions(
+    /**
+     * Predicate to filter which instructions should have their abstract state cached.
+     * These abstract states hold **before** the execution of instruction.
+     */
+    val abstractStateFilter: (LocatedSbfInstruction) -> Boolean = { false }
+) {
+    companion object {
+        /** Cache everything */
+        val ALL = AnalysisCacheOptions(
+            abstractStateFilter = { true }
+        )
+
+        /** Cache only types, no abstract states */
+        val TYPES_ONLY = AnalysisCacheOptions(
+            abstractStateFilter = { false }
+        )
+
+        /** Cache abstract states only at assume instructions */
+        fun typesAndAssumes() = AnalysisCacheOptions(
+            abstractStateFilter = { it.inst is SbfInstruction.Assume }
+        )
+
+        /** Cache abstract states only at specific instruction types */
+        fun typesAndStatesAt(predicate: (LocatedSbfInstruction) -> Boolean) =
+            AnalysisCacheOptions(
+                abstractStateFilter = predicate
+            )
+    }
+}
+
+/**
+ * Provides register type information derived from a scalar domain.
+ *
+ * Computes and caches register types and optionally abstract states at each
+ * program instruction based on the results of the underlying analysis.
+ *
+ * @param D The scalar abstract domain
+ * @param analysis The scalar analysis containing invariants at entry/exit of each basic block
+ * @param options Configuration for what analysis results to cache
  */
 class AnalysisRegisterTypes<D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
-    val analysis: IAnalysis<D>
+    val analysis: IAnalysis<D>,
+    private val options: AnalysisCacheOptions = AnalysisCacheOptions.TYPES_ONLY
 ): IRegisterTypes<TNum, TOffset>
-where D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
-    /** Class invariant: `i in typesReadRegs iff i in typeWriteRegs` **/
-    /** For a given instruction `i`, it maps any non-written register (included non-read by `i`) to its type at `i` **/
+where D: AbstractDomain<D>,
+      D: ScalarValueProvider<TNum, TOffset> {
+
+    /**
+     * Type cache: map any non-written register (included non-read by `i`) to its type
+     **/
     private val types: MutableMap<LocatedSbfInstruction, Map<SbfRegister, SbfType<TNum, TOffset>>> = mutableMapOf()
-    /** For a given instruction `i`, it maps written registers to their types at `i` **/
+    /**
+     * Type cache: map any written register to its type
+     **/
     private val typesWriteRegs: MutableMap<LocatedSbfInstruction, Map<SbfRegister, SbfType<TNum, TOffset>>> = mutableMapOf()
+    /**
+     * State cache: maps instruction to the abstract state that holds before the execution of the instruction.
+     * Only populated for instructions matching the filter in [options].
+     **/
+    private val states: MutableMap<LocatedSbfInstruction, D> = mutableMapOf()
+
+    /**
+     * Tracks which basic blocks have been processed to avoid redundant computation.
+     * Once a block is processed, all its instructions will have their types and states extracted.
+     */
+    private val processedBlocks: MutableSet<Label> = mutableSetOf()
+
     private val allRegisters = SbfRegister.values().map{ r -> Value.Reg(r)}.toSet()
-    private val listener = TypeListener()
+
+    private val typeAndStateExtractor = TypeAndStateExtractor()
 
 
-    private fun collectTypesAtInstruction(i: LocatedSbfInstruction) {
-        val block = i.label
-        if (i !in types) {
-            check (i !in typesWriteRegs)
-            val absVal = analysis.getPre(block)
-            check(absVal != null) {
-                "Missing block $block in analysis"
-            }
-            val bb = analysis.getCFG().getBlock(block)
-            check(bb != null) {
-                "Missing block $block in cfg"
-            }
-            // Analyze the basic block to collect types per instruction
-            absVal.analyze(bb, listener)
-        }
-    }
-
-    override fun typeAtInstruction(i: LocatedSbfInstruction, r: Value.Reg, isWritten: Boolean): SbfType<TNum, TOffset> {
-        val inst = i.inst
+    override fun typeAtInstruction(
+        locInst: LocatedSbfInstruction,
+        r: Value.Reg,
+        isWritten: Boolean
+    ): SbfType<TNum, TOffset> {
+        val inst = locInst.inst
         check(!isWritten || r in inst.writeRegister) { "Register $r not written by $inst" }
 
-        collectTypesAtInstruction(i)
+        processInvariants(locInst)
 
         val types = if (!isWritten) { types } else { typesWriteRegs }
-        return types[i]?.get(r.r) ?: SbfType.top()
+        return types[locInst]?.get(r.r) ?: SbfType.top()
     }
 
     /**
-     * To determine the type of a register `r` at a given instruction, we try to be as precise as possible.
-     * It's possible that in `dst := dst op src`, if `src != dst`, the type of `src` in the post-state is
-     * more precise than in the pre-state if the instruction called **`castNumToPtr`**.
-     * So first we record the types of the register file in the pre-state, and update any
-     * relevant registers with their type in the post-state.
+     * Returns the cached abstract state before execution of [locInst], if available.
+     *
+     * @return The abstract state if cached according to [options], null otherwise
      */
-    private inner class TypeListener : InstructionListener<D> {
+    fun getAbstractState(locInst: LocatedSbfInstruction): D? {
+        processInvariants(locInst)
+        return states[locInst]
+    }
+
+
+    /** Generate the invariant at each instruction and calls [typeAndStateExtractor] to process it **/
+    private fun processInvariants(locInst: LocatedSbfInstruction) {
+        val blockLabel = locInst.label
+        if (!processedBlocks.add(blockLabel)) {
+            return
+        }
+        val absVal = checkNotNull(analysis.getPre(blockLabel))
+        val bb = checkNotNull(analysis.getCFG().getBlock(blockLabel))
+        absVal.analyze(bb, typeAndStateExtractor)
+    }
+
+    /**
+     * Listener that extracts and caches type information from abstract states.
+     * Optionally, it also caches abstract states.
+     *
+     * For each instruction, we extract types from both pre- and post- states:
+     * - Pre-state: types for all read registers before the instruction executes
+     * - Post-state: refined types for certain read registers and all written registers
+     *
+     * Post-state refinement handles cases where operations like `castNumToPtr` may
+     * produce more precise types for source registers that aren't overwritten.
+     */
+    private inner class TypeAndStateExtractor : InstructionListener<D> {
 
         override fun instructionEventAfter(locInst: LocatedSbfInstruction, post: D) {
             // -- Refine types for read registers using post-state
@@ -121,6 +195,10 @@ where D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
             }.filter { (r, type) ->
                 // we don't keep an entry if the register is top and not used by the instruction
                 Value.Reg(r) in usedRegisters || !type.isTop()
+            }
+
+            if (options.abstractStateFilter(locInst)) {
+                states[locInst] = pre
             }
         }
 

@@ -26,7 +26,6 @@ import sbf.disassembler.Label
 import sbf.domains.INumValue
 import sbf.domains.IOffset
 import sbf.domains.MemorySummaries
-import sbf.support.SolanaCalltraceUtil
 import sbf.tac.Calltrace.getFilepathAndLineNumber
 import utils.Range
 import utils.SourcePosition
@@ -75,7 +74,7 @@ private class AttachedLocationInliner<TNum : INumValue<TNum>, TOffset : IOffset<
     private fun rangeFromStack(
         attachedLocationStack: MutableList<LocatedSbfInstruction>,
         collector: PatchCollector,
-    ): Range.Range? {
+    ): Pair<MetaKey<Range.Range>, Range.Range>? {
         val attachedLocationLocInst = attachedLocationStack
             .removeLastOrNull()
             ?: return null
@@ -83,19 +82,7 @@ private class AttachedLocationInliner<TNum : INumValue<TNum>, TOffset : IOffset<
         val range = toRangeUnchecked(attachedLocationLocInst)
         collector.markDelete(attachedLocationLocInst)
 
-        return range
-    }
-
-    private fun rangeFromDebugInfo(
-        locInst: LocatedSbfInstruction,
-    ): Range.Range? {
-        val sbfAddress = locInst
-            .inst
-            .metaData
-            .getVal(SbfMeta.SBF_ADDRESS)
-            ?: return null
-
-        return SolanaCalltraceUtil.sbfAddressToRangeWithHeuristic(sbfAddress)
+        return SbfMeta.CVLR_RANGE to range
     }
 
     private fun tryAttachRange(
@@ -103,11 +90,9 @@ private class AttachedLocationInliner<TNum : INumValue<TNum>, TOffset : IOffset<
         attachedLocationStack: MutableList<LocatedSbfInstruction>,
         collector: PatchCollector,
     ) {
-        val range = rangeFromStack(attachedLocationStack, collector)
-            ?: rangeFromDebugInfo(locInst)
+        val rangeMeta = rangeFromStack(attachedLocationStack, collector)
             ?: return
 
-        val rangeMeta = Pair(SbfMeta.RANGE, range)
         val newMeta = locInst.inst.metaData.plus(rangeMeta)
         val newInst = locInst.inst.copyInst(newMeta)
 

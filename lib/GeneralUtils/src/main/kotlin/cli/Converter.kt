@@ -82,6 +82,55 @@ val StringSetConverter = Converter { stringlist ->
     tokenized_list.takeIf { it.isNotEmpty() }?.toHashSet() ?: throw ConversionException(stringlist, HashSet::class.java)
 }
 
+class AssertFilterException(entry: String, reason: String) :
+    Exception("Invalid assert filter entry '$entry': $reason. " +
+        "Expected format: comma-separated list of indices (e.g., '1,2,3') or file locations (e.g., 'spec.rs:10,spec.rs:30')")
+
+/**
+ * Parses a single filter entry string.
+ * Returns an Index if it's a valid integer, or a FileLocation if it matches the "file:line" pattern.
+ * Throws AssertFilterException if the entry is invalid.
+ */
+fun parseAssertFilterEntry(entry: String): AssertFilterEntry {
+    // Try parsing as integer index first
+    entry.toIntOrNull()?.let {
+        if (it <= 0) {
+            throw AssertFilterException(entry, "index must be positive (1-based)")
+        }
+        return AssertFilterEntry.Index(it)
+    }
+
+    // Try parsing as file:line format
+    // Find the last colon to handle file paths that may contain colons (e.g., Windows paths)
+    val lastColonIndex = entry.lastIndexOf(':')
+    if (lastColonIndex > 0 && lastColonIndex < entry.length - 1) {
+        val file = entry.substring(0, lastColonIndex)
+        val lineStr = entry.substring(lastColonIndex + 1)
+        lineStr.toIntOrNull()?.let { line ->
+            if (line <= 0) {
+                throw AssertFilterException(entry, "line number must be positive")
+            }
+            return AssertFilterEntry.FileLocation(file, line)
+        }
+    }
+
+    throw AssertFilterException(entry, "not a valid index or file:line format")
+}
+
+/**
+ * Converter for -solanaAssertFilter flag.
+ * Validates that each entry is either:
+ * - A positive integer (1-based assert index)
+ * - A file:line format (e.g., "spec.rs:10")
+ */
+val AssertFilterConverter = Converter { input ->
+    val entries = input.split(",").filter { it.isNotEmpty() }
+    if (entries.isEmpty()) {
+        throw AssertFilterException(input, "empty input")
+    }
+
+    entries.map { parseAssertFilterEntry(it) }.toHashSet()
+}
 
 /**
  * We need to parse `solverNames` such as "z3[randomSeed 2, learnLemmas true],cvc5_def,cvc5_nl[learnLemmas false]"

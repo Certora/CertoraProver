@@ -877,6 +877,7 @@ class CVLAstBuilder(
         // for example definition bodies, hook axioms etc.
         symbolTable = bind(buildSymbolTable(ast))
         ast = bind(ArrayLiteralTypeHintInstrumenter.ast(ast))
+        ast = bind(AddressFunctionCallTypeHintInstrumenter.ast(ast))
 
         ast = bind(GhostApplicationRewriter(symbolTable).ast(ast))
 

@@ -88,6 +88,7 @@ class MoveFunction private constructor(
     val code by lazy {
         with(scene) {
             definition.code?.let { code ->
+                doSetupHelperFunctionBodyCheck(name, code)
                 Code(
                     locals = code.locals.map { it.toMoveType(typeArguments) },
                     instructions = code.instructions.map { it.toMoveInstruction(typeArguments, code) },

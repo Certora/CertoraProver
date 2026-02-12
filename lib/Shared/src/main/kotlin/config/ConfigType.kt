@@ -286,6 +286,16 @@ sealed class ConfigType<T : Serializable>(
         StringSetConverter, option, aliases, pythonName
     )
 
+    open class AssertFilterCmdLine(
+        default: HashSet<cli.AssertFilterEntry>?,
+        option: Option,
+        aliases: List<Option> = listOf(),
+        pythonName: String? = null
+    ) : CmdLine<HashSet<cli.AssertFilterEntry>>(
+        default,
+        AssertFilterConverter, option, aliases, pythonName
+    )
+
     open class SolverProgramCmdLine(
         default: Array<SolverConfig>,
         option: Option,
@@ -321,6 +331,7 @@ sealed class ConfigType<T : Serializable>(
         default,
         DebugAdapterConverter, option, aliases
     )
+
     open class HardFailCmdLine(
         default: HardFailMode,
         option: Option,

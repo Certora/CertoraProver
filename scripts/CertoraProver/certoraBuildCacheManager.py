@@ -41,6 +41,9 @@ class CachedFiles:
     # to keep .post_autofinders
     path_with_additional_included_files: Path
 
+    # optional asts file (only present when --dump_asts is used)
+    asts_file: Optional[Path] = None
+
     def all_exist(self, main_cache_entry_dir: Path, sub_cache_key: str) -> bool:
         exist = self.certora_build_file.exists() and \
             self.certora_build_file == main_cache_entry_dir / f"{sub_cache_key}.{CachedFiles.certora_build_suffix}"
@@ -55,6 +58,7 @@ class CachedFiles:
     file_list_suffix = "file_list.json"
     build_output_props_suffix = "build_output_props.json"
     additional_included_files = "additional_included_files"
+    asts_suffix = "asts.json"
 
 
 class CertoraBuildCacheManager:
@@ -124,8 +128,14 @@ class CertoraBuildCacheManager:
             return None
 
         additional_included_files = main_cache_entry_dir / f"{sub_cache_key}.{CachedFiles.additional_included_files}"
+
+        # check if asts file exists in cache
+        asts_file_in_cache = main_cache_entry_dir / f"{sub_cache_key}.{CachedFiles.asts_suffix}"
+        asts_file = asts_file_in_cache if asts_file_in_cache.exists() else None
+
         return CachedFiles(certora_build_file, all_contract_files, build_output_props_file,
-                           may_store_in_build_cache=True, path_with_additional_included_files=additional_included_files)
+                           may_store_in_build_cache=True, path_with_additional_included_files=additional_included_files,
+                           asts_file=asts_file)
 
     @staticmethod
     def save_build_cache(context: CertoraContext, cached_files: CachedFiles) -> None:
@@ -170,6 +180,11 @@ class CertoraBuildCacheManager:
         # save additional props file
         shutil.copyfile(cached_files.build_output_props_file,
                         main_cache_entry_dir / f"{sub_cache_key}.{CachedFiles.build_output_props_suffix}")
+        # save asts file if present
+        if cached_files.asts_file is not None and cached_files.asts_file.exists():
+            shutil.copyfile(cached_files.asts_file,
+                            main_cache_entry_dir / f"{sub_cache_key}.{CachedFiles.asts_suffix}")
+
         # save .post_autofinders from additional included files
         trg_path_with_additional_included_files = \
             main_cache_entry_dir / f"{sub_cache_key}.{CachedFiles.additional_included_files}"

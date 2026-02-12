@@ -1215,7 +1215,7 @@ class EvmAttributes(AttrUtil.Attributes):
         argparse_args={
             'action': AttrUtil.STORE_TRUE
         },
-        affects_build_cache_key=False,
+        affects_build_cache_key=True,
         disables_build_cache=False,
     )
 
@@ -1901,6 +1901,17 @@ class SuiProverAttributes(CommonAttributes, InternalUseAttributes, BackendAttrib
         config_data=AttributeJobConfigData(
             main_section=MainSection.NEW_SECTION
         )
+    )
+
+    BUILD_SCRIPT = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_exec_file,
+        help_msg="script to build a Move project",
+        default_desc="Using default building command",
+        argparse_args={
+            'action': AttrUtil.UniqueStore
+        },
+        affects_build_cache_key=False,
+        disables_build_cache=False
     )
 
     RULE = AttrUtil.AttributeDefinition(

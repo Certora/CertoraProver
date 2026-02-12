@@ -484,6 +484,19 @@ object SolanaConfig {
         ),
     ) {}
 
+    val AssertFilter: ConfigType.AssertFilterCmdLine = object : ConfigType.AssertFilterCmdLine(
+        null,
+        Option(
+            "solanaAssertFilter",
+            true,
+            "Filter which asserts to verify by index (1-based) or by file location. " +
+                "Accepts comma-separated indices (e.g., '1,2,3') or file locations (e.g., 'spec.rs:10,spec.rs:30'). " +
+                "File locations match assertions whose CVL_RANGE starts at the specified line. " +
+                "Only effective when -multiAssertCheck is enabled. " +
+                "[default: null (verify all)]"
+        )
+    ) {}
+
 
     val DumpDwarfDebugInfoInReports: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
         false,

@@ -194,6 +194,16 @@ open class DefaultCommandLineParser {
                     "or -${Config.SummaryResolutionMode.name} ${SummaryResolutionPolicy.SIMPLE.name.lowercase()}."
             )
         }
+
+        checkLegalSolanaConfig()
+    }
+
+    private fun checkLegalSolanaConfig() {
+        if (SolanaConfig.AssertFilter.getOrNull() != null && !Config.MultiAssertCheck.get()) {
+            printErrAndExit(
+                "-${SolanaConfig.AssertFilter.name} requires -${Config.MultiAssertCheck.name} to be enabled."
+            )
+        }
     }
 
     private fun basicChecksSkippedByApache(cmdLineArgs: CommandLine, originalArgs: Array<String>) {

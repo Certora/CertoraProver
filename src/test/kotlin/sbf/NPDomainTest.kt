@@ -18,15 +18,13 @@
 package sbf
 
 import config.ConfigScope
-import sbf.analysis.ScalarAnalysis
-import sbf.analysis.NPAnalysis
 import sbf.cfg.*
 import sbf.disassembler.Label
 import sbf.disassembler.GlobalVariables
 import sbf.testing.SbfTestDSL
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
-import sbf.analysis.AnalysisRegisterTypes
+import sbf.analysis.*
 import sbf.callgraph.MutableSbfCallGraph
 import sbf.callgraph.SolanaFunction
 import sbf.disassembler.SbfRegister
@@ -34,7 +32,8 @@ import sbf.domains.*
 import sbf.slicer.sliceAssertions
 
 private val sbfTypesFac = ConstantSbfTypeFactory()
-private val top = NPDomain.mkTrue<ScalarDomain<Constant, Constant>, Constant, Constant>(sbfTypesFac)
+private val top = NPDomain.mkTrue<ScalarRegisterStackEqualityDomain<Constant, Constant>, Constant, Constant>(sbfTypesFac)
+private val domFac = ScalarRegisterStackEqualityDomainFactory<Constant, Constant>()
 private val globals = GlobalVariables(DefaultElfFileView)
 private val memSummaries = MemorySummaries()
 
@@ -59,7 +58,7 @@ class NPDomainTest {
             }
         }
 
-        val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
+        val scalarAnalysis = GenericScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac, domFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 
         val vFac = VariableFactory()
@@ -98,7 +97,7 @@ class NPDomainTest {
         }
 
 
-        val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
+        val scalarAnalysis = GenericScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac, domFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
         val vFac = VariableFactory()
         val absVal = top
@@ -131,7 +130,7 @@ class NPDomainTest {
             }
         }
 
-        val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
+        val scalarAnalysis = GenericScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac, domFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 
         val vFac = VariableFactory()
@@ -156,7 +155,7 @@ class NPDomainTest {
             }
         }
 
-        val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
+        val scalarAnalysis = GenericScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac, domFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 
         val vFac = VariableFactory()
@@ -181,7 +180,7 @@ class NPDomainTest {
             }
         }
 
-        val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
+        val scalarAnalysis = GenericScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac, domFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 
         val vFac = VariableFactory()
@@ -206,7 +205,7 @@ class NPDomainTest {
             }
         }
 
-        val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
+        val scalarAnalysis = GenericScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac, domFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 
         val vFac = VariableFactory()
@@ -233,7 +232,7 @@ class NPDomainTest {
             }
         }
 
-        val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
+        val scalarAnalysis = GenericScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac, domFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 
         val vFac = VariableFactory()
@@ -291,20 +290,22 @@ class NPDomainTest {
     }
 
     @Test
-    fun test9() {
+    fun `equality between register and stack content is needed`() {
         val cfg = SbfTestDSL.makeCFG("entrypoint") {
             bb(0) {
                 r2 = r10[-96]
                 br(CondOp.NE(r2, 0x1), 1, 2)
             }
             bb(1) {
+                // backward knows r10[-96] == 1 and forward r2 != 1.
+                // We need the equality that r2 == r10[-96]
                 assume(CondOp.NE(r2, 0x1))
                 r3 = r10[-96]
                 assume(CondOp.EQ(r3, 0x1))
                 goto(3)
             }
             bb(2) {
-                assume(CondOp.EQ(r2, 0x1))
+                assume(CondOp.EQ(r2, 0x1)) // forward and backward disagree here
                 goto(3)
             }
             bb(3) {
@@ -627,7 +628,7 @@ class NPDomainTest {
         b0.add(SbfInstruction.Assume(Condition(CondOp.NE, r3, Value.Imm(0UL))))
         b0.add(SbfInstruction.Exit())
 
-        val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
+        val scalarAnalysis = GenericScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac, domFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 
         val vFac = VariableFactory()
@@ -666,7 +667,7 @@ class NPDomainTest {
         cfg.normalize()
         cfg.verify(true)
 
-        val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
+        val scalarAnalysis = GenericScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac, domFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 
         val vFac = VariableFactory()
@@ -773,7 +774,7 @@ class NPDomainTest {
         cfg.normalize()
         cfg.verify(true)
 
-        val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
+        val scalarAnalysis = GenericScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac, domFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 
         val vFac = VariableFactory()

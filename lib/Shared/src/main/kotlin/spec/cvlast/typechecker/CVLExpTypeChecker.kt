@@ -24,6 +24,7 @@ import bridge.types.SolcLocation
 import config.Config
 import datastructures.stdcollections.*
 import log.*
+import report.calltrace.isCalldataArgs
 import scene.MethodAttribute
 import spec.CVLKeywords
 import spec.CVLWarningLogger
@@ -33,7 +34,9 @@ import spec.cvlast.CVLExp.HavocTarget.Companion.downcastToHavocTarget
 import spec.cvlast.CVLType.Companion.isComplex
 import spec.cvlast.Function
 import spec.cvlast.transformer.CVLExpTransformer
+import spec.cvlast.typechecker.CVLCmdTypeChecker.Companion.typeCheckMultiReturnGeneral
 import spec.cvlast.typedescriptors.*
+import spec.isWildcard
 import tac.ITACSymbolVar
 import utils.*
 import utils.CollectingResult.Companion.asError
@@ -2326,6 +2329,7 @@ class CVLExpTypeCheckerWithContext(
             returnError(AddressFuncCallNoEnv(exp))
         }
         val argsWithoutEnv = args.drop(1)
+        val isCalldataargsCall = args.any(CVLExp::isCalldataArgs)
 
         val contractScopes = symbolTable.getAllContractScopes().toSet()
         val relevantFuncs = contractScopes
@@ -2351,12 +2355,99 @@ class CVLExpTypeCheckerWithContext(
             returnError(AddressFuncCallNoFuncs(exp.getRangeOrEmpty(), exp.methodId, args))
         }
 
-        val returnTypes = relevantFuncs.mapToSet { getContractReturnType(it) }
+        val returnTypesSet = relevantFuncs.mapToSet { getContractReturnType(it) }
+        val returnTypeHints = (exp.tag.annotation as? CVLExp.UnresolvedApplyExp.ReturnTypeHint)
+        if (returnTypesSet.size > 1 && returnTypeHints != null) {
+            // Use hints. Instead of demanding all relevantFuncs have the same return type, we filter
+            // those that are a subtype of the hint. The hint is only available in cases
+            // the ApplyExp is a top-level expression
+            val returnTypesFromHint = returnTypeHints.lhsIds.monadicMap { lhsId ->
+                if (lhsId.getIdLhs().id.isWildcard()) {
+                    return@monadicMap CVLType.PureCVLType.Bottom // will match any type
+                }
+                val symValue = symbolTable.lookUpNonFunctionLikeSymbol(lhsId.getIdLhs().id, exp.getScope())?.symbolValue
+                when (symValue) {
+                    is CVLCmd.Simple.Definition -> symValue.type
+                    is CVLCmd.Simple.Declaration -> symValue.cvlType
+                    else -> null
+                }
+            }
+            if (returnTypesFromHint == null) {
+                returnError(AddressFuncCallCannotInferReturnTypeHint(exp.getRangeOrEmpty(), returnTypeHints.lhsIds))
+            }
+
+            if (isCalldataargsCall && returnTypesFromHint.isEmpty()) {
+                // calldataargs is just a wildcard. allow everything.
+                // since nothing consumes return outputs anyway, we don't need to force the same return type
+                return@collectingErrors CVLExp.AddressFunctionCallExp(
+                    exp.base!!,
+                    exp.methodId,
+                    args,
+                    storage,
+                    relevantFuncs,
+                    exp.tag.updateType(CVLType.PureCVLType.Bottom)
+                )
+            }
+
+            val relevantFuncsMatchingTypeHint = relevantFuncs.filter { f ->
+                val returnTypeFromRelevantFunc = getContractReturnType(f)
+
+                if (returnTypesFromHint.isEmpty()) {
+                    // if the hints are empty, this indicates no lhs receivers of the result of the address function call
+                    // which means we can accept all regardless of the return type
+                    true
+                } else if (returnTypeFromRelevantFunc is CVLType.VM && returnTypeFromRelevantFunc.descriptor is VMFunctionReturn) {
+                    /* the following 'obvious' check won't work, as 'A function which returns multiple values must be assigned to multiple lhs variables.'
+                        returnTypeFromRelevantFunc.isConvertibleTo(CVLType.PureCVLType.TupleType(returnTypesFromHint)
+                     */
+                     if (returnTypesFromHint.size != returnTypeFromRelevantFunc.descriptor.returns.size) {
+                        false
+                    } else {
+                        typeCheckMultiReturnGeneral(
+                            returnTypesFromHint,
+                            returnTypeFromRelevantFunc.descriptor.returns
+                        ) { lhs, rhs ->
+                            rhs.converterTo(lhs, returnTypeFromRelevantFunc.context.getVisitor()).bind { ok }
+                        }.isResult()
+                    }
+                } else if (returnTypesFromHint.size == 1) {
+                    returnTypeFromRelevantFunc.isConvertibleTo(returnTypesFromHint.single())
+                } else {
+                    false
+                }
+            }
+            val returnTypeInferredFromHint = if (relevantFuncsMatchingTypeHint.isEmpty()) {
+                if (Config.Foundry.get()) {
+                    CVLType.PureCVLType.Bottom
+                } else {
+                    returnError(AddressFuncCallNoFuncsMatchingReturnTypes(exp.getRangeOrEmpty(), exp.methodId, args, returnTypesFromHint))
+                }
+            } else {
+                if (returnTypesFromHint.isEmpty()) {
+                    CVLType.PureCVLType.Bottom
+                } else if (returnTypesFromHint.size == 1) {
+                    returnTypesFromHint.single()
+                } else {
+                    CVLType.PureCVLType.TupleType(returnTypesFromHint)
+                }
+            }
+            return@collectingErrors CVLExp.AddressFunctionCallExp(
+                exp.base!!,
+                exp.methodId,
+                args,
+                storage,
+                relevantFuncsMatchingTypeHint,
+                exp.tag.updateType(returnTypeInferredFromHint)
+            )
+        }
+
+        // if we just have one return type, don't bother processing hints for disambiguation
+        // if we didn't have hints but have more than one return type, fail
         val returnType = if (relevantFuncs.isNotEmpty()) {
-            returnTypes.singleOrNull()
-                ?: returnError(AddressFuncCallMultipleReturnTypes(exp, returnTypes))
+            returnTypesSet.singleOrNull()
+                ?: returnError(AddressFuncCallMultipleReturnTypes(exp, returnTypesSet))
         } else {
-            CVLType.PureCVLType.Bottom
+            CVLType.PureCVLType.Bottom // We return bottom here because of Foundry mode, see the check above the hint-checking
         }
 
         return@collectingErrors CVLExp.AddressFunctionCallExp(

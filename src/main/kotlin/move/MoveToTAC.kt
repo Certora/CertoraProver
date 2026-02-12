@@ -104,6 +104,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             .map(CoreToCoreTransformer(ReportTypes.UNROLL, CoreTACProgram::convertToLoopFreeCode))
             .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_CONDITIONAL_TRAPS, ConditionalTrapRevert::materialize))
             .mapIf(isSatisfy, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, wasm.WasmEntryPoint::rewriteAsserts))
+            // This is needed for IntervalsAnalysis to work, which we use before optimization sometimes (e.g., two-stage checking)
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) { ConstantPropagatorAndSimplifier(it).rewrite() })
             .ref
 
         fun optimize(code: CoreTACProgram) =
@@ -1031,6 +1033,9 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
                     is MoveInstruction.BorrowLoc -> {
                         val loc = locals[inst.index]
+                        // Ensure the local is initialized regardless of flow, so that flow-insensitive analyses won't
+                        // think it's uninitialized if we dereference this reference later.
+                        loc.s.ensureHavocInit()
                         TACCmd.Move.BorrowLocCmd(
                             ref = push(MoveType.Reference(loc.type as MoveType.Value)),
                             loc = loc.s,

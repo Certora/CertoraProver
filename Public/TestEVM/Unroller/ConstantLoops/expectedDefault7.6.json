@@ -1,0 +1,21 @@
+{
+	"rules": {
+		"r": {
+			"SUCCESS": [
+				"returnStaticArray()",
+				"simpleDecreasingLoop()",
+				"simpleDecreasingLoopIncrementGT1()",
+				"simpleDecreasingLoopIncrementGT1NonExact()",
+				"simpleDecreasingLoopStartNot0()",
+				"simpleDoWhileDecreasingLoop()",
+				"simpleDoWhileIncreasingLoop()",
+				"simpleIncreasingLoop()",
+				"simpleIncreasingLoopIncrementGT1()",
+				"simpleIncreasingLoopIncrementGT1NonExact()",
+				"simpleIncreasingLoopStartNot0()",
+				"simpleWhileDecreasingLoop()",
+				"simpleWhileIncreasingLoop()"
+			]
+		}
+	}
+}

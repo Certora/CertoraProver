@@ -586,6 +586,7 @@ fun DependencyHandlerScope.applyCommon(projectName: String) {
 	implementation("org.ow2.asm:asm:9.7.1")
 	implementation("com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20240325.1")
 	implementation("com.charleskorn.kaml:kaml:0.59.0")
+	implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.11.0")
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:${property("junit.version")}")
     testImplementation("org.junit.jupiter:junit-jupiter-params:${property("junit.version")}")

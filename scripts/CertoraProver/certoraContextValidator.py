@@ -196,6 +196,11 @@ class CertoraContextValidator:
                          ci_value=str(Vf.UrlVisibilityOptions.PUBLIC),
                          default_value=str(Vf.UrlVisibilityOptions.PRIVATE))
 
+    def check_move_args_post_argparse(self) -> None:
+        context = self.context
+        if context.move_path and context.build_script:
+            raise Util.CertoraUserInputError("'move_path' and 'build_script' cannot be used together.")
+
     def check_args_post_argparse(self) -> None:
         """
         Performs checks over the arguments after basic argparse parsing

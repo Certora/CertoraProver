@@ -65,8 +65,11 @@ import vc.data.TACMeta.CVL_STRUCT_PATH
 import vc.data.TACMeta.CVL_VAR
 import vc.data.TACMeta.SNIPPET
 import vc.data.state.TACValue
+import java.io.BufferedWriter
+import java.io.FileOutputStream
 import java.io.IOException
 import java.math.BigInteger
+import java.util.zip.GZIPOutputStream
 
 private val logger = Logger(LoggerTypes.CALLTRACE)
 
@@ -255,7 +258,7 @@ class DebugAdapterProtocolStackMachine(
          * the version must be increased on the Kotlin side and on the VSCode extension side to avoid
          * crashes).
          */
-        private const val JSON_SCHEMA_VERSION = "0.1"
+        private const val JSON_SCHEMA_VERSION = "0.2"
 
         /**
          * A flag to make all variable update globally, this is only for debugging purposes
@@ -817,17 +820,29 @@ class DebugAdapterProtocolStackMachine(
             ?: error("broken invariant: we made sure that the artifact has been registered")
 
         return try {
-            ArtifactFileUtils.getWriterForFile(path, overwrite = true).use { fileWriter ->
-                fileWriter.append(Json.encodeToString(Trace(JSON_SCHEMA_VERSION, Rule(rule.ruleIdentifier.toString(), rule.isSatisfyRule ||
-                    rule.getAllSingleRules().all {
-                        it.ruleType is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck
-                    }, rule.range), callTrace.reduce())))
+            val name = ArtifactFileUtils.getActualFile(path).name
+            GZIPOutputStream(FileOutputStream(path)).bufferedWriter().use { writer ->
+                writer.writeNDJSON(JSON_SCHEMA_VERSION)
+                writer.writeNDJSON(
+                    Rule(
+                        rule.ruleIdentifier.toString(), rule.isSatisfyRule ||
+                            rule.getAllSingleRules().all {
+                                it.ruleType is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck
+                            }, rule.range
+                    )
+                )
+                callTrace.reduce().forEach { writer.writeNDJSON(it) }
             }
-            fileName
+            name
         } catch (e: IOException) {
             logger.error("Write of rule ${key.ruleIdentifier} failed: $e")
             null
         }
+    }
+
+    inline fun <reified T> BufferedWriter.writeNDJSON(serializable: T) {
+        write(Json.encodeToString(serializable))
+        newLine()
     }
 
     @TestOnly

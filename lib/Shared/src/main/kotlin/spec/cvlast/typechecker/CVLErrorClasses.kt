@@ -2781,7 +2781,21 @@ class AddressFuncCallNoEnv private constructor(override val location: Range, ove
 class AddressFuncCallNoFuncs private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(location: Range, methodId: String, args: List<CVLExp>) : this(
         location,
-        "Did not find any implementations of $methodId with arguments of types ${args.map { it.getCVLType() }} in the scene."
+        "Did not find any implementations of $methodId with arguments of types ${
+            args.map { it.getCVLType() }.dropWhile { it.isConvertibleTo(EVMBuiltinTypes.env) }
+        } in the scene."
+    )
+}
+
+@KSerializable
+@CVLErrorType(
+    category = CVLErrorCategory.TYPECHECKING,
+    description = ""
+)
+class AddressFuncCallCannotInferReturnTypeHint private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(location: Range, lhsIds: List<CVLLhs>) : this(
+        location,
+        "Could not infer types from return type hint, got $lhsIds"
     )
 }
 
@@ -2794,15 +2808,39 @@ class AddressFuncCallNoFuncs private constructor(override val location: Range, o
     exampleCVLWithRange = """
         function f() {
             env e; address a;
-            a.#differentReturnTypes(e)#;
+            address aa = #a.differentReturnTypes(e)#;
         }
     """,
-    exampleMessage = "The function `differentReturnTypes` has several implementation with different return values [uint256, int256]. Cannot perform an address function call on them"
+    exampleMessage = "Did not find any implementations of `differentReturnTypes` with arguments of types [] matching expected return types `[address]` in the scene."
+)
+class AddressFuncCallNoFuncsMatchingReturnTypes private constructor(override val location: Range, override val message: String) :
+    CVLError() {
+    constructor(location: Range, methodId: String, args: List<CVLExp>, expectedReturnTypes: List<CVLType>) : this(
+        location,
+        "Did not find any implementations of `$methodId` with arguments of types ${
+            args.map { it.getCVLType() }.dropWhile { it.isConvertibleTo(EVMBuiltinTypes.env) }
+        } matching expected return types `$expectedReturnTypes` in the scene."
+    )
+}
+
+@KSerializable
+@CVLErrorType(
+    category = CVLErrorCategory.TYPECHECKING,
+    description = ""
+)
+@CVLErrorExample(
+    exampleCVLWithRange = """
+        function f() {
+            env e; address a;
+            mathint x = 4 + #a.differentReturnTypes(e)#;
+        }
+    """,
+    exampleMessage = "The function `differentReturnTypes` has several implementations with different return values [uint256, int256]. Cannot perform an address function call on them"
 )
 class AddressFuncCallMultipleReturnTypes private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(exp: CVLExp.UnresolvedApplyExp, returnTypes: Set<CVLType>) : this(
         exp.getRangeOrEmpty(),
-        "The function `${exp.methodId}` has several implementation with different return values $returnTypes. Cannot perform an address function call on them"
+        "The function `${exp.methodId}` has several implementations with different return values $returnTypes. Cannot perform an address function call on them"
     )
 }
 

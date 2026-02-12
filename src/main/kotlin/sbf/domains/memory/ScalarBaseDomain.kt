@@ -100,15 +100,6 @@ class ScalarBaseDomain<ScalarValue>(
         scratchRegisters.clear()
     }
 
-    fun setToTop() {
-        isBot = false
-        stack = StackEnvironment.makeTop()
-        for (i in 0 until NUM_OF_SBF_REGISTERS) {
-            registers[i] = sFac.mkTop()
-        }
-        scratchRegisters.clear()
-    }
-
     private fun joinOrWiden(
         other: ScalarBaseDomain<ScalarValue>,
         mergeRegister: (left: ScalarValue, right: ScalarValue) -> ScalarValue,
@@ -173,29 +164,24 @@ class ScalarBaseDomain<ScalarValue>(
     }
 
     override fun toString(): String {
-        return if (isBottom()) {
-            "bottom"
-        } else if (isTop()) {
-            "top"
-        } else {
-            val nonTopRegs: ArrayList<Pair<Value.Reg, ScalarValue>> = ArrayList()
-            registers.forEachIndexed {i, scalarValue ->
-                if (!scalarValue.isTop()) {
-                    nonTopRegs.add(Value.Reg(SbfRegister.getByValue(i.toByte())) to scalarValue)
+        return when {
+            isBottom() -> "bottom"
+            isTop() -> "top"
+            else -> {
+                val nonTopRegs = registers.mapIndexedNotNull { i, scalarValue ->
+                    if (!scalarValue.isTop()) {
+                        Value.Reg(SbfRegister.getByValue(i.toByte())) to scalarValue
+                    } else {
+                        null
+                    }
                 }
-            }
-            val sb = StringBuilder()
-            sb.append("{")
-            nonTopRegs.forEachIndexed {i, (reg, scalarVal) ->
-                sb.append("$reg->$scalarVal")
-                if (i < nonTopRegs.size - 1) {
-                    sb.append(",")
+
+                val regsString = nonTopRegs.joinToString(",") { (reg, scalarVal) ->
+                    "$reg->$scalarVal"
                 }
+
+                "(Regs={$regsString},ScratchRegs=$scratchRegisters,Stack=$stack)"
             }
-            sb.append("}")
-
-            return "(Regs=$sb,ScratchRegs=$scratchRegisters,Stack=$stack)"
-
         }
     }
 
@@ -299,6 +285,16 @@ class ScalarBaseDomain<ScalarValue>(
     fun forget(reg: Value.Reg) {
         if (!isBottom()) {
             setRegister(reg, sFac.mkTop())
+        }
+    }
+
+    fun forget(regs: Iterable<Value.Reg>): ScalarBaseDomain<ScalarValue> {
+        val out = deepCopy()
+        return if (out.isBottom()) {
+            out
+        } else {
+            regs.forEach { reg-> out.setRegister(reg, sFac.mkTop()) }
+            out
         }
     }
 

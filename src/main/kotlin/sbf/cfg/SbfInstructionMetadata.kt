@@ -56,8 +56,6 @@ object SbfMeta {
     val MANGLED_NAME = MetaKey<String>("mangled_name")
     // number of registers used by the call
     val KNOWN_ARITY = MetaKey<Int>("external_function_arity")
-    // keep track of some equalities
-    val EQUALITY_REG_AND_STACK = MetaKey<Pair<Value.Reg, StackContentMeta>>("equality_reg_and_stack")
     // type of a register (used by the pointer analysis)
     val REG_TYPE =  MetaKey<Pair<Value.Reg, SbfRegisterType>>("reg_type")
     // Address of the instruction
@@ -72,8 +70,8 @@ object SbfMeta {
     val SET_GLOBAL = MetaKey<String>("set_global")
     // If a call to a function is mocking a call to another function, this is the original function
     val MOCK_FOR = MetaKey<String>("mock_for")
-    // for source line information
-    val RANGE = MetaKey<Range.Range>("range")
+    // for source line information coming from CVLR.
+    val CVLR_RANGE = MetaKey<Range.Range>("cvlr.range")
 
     // These keys have empty strings as values. The values are irrelevant
     val HINT_OPTIMIZED_WIDE_STORE =  MetaKey<Unit>("hint_optimized_wide_store")
@@ -98,8 +96,6 @@ object SbfMeta {
 data class MetaKey<T>(val name: String)
 
 operator fun MetaKey<Unit>.invoke() = this to Unit
-
-data class StackContentMeta(val offset: Long, val width: Short)
 
 fun toString(metaData: MetaData): String {
     val strB = StringBuilder()
@@ -128,7 +124,7 @@ fun toString(metaData: MetaData): String {
                 strB.append(" /* 0x${address.toString(16)} */")
             }
             SbfMeta.LOWERED_ASSUME -> {}
-            SbfMeta.KNOWN_ARITY, SbfMeta.EQUALITY_REG_AND_STACK -> {}
+            SbfMeta.KNOWN_ARITY -> {}
             SbfMeta.UNREACHABLE_FROM_COI -> {}
             SbfMeta.COMMENT -> {}
             SbfMeta.PROMOTED_OVERFLOW_CHECK -> {
@@ -145,7 +141,7 @@ fun toString(metaData: MetaData): String {
                 }
             }
             SbfMeta.MANGLED_NAME -> {}
-            SbfMeta.RANGE -> {}
+            SbfMeta.CVLR_RANGE -> {}
         }
     }
     return strB.toString()

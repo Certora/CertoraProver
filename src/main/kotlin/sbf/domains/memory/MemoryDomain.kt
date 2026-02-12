@@ -71,19 +71,6 @@ const val enableDefensiveChecks = false
 
 class MemoryDomainError(msg: String): SolanaInternalError("MemoryDomain error: $msg")
 
-/** Special operations that [MemoryDomain] needs from the scalar domain **/
-interface MemoryDomainScalarOps<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
-    fun setScalarValue(reg: Value.Reg, newVal: ScalarValue<TNum, TOffset>)
-    fun setStackContent(offset: Long, width: Byte, value: ScalarValue<TNum, TOffset>)
-    /**
-     * This function returns the scalar value for [reg] similar to `getAsScalarValue`.
-     *
-     * However, if the scalar value is a number then it tries to cast it to a pointer
-     * in cases where that number is a known pointer address.
-     */
-    fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg): ScalarValue<TNum, TOffset>
-}
-
 private typealias TScalarDomain<TNum, TOffset> = ScalarStackStridePredicateDomain<TNum, TOffset>
 
 /**
@@ -129,7 +116,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
     private val memcmpPreds: MemEqualityPredicateDomain<Flags>,
     private val opts: MemoryDomainOpts,
     private val globalState: GlobalState
-    ) : AbstractDomain<MemoryDomain<TNum, TOffset, Flags>>, ScalarValueProvider<TNum, TOffset> {
+    ) : MutableAbstractDomain<MemoryDomain<TNum, TOffset, Flags>>, ScalarValueProvider<TNum, TOffset> {
 
     constructor(nodeAllocator: PTANodeAllocator<Flags>,
                 sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
@@ -261,13 +248,6 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
         memcmpPreds.setToBottom()
     }
 
-    override fun setToTop() {
-        scalars.setToTop()
-        ptaGraph.reset()
-        memcmpPreds.setToTop()
-    }
-
-
     override fun forget(reg: Value.Reg) {
         if (!isBottom()) {
             scalars.forget(reg)
@@ -276,6 +256,21 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
                 memcmpPreds.forget(reg)
             }
         }
+    }
+
+    override fun forget(regs: Iterable<Value.Reg>): MemoryDomain<TNum, TOffset, Flags> {
+        if (isBottom()) {
+            return deepCopy()
+        }
+
+        val outScalars = scalars.forget(regs)
+        val outMemcmpPreds =  if (opts.useEqualityDomain) {
+            memcmpPreds.forget(regs)
+        } else {
+            memcmpPreds.deepCopy()
+        }
+        val outG = ptaGraph.forget(regs)
+        return MemoryDomain(outScalars, outG, outMemcmpPreds, opts, globalState)
     }
 
     private fun joinOrWiden(other: MemoryDomain<TNum, TOffset, Flags>, isJoin: Boolean,
@@ -306,11 +301,19 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
         }
     }
 
-    override fun pseudoCanonicalize(other: MemoryDomain<TNum, TOffset, Flags>) {
-        if (!isBottom() && !other.isBottom()) {
-            ptaGraph.pseudoCanonicalize(other.getPTAGraph())
-            scalars.pseudoCanonicalize(other.scalars)
-            memcmpPreds.pseudoCanonicalize(other.memcmpPreds)
+    override fun pseudoCanonicalize(
+        other: MemoryDomain<TNum, TOffset, Flags>
+    ): MemoryDomain<TNum, TOffset, Flags> {
+        return if (!isBottom() && !other.isBottom()) {
+            MemoryDomain(
+                scalars.pseudoCanonicalize(other.scalars),
+                ptaGraph.pseudoCanonicalize(other.ptaGraph),
+                memcmpPreds.pseudoCanonicalize(other.memcmpPreds),
+                opts,
+                globalState
+            )
+        } else {
+            this.deepCopy()
         }
     }
 

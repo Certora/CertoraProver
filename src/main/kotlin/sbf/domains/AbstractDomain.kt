@@ -22,45 +22,98 @@ import sbf.disassembler.GlobalVariables
 import sbf.disassembler.Label
 
 /**
- * Generic interface of an abstract domain used for analysis of SBF programs
- **/
+ * Abstract domain interface for static analysis of SBF programs.
+ *
+ * All operations are pure (non-mutating). They return new instances rather than
+ * modifying the receiver.
+ *
+ * @param T The concrete type of the abstract domain implementation
+ */
 interface AbstractDomain<T> {
+    /** Returns true if `this` represents the bottom element (empty set of concrete states) */
     fun isBottom(): Boolean
+
+    /** Returns true if `this` represents the top element (all possible concrete states) */
     fun isTop(): Boolean
-    fun setToBottom()
-    fun setToTop()
-    // left and right are used only for debugging purposes, so they are not mandatory
+
+    /**
+     * Returns the join (least upper bound) of `this` and [other].
+     *
+     * @param other The abstract state to join with
+     * @param left Debug label for the left operand (optional)
+     * @param right Debug label for the right operand (optional)
+     */
     fun join(other: T, left: Label? = null, right: Label? = null): T
-    // left and right are used only for debugging purposes, so they are not mandatory
+
+    /**
+     * Returns the widening of `this` and [other].
+     *
+     * @param other The abstract state to widen with
+     * @param b Debug label for the widening point (optional)
+     */
     fun widen(other: T, b: Label? = null): T
-    // left and right are used only for debugging purposes, so they are not mandatory
+
+    /**
+     * Returns true if `this` is less than or equal to [other] in the abstract domain ordering.
+     *
+     * @param other The abstract state to compare against
+     * @param left Debug label for the left operand (optional)
+     * @param right Debug label for the right operand (optional)
+     */
     fun lessOrEqual(other: T, left: Label? = null, right: Label? = null): Boolean
-    fun forget(reg: Value.Reg)
+
+    /**
+     * Returns an equivalent representation of this that is syntactically closer to [other].
+     *
+     * This non-standard operation is useful for syntactic domains that lack canonical
+     * representations. Two syntactically different abstract states may represent the same
+     * set of concrete states (same concretization). By finding a representation closer to
+     * [other], subsequent join operations can produce more precise results.
+     *
+     * @param other The target abstract state to align with
+     * @return An equivalent abstract state syntactically closer to [other]
+     */
+    fun pseudoCanonicalize(other: T): T
+
+    /**
+     * Returns the abstract state resulting from analyzing block [b].
+     *
+     * Applies the transfer function for each instruction in [b] sequentially,
+     * optionally notifying [listener] before and after each instruction.
+     *
+     * @param b The basic block to analyze
+     * @param listener Callback for instruction processing events
+     */
     fun analyze(
         b: SbfBasicBlock,
         listener: InstructionListener<T> = DefaultInstructionListener()
     ): T
-    /**
-     * Non-standard operation.
-     *
-     * The goal of this operation is to allow changing this into a different abstract state but with the
-     * same concretization, producing a more precise result when joining with other.
-     * This is useful for "syntactic" domains that lack of a canonical representation, so it is common that two
-     * different abstract states can have the same concretization.
-     *
-     * This operation uses other to find an alternative but equivalent (same concretization) representation of this
-     * that is syntactically "closer" to other.
-     *
-     * @params this: modified in-place
-     * @params other: immutable
-     *
-     * The default implementation does nothing.
-    **/
-    fun pseudoCanonicalize(other: T) {}
 
+    /**
+     * Returns a new abstract state with all information about [regs] removed.
+     *
+     * Each register in [regs] is set to top in the returned state,
+     * effectively losing all tracked properties for those registers.
+     *
+     * @param regs The list of registers to forget
+     */
+    fun forget(regs: Iterable<Value.Reg>): T
+
+    /**
+     * Returns a deep copy of this abstract state.
+     *
+     * Required to support immutable semantics in fixpoint algorithms.
+     */
     fun deepCopy(): T
+
     override fun toString(): String
 }
+
+interface MutableAbstractDomain<T>: AbstractDomain<T> {
+    fun setToBottom()
+    fun forget(reg: Value.Reg)
+}
+
 
 /** Global state used by abstract transfer functions **/
 data class GlobalState(
@@ -91,8 +144,38 @@ class DefaultInstructionListener<T>: InstructionListener<T> {
     override fun instructionEvent(locInst: LocatedSbfInstruction, pre: T, post: T){}
 }
 
-
+/** Operations to query scalar values from a scalar domain  **/
 interface ScalarValueProvider<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
     fun getAsScalarValue(value: Value): ScalarValue<TNum, TOffset>
     fun getStackContent(offset: Long, width: Byte): ScalarValue<TNum, TOffset>
+}
+
+/**
+ * Operations to update a scalar domain.
+ * These operations allow other domains to refine a scalar domain.
+ **/
+interface MutableScalarValueUpdater<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
+    fun setScalarValue(reg: Value.Reg, newVal: ScalarValue<TNum, TOffset>)
+    fun setStackContent(offset: Long, width: Byte, value: ScalarValue<TNum, TOffset>)
+}
+
+/** Special operations that [MemoryDomain] needs from the scalar domain **/
+interface MemoryDomainScalarOps<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
+    /**
+     * This function returns the scalar value for [reg] similar to `getAsScalarValue`.
+     * However, if the scalar value is a number then it tries to cast it to a pointer
+     * in cases where that number is a known pointer address.
+     */
+    fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg): ScalarValue<TNum, TOffset>
+}
+
+data class StackLocation(val offset: Long, val width: Byte) {
+    override fun toString() = "*Stack_${offset}_$width"
+}
+
+interface StackLocationQuery {
+    /**
+     * Returns the stack location from which [reg] was loaded, if known.
+     */
+    fun getStackSource(reg: Value.Reg): StackLocation?
 }

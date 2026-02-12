@@ -2047,19 +2047,22 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
      * If some conditions hold, some fields of the stack node from this are split into multiple
      * subfields such that the stack node from this and other have the same fields.
     **/
-    fun pseudoCanonicalize(other: PTAGraph<TNum, TOffset, Flags>) {
+    fun pseudoCanonicalize(
+        other: PTAGraph<TNum, TOffset, Flags>
+    ):  PTAGraph<TNum, TOffset, Flags> {
         fun splitCond(node: PTANode<Flags>, field: PTAField): Boolean {
             val succ = node.getSucc(field)
             return succ?.getNode()?.mustBeInteger() ?: false
         }
 
+        val out = this.copy()
         if (SolanaConfig.EnablePTAPseudoCanonicalize.get()) {
-            val leftStack = getStack()
             val rightStack = other.getStack()
-            leftStack.splitFields(rightStack, ::splitCond) { f ->
+            out.getStack().splitFields(rightStack, ::splitCond) { f ->
                 untrackedStackFields = untrackedStackFields.remove(f)
             }
         }
+        return out
     }
 
     fun checkStackInvariant(g: PTAGraph<TNum, TOffset, Flags>, msg: String) {
@@ -2786,6 +2789,12 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         setRegCell(reg, null)
     }
 
+    fun forget(regs: Iterable<Value.Reg>): PTAGraph<TNum, TOffset, Flags> {
+        val outG = this.copy()
+        regs.forEach { reg -> outG.forget(reg) }
+        return outG
+    }
+
     fun doUn(locInst: LocatedSbfInstruction) {
 
         val inst = locInst.inst
@@ -3082,8 +3091,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         scalars: ScalarDomain
     ): ScalarDomain
     where
-        ScalarDomain: AbstractDomain<ScalarDomain>,
-        ScalarDomain: MemoryDomainScalarOps<TNum, TOffset> =
+        ScalarDomain: MutableAbstractDomain<ScalarDomain>,
+        ScalarDomain: MutableScalarValueUpdater<TNum, TOffset> =
         scalars.deepCopy().apply {
             setScalarValue(dst, ScalarValue(sbfTypesFac.toNum(value.v)))
         }
@@ -3093,8 +3102,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         scalars: ScalarDomain
     ) where
         ScalarDomain: ScalarValueProvider<TNum, TOffset>,
-        ScalarDomain: AbstractDomain<ScalarDomain>,
-        ScalarDomain: MemoryDomainScalarOps<TNum, TOffset>
+        ScalarDomain: MutableAbstractDomain<ScalarDomain>,
+        ScalarDomain: MutableScalarValueUpdater<TNum, TOffset>
     {
         val inst = locInst.inst
         check(inst is SbfInstruction.Select) {"doSelect expects a select instruction instead of $inst"}

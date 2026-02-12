@@ -110,6 +110,19 @@ class ScalarStackStridePredicateDomainFactory<TNum: INumValue<TNum>, TOffset: IO
     ) = ScalarStackStridePredicateDomain(fac, globalState, addPreconditions)
 }
 
+class ScalarRegisterStackEqualityDomainFactory<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>
+    : IScalarDomainFactory<TNum, TOffset, ScalarRegisterStackEqualityDomain<TNum, TOffset>> {
+    override fun mkTop(fac: ISbfTypeFactory<TNum, TOffset>, globalState: GlobalState) =
+        ScalarRegisterStackEqualityDomain.makeTop(fac, globalState)
+    override fun mkBottom(fac: ISbfTypeFactory<TNum, TOffset>, globalState: GlobalState) =
+        ScalarRegisterStackEqualityDomain.makeBottom(fac, globalState)
+    override fun init(
+        fac: ISbfTypeFactory<TNum, TOffset>,
+        globalState: GlobalState,
+        addPreconditions: Boolean
+    ) = ScalarRegisterStackEqualityDomain(fac, globalState, addPreconditions)
+}
+
 open class GenericScalarAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, ScalarDomain: AbstractDomain<ScalarDomain>>
     (val cfg: SbfCFG,
      val globals: GlobalVariables,

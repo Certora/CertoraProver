@@ -55,13 +55,22 @@ def build_sui_project(context: CertoraContext, timings: Dict) -> None:
 def set_sui_build_directory(context: CertoraContext) -> None:
     sources: Set[Path] = set()
 
-    # If no move_path was specified, try to build the package
-    if not context.move_path:
+    if context.move_path:
+        # If move_path is specified, we assume the user has already built the spec package separately
+        assert not context.build_script, "cannot have move_path and build_script together"
+    else:
+        # If no move_path was specified, try to build the package
         move_toml_file = Util.find_file_in_parents("Move.toml")
         if not move_toml_file:
             raise Util.CertoraUserInputError("Could not find Move.toml, and no move_path was specified.")
         sources.add(move_toml_file.absolute())
-        run_sui_build(context, move_toml_file.parent)
+        context.move_path = str(move_toml_file.parent / "build")
+        if context.build_script:
+            script_path = Path(context.build_script).resolve()
+            sources.add(script_path)
+            run_sui_build(context, [str(script_path), str(move_toml_file.parent)])
+        else:
+            run_sui_build(context, ["sui", "move", "build", "--test", "--path", str(move_toml_file.parent)])
 
     assert context.move_path, "expecting move_path to be set after build"
     move_dir = Path(context.move_path)
@@ -88,11 +97,7 @@ def set_sui_build_directory(context: CertoraContext) -> None:
     except Exception as e:
         raise Util.CertoraUserInputError(f"Collecting build files failed with the exception: {e}")
 
-def run_sui_build(context: CertoraContext, package_dir: Path) -> None:
-    assert not context.move_path, "run_sui_build: expecting move_path to be empty"
-
-    build_cmd = ["sui", "move", "build", "--test", "--path", str(package_dir)]
-
+def run_sui_build(context: CertoraContext, build_cmd: list[str]) -> None:
     try:
         build_cmd_text = ' '.join(build_cmd)
         log.info(f"Building by calling `{build_cmd_text}`")
@@ -101,8 +106,6 @@ def run_sui_build(context: CertoraContext, package_dir: Path) -> None:
         # Check if the script executed successfully
         if result.returncode != 0:
             raise Util.CertoraUserInputError(f"Error running `{build_cmd_text}`")
-
-        context.move_path = str(package_dir / "build")
 
     except Util.TestResultsReady as e:
         raise e

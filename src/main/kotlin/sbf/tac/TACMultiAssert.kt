@@ -30,6 +30,8 @@ import spec.cvlast.RuleIdentifier
 import utils.Range
 import spec.cvlast.SpecType
 import vc.data.find
+import sbf.SolanaConfig
+import cli.AssertFilterEntry
 
 object TACMultiAssert {
 
@@ -89,18 +91,62 @@ object TACMultiAssert {
     }
 
     /**
+     * Gets the assert filter from SolanaConfig.AssertFilter.
+     * Returns null if no filter is specified, otherwise returns a list of filter entries.
+     * Supports both integer indices (1-based) and file locations (file:line format).
+     */
+    private fun getAssertFilter(): List<AssertFilterEntry>? {
+        return SolanaConfig.AssertFilter.getOrNull()?.toList()
+    }
+
+    /**
+     * Checks if a file location filter matches the given Range.
+     * Compares file name (ignoring path) and line number.
+     * Column information in the Range is ignored.
+     */
+    private fun AssertFilterEntry.FileLocation.matches(range: Range): Boolean {
+        if (range is Range.Empty) {
+            return false
+        }
+        val rangeData = range as Range.Range
+        val rangeFileName = rangeData.specFile.substringAfterLast('/')
+        val filterFileName = file.substringAfterLast('/')
+        return filterFileName == rangeFileName && line == rangeData.start.lineForIDE
+    }
+
+    /**
      * For a given rule [compiledRule] with N assert commands, it returns N new rules where each rule has
      * exactly one assert.
+     * If [SolanaConfig.AssertFilter] is set, only asserts matching the filter are included.
+     * The filter supports both 1-based indices and file:line locations.
      **/
     fun transformMulti(compiledRule: CompiledGenericRule.Compiled): List<CompiledGenericRule.Compiled> {
         val idToPtr = assertIdToAssertPtr(compiledRule.code)
+        val assertFilter = getAssertFilter()
 
-        return idToPtr.map { (assertId, assertPtr) ->
+        // Separate filter entries by type for efficient matching
+        val indexFilters = assertFilter?.filterIsInstance<AssertFilterEntry.Index>()?.map { it.value }?.toSet()
+        val locationFilters = assertFilter?.filterIsInstance<AssertFilterEntry.FileLocation>()
+
+        return idToPtr.mapNotNull { (assertId, assertPtr) ->
+            val userFacingIndex = assertId - RESERVED_NUM_OF_ASSERTS
+            val cvlRange = assertPtr.cmd.meta[TACMeta.CVL_RANGE] ?: Range.Empty()
+
+            // Apply filter if specified
+            if (assertFilter != null) {
+                val matchesIndex = indexFilters?.contains(userFacingIndex) == true
+                val matchesLocation = locationFilters?.any { it.matches(cvlRange) } == true
+
+                if (!matchesIndex && !matchesLocation) {
+                    return@mapNotNull null
+                }
+            }
+
             val newRuleType = SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.AssertSpecFile(
                 compiledRule.rule,
                 assertId,
                 assertPtr.cmd.msg,
-                assertPtr.cmd.meta[TACMeta.CVL_RANGE] ?: Range.Empty(),
+                cvlRange,
             )
 
             val newIdentifier = compiledRule.rule.ruleIdentifier.multiAssertIdentifier(assertId)

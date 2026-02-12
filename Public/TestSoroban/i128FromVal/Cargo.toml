@@ -21,14 +21,14 @@ lto = true
 certora = []
 
 [dependencies.cvlr]
-git = "https://github.com/1arie1/cvlr.git"
+version = "=0.5.0"
 default-features = false
 
 [dependencies.cvlr-soroban-derive]
-git = "https://github.com/1arie1/cvlr-soroban.git"
+version = "=0.4.0"
 
 [dependencies.soroban-sdk]
-version = "=22.0.4"
+version = "=22.0.9"
 
 [dependencies.soroban-env-guest]
-version = "=22.1.2"
+version = "=22.1.3"

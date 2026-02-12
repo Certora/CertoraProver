@@ -1137,9 +1137,9 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
             pairs += Pair(TACMeta.SBF_ADDRESS, address)
         }
 
-        val range = metaData.getVal(SbfMeta.RANGE)
-        if (range != null) {
-            pairs += Pair(TACMeta.CVL_RANGE, range)
+        val cvlrRange = metaData.getVal(SbfMeta.CVLR_RANGE)
+        if (cvlrRange != null) {
+            pairs += Pair(TACMeta.CVL_RANGE, cvlrRange)
         }
 
         return cmds.map { it.plusMetaMap(pairs) }

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::{collections::{HashMap, HashSet}, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -28,7 +28,7 @@ pub struct SourceRange {
     /**
      * The file path for the range
      */
-    pub file_path: String,
+    pub file_path: PathBuf,
     /**
      * The 0-based line number for the range
      */

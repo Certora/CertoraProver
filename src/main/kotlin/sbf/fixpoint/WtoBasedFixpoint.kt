@@ -89,7 +89,7 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
                             oldState: T, newState: T): T {
         return if (numAscendingIterations < options.wideningDelay) {
             oldState.pseudoCanonicalize(newState)
-            oldState.join(newState, b.getLabel(), b.getLabel())
+                .join(newState, b.getLabel(), b.getLabel())
         } else {
             if (debugFixpo) {
                 sbfLogger.info { "Widening at block ${b.getLabel()} (iter=$numAscendingIterations)" }
@@ -133,9 +133,9 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
                     // We join all the predecessors except those that are back-edges
                     // because the back-edges haven't been visited yet.
                     if (!wto.nesting(pred.getLabel()).contains(wto.nesting(label))) {
-                        inState.pseudoCanonicalize(predAbsVal)
-                        predAbsVal.pseudoCanonicalize(inState)
-                        inState = inState.join(predAbsVal, b.getLabel(), pred.getLabel())
+                        val leftState = inState.pseudoCanonicalize(predAbsVal)
+                        val rightState = predAbsVal.pseudoCanonicalize(inState)
+                        inState = leftState.join(rightState, b.getLabel(), pred.getLabel())
                     }
                 }
             }

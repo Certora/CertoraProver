@@ -89,7 +89,9 @@ data class NPDomain<D, TNum, TOffset>(
     )
     where TNum: INumValue<TNum>,
           TOffset: IOffset<TOffset>,
-          D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
+          D: AbstractDomain<D>,
+          D: ScalarValueProvider<TNum, TOffset>,
+          D: StackLocationQuery {
 
     override fun toString() = if (isBot) { "bot" } else { csts.toString() }
 
@@ -98,14 +100,18 @@ data class NPDomain<D, TNum, TOffset>(
             sbfTypeFac: ISbfTypeFactory<TNum, TOffset>
         ) where TNum: INumValue<TNum>,
                 TOffset: IOffset<TOffset>,
-                D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> =
+                D: AbstractDomain<D>,
+                D: ScalarValueProvider<TNum, TOffset>,
+                D: StackLocationQuery =
             NPDomain<D, TNum, TOffset>(SetIntersectionDomain(), isBot = false, sbfTypeFac)
 
         fun <D, TNum, TOffset>  mkBottom(
             sbfTypeFac: ISbfTypeFactory<TNum, TOffset>
         ) where TNum: INumValue<TNum>,
                 TOffset: IOffset<TOffset>,
-                D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> =
+                D: AbstractDomain<D>,
+                D: ScalarValueProvider<TNum, TOffset>,
+                D: StackLocationQuery =
             NPDomain<D, TNum, TOffset>(SetIntersectionDomain(), isBot = true, sbfTypeFac)
 
         fun getLinCons(cond: Condition, vFac: VariableFactory): SbfLinearConstraint {
@@ -450,28 +456,34 @@ data class NPDomain<D, TNum, TOffset>(
     }
 
     /**
-     *  The metadata associated to an assume instruction can express an equality between a register and a stack content.
-     *  We process such as equalities here.
+     *  Use the scalar domain to refine the NPDomain using equalities between registers and stack locations
      */
-    private fun analyzeAssumeMetadata(locInst: LocatedSbfInstruction, vFac: VariableFactory): NPDomain<D, TNum, TOffset> {
+    private fun refineWithEqualities(
+        locInst: LocatedSbfInstruction,
+        vFac: VariableFactory,
+        types: AnalysisRegisterTypes<D, TNum, TOffset>
+    ): NPDomain<D, TNum, TOffset> {
         if (isBottom()) {
             return this
         }
 
         val inst = locInst.inst
-        check(inst is SbfInstruction.Assume) {"analyzeAssumeMetadata does not expect $inst"}
-        val eq =  inst.metaData.getVal(SbfMeta.EQUALITY_REG_AND_STACK)
-        return if (eq != null) {
-            val reg = eq.first
-            val stackContent = eq.second
-            val linCons = SbfLinearConstraint (CondOp.EQ,
-                LinearExpression(RegisterVariable(reg, vFac)),
-                LinearExpression(StackSlotVariable(stackContent.offset, stackContent.width, vFac)))
-            val res = NPDomain<D, TNum, TOffset>(csts.add(linCons), isBot = false, sbfTypeFac).normalize()
-            res
-        } else {
-            this
+        if (inst !is SbfInstruction.Assume) {
+            return this
         }
+
+        val state = types.getAbstractState(locInst) ?: return this
+
+        val outCsts = inst.readRegisters.fold(csts) { acc, reg ->
+            val stackLoc = state.getStackSource(reg) ?: return@fold acc
+            val cst = SbfLinearConstraint(
+                CondOp.EQ,
+                LinearExpression(RegisterVariable(reg, vFac)),
+                LinearExpression(StackSlotVariable(stackLoc.offset, stackLoc.width.toShort(), vFac))
+            )
+            acc.add(cst)
+        }
+        return NPDomain<D, TNum, TOffset>(outCsts, isBot = false, sbfTypeFac).normalize()
     }
 
     // Public for NPAnalysis
@@ -1067,7 +1079,7 @@ data class NPDomain<D, TNum, TOffset>(
         return when (val inst = locatedInst.inst) {
             is SbfInstruction.Assume -> {
                 analyzeAssume(inst.cond, locatedInst, vFac, registerTypes)
-                    .analyzeAssumeMetadata(locatedInst, vFac)
+                    .refineWithEqualities(locatedInst, vFac, registerTypes)
             }
             is SbfInstruction.Assert -> {
                 if (SolanaConfig.SlicerBackPropagateThroughAsserts.get()) {

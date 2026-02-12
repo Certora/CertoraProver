@@ -55,7 +55,10 @@ fun addAnchorsToSVGGraphAndWrapInDiv(svg: String, id: CallId): String {
 
 private fun addSvgId(svg: String, id: CallId): String {
     val pattern = Regex("<svg ")
-    return svg.replace(pattern, "<svg id=\"theSVG${if (id != MAIN_GRAPH_ID) id else ""}\" ")
+    // Replace default graph0 ID with a unique one
+    val svgWithId = svg.replace("<g id=\"graph0\"", "<g id=\"graph0_${if (id != MAIN_GRAPH_ID) id else "main"}\"")
+        .replace(pattern, "<svg id=\"theSVG${if (id != MAIN_GRAPH_ID) id else ""}\" ")
+    return svgWithId
 }
 
 

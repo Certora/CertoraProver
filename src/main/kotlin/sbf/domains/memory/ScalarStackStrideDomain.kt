@@ -206,8 +206,6 @@ class StackStridePredicateDomain(
 
     fun setToBottom() { base.setToBottom() }
 
-    fun setToTop() { base.setToTop() }
-
     fun join(other: StackStridePredicateDomain) =  StackStridePredicateDomain(base.join(other.base), globalState)
 
     fun widen(other: StackStridePredicateDomain) = StackStridePredicateDomain(base.widen(other.base), globalState)
@@ -547,6 +545,12 @@ class StackStridePredicateDomain(
         base.updateStack( { !it.isTop()}, transformer = {it.removeAll(reg)} )
     }
 
+    fun forget(regs: Iterable<Value.Reg>): StackStridePredicateDomain {
+        val out = deepCopy()
+        regs.forEach { reg-> out.forget(reg) }
+        return out
+    }
+
     /**
      * The transfer function on the scalar domain has been already executed when `analyzeBin` is called
      */
@@ -844,8 +848,9 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
         private val scalars: ScalarDomain<TNum, TOffset>,
         private val predicates: StackStridePredicateDomain,
         private val globalState: GlobalState
-) : AbstractDomain<ScalarStackStridePredicateDomain<TNum, TOffset>>,
+) : MutableAbstractDomain<ScalarStackStridePredicateDomain<TNum, TOffset>>,
     ScalarValueProvider<TNum, TOffset>,
+    MutableScalarValueUpdater<TNum, TOffset>,
     MemoryDomainScalarOps<TNum, TOffset> {
 
     val sbfTypeFac: ISbfTypeFactory<TNum, TOffset> = scalars.sbfTypeFac
@@ -889,11 +894,6 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
         predicates.setToBottom()
     }
 
-    override fun setToTop() {
-        scalars.setToTop()
-        predicates.setToTop()
-    }
-
     override fun join(other: ScalarStackStridePredicateDomain<TNum, TOffset>, left: Label?, right: Label?) =
         if (isBottom()) {
             other.deepCopy()
@@ -924,10 +924,16 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
     override fun lessOrEqual(other: ScalarStackStridePredicateDomain<TNum, TOffset>, left: Label?, right: Label?) =
         scalars.lessOrEqual(other.scalars, left, right) && predicates.lessOrEqual(other.predicates)
 
-    override fun pseudoCanonicalize(other: ScalarStackStridePredicateDomain<TNum, TOffset>) {
-        fun evalPred(pred: StackStridePredicate): ScalarValue<TNum, TOffset> {
+    override fun pseudoCanonicalize(
+        other: ScalarStackStridePredicateDomain<TNum, TOffset>
+    ): ScalarStackStridePredicateDomain<TNum, TOffset> {
+
+        fun evalPred(
+            pred: StackStridePredicate,
+            scalars: ScalarDomain<TNum, TOffset>
+        ): ScalarValue<TNum, TOffset> {
             // use `this` to get the scalar value of `pred.reg`
-            val x = (this.scalars.getValue(pred.reg).type() as? SbfType.NumType)?.value
+            val x = (scalars.getValue(pred.reg).type() as? SbfType.NumType)?.value
             return if (x != null) {
                 val offset = scalars.sbfTypeFac.numToOffset(pred.evalS(x))
                 ScalarValue(SbfType.PointerType.Stack(offset))
@@ -936,12 +942,14 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
             }
         }
 
+        val out = this.deepCopy()
+
         if (this.isBottom() || other.isBottom()) {
-            return
+            return out
         }
 
         if (!SolanaConfig.UseScalarPredicateDomain.get()) {
-            return
+            return out
         }
 
         // If we support in the future register spilling then we need also to look at the stack
@@ -952,7 +960,7 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
                 val scalarVal = this.scalars.getValue(reg)
                 // Predicates from `other` that are also true in `this`
                 val importedPredicates = preds.fold(SetOfStackStridePredicate()) { acc, pred ->
-                    val newScalarVal = evalPred(pred)
+                    val newScalarVal = evalPred(pred, this.scalars)
                     dbg { "pseudo-canonicalize: $reg -> $pred  -- oldVal=$scalarVal newVal=eval($pred)=$newScalarVal" }
 
                     // Only propagate the predicate if both scalar values are equivalent
@@ -966,12 +974,13 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
                 }
 
                 // we intentionally skip old predicates
-                this.predicates.setRegister(
+                out.predicates.setRegister(
                     reg,
                     importedPredicates
                 )
             }
         }
+        return out
     }
 
     /** TRANSFER FUNCTIONS **/
@@ -982,6 +991,18 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
         if (SolanaConfig.UseScalarPredicateDomain.get()) {
             predicates.forget(reg)
         }
+    }
+
+    override fun forget(regs: Iterable<Value.Reg>): ScalarStackStridePredicateDomain<TNum, TOffset> {
+        return ScalarStackStridePredicateDomain(
+            scalars.forget(regs),
+            if (SolanaConfig.UseScalarPredicateDomain.get()) {
+                predicates.forget(regs)
+            } else {
+                predicates.deepCopy()
+            },
+            globalState
+        )
     }
 
     override fun getAsScalarValue(value: Value) = scalars.getValue(value)
@@ -1047,9 +1068,9 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
     override fun analyze(
         b: SbfBasicBlock,
         listener: InstructionListener<ScalarStackStridePredicateDomain<TNum, TOffset>>
-    ): ScalarStackStridePredicateDomain<TNum, TOffset> {
-        dbg { "=== Scalar+StackStridePredicate domain analyzing ${b.getLabel()} ===\nAt entry: $this\n" }
-        return analyzeBlock(
+    ): ScalarStackStridePredicateDomain<TNum, TOffset> =
+        analyzeBlockMut(
+            domainName = "ScalarDomain x StackStridePredicateDomain",
             b,
             inState = this,
             transferFunction = { mutState, locInst ->
@@ -1057,7 +1078,6 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
             },
             listener
         )
-    }
 
     override fun toString() =
         if (predicates.isTop()) {

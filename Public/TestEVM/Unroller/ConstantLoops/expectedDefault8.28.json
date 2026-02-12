@@ -1,0 +1,23 @@
+{
+	"rules": {
+		"r": {
+			"SANITY_FAIL": [
+				"simpleDoWhileIncreasingLoop()"
+			],
+			"SUCCESS": [
+				"returnStaticArray()",
+				"simpleDecreasingLoop()",
+				"simpleDecreasingLoopIncrementGT1()",
+				"simpleDecreasingLoopIncrementGT1NonExact()",
+				"simpleDecreasingLoopStartNot0()",
+				"simpleDoWhileDecreasingLoop()",
+				"simpleIncreasingLoop()",
+				"simpleIncreasingLoopIncrementGT1()",
+				"simpleIncreasingLoopIncrementGT1NonExact()",
+				"simpleIncreasingLoopStartNot0()",
+				"simpleWhileDecreasingLoop()",
+				"simpleWhileIncreasingLoop()"
+			]
+		}
+	}
+}

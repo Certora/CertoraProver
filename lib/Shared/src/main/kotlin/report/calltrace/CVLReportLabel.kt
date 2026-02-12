@@ -325,7 +325,7 @@ private fun formatArgsWithNames(args: List<CVLExp>, paramNames: List<String>): S
         .joinToString(separator = ", ", prefix = "(", postfix = ")", transform = formatNamed)
 }
 
-private fun CVLExp.isCalldataArgs() = getCVLTypeOrNull() is VMInternal.RawArgs
+fun CVLExp.isCalldataArgs() = getCVLTypeOrNull() is VMInternal.RawArgs
 
 /** gets the param names of a call, but only if all of them are available */
 private fun ResolvedContractCall.paramNames(): List<String>? {
