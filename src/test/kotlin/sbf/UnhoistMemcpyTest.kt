@@ -468,7 +468,7 @@ class UnhoistMemcpyTest {
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
         ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
-            promoteStoresToMemcpy(cfg, scalarAnalysis)
+            promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
         }
         removeUselessDefinitions(cfg)
         println("After promoting load and stores to memcpy\n$cfg")

@@ -133,6 +133,7 @@ enum class LoggerTypes : LoggerName {
     SBF_CPI,
     SBF_GLOBAL_VAR_ANALYSIS,
     SBF_MEMORY_ANALYSIS,
+    SBF_MOD_REF_ANALYSIS,
     SBF_PTA_UNIFY,
     SBF_PTA_UNIFY2,
     SBF_PTA_COLLAPSES,

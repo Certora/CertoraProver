@@ -84,7 +84,7 @@ class PromoteStoresToMemcpyTest {
 
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
-        promoteStoresToMemcpy(cfg, scalarAnalysis)
+        promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
         println("After transformation\n$cfg")
         removeUselessDefinitions(cfg)
         println("After remove useless loads transformation\n$cfg")
@@ -133,7 +133,7 @@ class PromoteStoresToMemcpyTest {
 
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
-        promoteStoresToMemcpy(cfg, scalarAnalysis)
+        promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
         println("After transformation\n$cfg")
         removeUselessDefinitions(cfg)
         println("After remove useless loads transformation\n$cfg")
@@ -163,7 +163,7 @@ class PromoteStoresToMemcpyTest {
 
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
-        promoteStoresToMemcpy(cfg, scalarAnalysis)
+        promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
         println("After transformation\n$cfg")
         removeUselessDefinitions(cfg)
         println("After remove useless loads transformation\n$cfg")
@@ -201,7 +201,7 @@ class PromoteStoresToMemcpyTest {
 
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
-        promoteStoresToMemcpy(cfg, scalarAnalysis)
+        promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
         println("After transformation\n$cfg")
         removeUselessDefinitions(cfg)
         println("After remove useless loads transformation\n$cfg")
@@ -239,7 +239,7 @@ class PromoteStoresToMemcpyTest {
 
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
-        promoteStoresToMemcpy(cfg, scalarAnalysis)
+        promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
         println("After transformation\n$cfg")
         removeUselessDefinitions(cfg)
         println("After remove useless loads transformation\n$cfg")
@@ -282,7 +282,7 @@ class PromoteStoresToMemcpyTest {
 
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
-        promoteStoresToMemcpy(cfg, scalarAnalysis)
+        promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
         println("After transformation\n$cfg")
         removeUselessDefinitions(cfg)
         println("After remove useless loads transformation\n$cfg")
@@ -325,7 +325,7 @@ class PromoteStoresToMemcpyTest {
 
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
-        promoteStoresToMemcpy(cfg, scalarAnalysis)
+        promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
         println("After transformation\n$cfg")
         removeUselessDefinitions(cfg)
         println("After remove useless loads transformation\n$cfg")
@@ -364,7 +364,7 @@ class PromoteStoresToMemcpyTest {
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
         ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
-            promoteStoresToMemcpy(cfg, scalarAnalysis)
+            promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
         }
         println("After transformation\n$cfg")
         removeUselessDefinitions(cfg)
@@ -407,7 +407,7 @@ fun test09() {
     val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
     println("Before transformation\n$cfg")
     ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
-        promoteStoresToMemcpy(cfg, scalarAnalysis)
+        promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
     }
     println("After transformation\n$cfg")
     removeUselessDefinitions(cfg)
@@ -447,7 +447,7 @@ fun test09() {
 
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
-        promoteStoresToMemcpy(cfg, scalarAnalysis, aggressivePromotion = false)
+        promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis, aggressivePromotion = false)
         println("After transformation\n$cfg")
         Assertions.assertEquals(false, checkMemcpy(cfg))
     }
@@ -475,7 +475,7 @@ fun test09() {
 
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
-        promoteStoresToMemcpy(cfg, scalarAnalysis, aggressivePromotion = false)
+        promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis, aggressivePromotion = false)
         println("After transformation\n$cfg")
         Assertions.assertEquals(false, checkMemcpy(cfg))
     }
@@ -547,7 +547,7 @@ fun test09() {
 
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
-        promoteStoresToMemcpy(cfg, scalarAnalysis)
+        promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
         println("After transformation\n$cfg")
         Assertions.assertEquals(true, checkMemcpy(cfg))
     }
@@ -619,7 +619,7 @@ fun test09() {
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
         ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
-            promoteStoresToMemcpy(cfg, scalarAnalysis)
+            promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
         }
         println("After transformation\n$cfg")
         removeUselessDefinitions(cfg)
@@ -664,7 +664,7 @@ fun test09() {
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
         ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
-            promoteStoresToMemcpy(cfg, scalarAnalysis)
+            promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
         }
         println("After transformation\n$cfg")
         Assertions.assertEquals(false, checkMemcpy(cfg)) // we expect no promotion
@@ -731,7 +731,7 @@ fun test09() {
 
         println("Before promote stores to memcpy: $cfg")
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
-        promoteStoresToMemcpy(cfg, scalarAnalysis)
+        promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
         println("After transformation\n$cfg")
         removeUselessDefinitions(cfg)
         println("After remove useless loads transformation\n$cfg")
@@ -760,7 +760,7 @@ fun test09() {
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
         ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
-            promoteStoresToMemcpy(cfg, scalarAnalysis)
+            promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
         }
         println("After transformation\n$cfg")
         removeUselessDefinitions(cfg)
@@ -793,7 +793,7 @@ fun test09() {
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
         ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
-            promoteStoresToMemcpy(cfg, scalarAnalysis)
+            promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
         }
         println("After transformation\n$cfg")
         Assertions.assertEquals(true, checkMemcpy(cfg))
@@ -837,7 +837,7 @@ fun test09() {
 
         println("Before transformation\n$cfg")
         ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
-            promoteStoresToMemcpy(cfg, scalarAnalysisOld)
+            promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysisOld)
         }
         println("After transformation\n$cfg")
         Assertions.assertEquals(false, checkMemcpy(cfg))
@@ -866,7 +866,7 @@ fun test09() {
 
         println("Before transformation\n$cfg")
         ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
-            promoteStoresToMemcpy(cfg, scalarAnalysisOld)
+            promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysisOld)
         }
         println("After transformation\n$cfg")
         removeUselessDefinitions(cfg)
@@ -900,7 +900,7 @@ fun test09() {
 
         println("Before transformation\n$cfg")
         ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
-            promoteStoresToMemcpy(cfg, scalarAnalysisOld)
+            promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysisOld)
         }
         println("After transformation\n$cfg")
         Assertions.assertEquals(true, checkMemcpy(cfg))
@@ -925,7 +925,7 @@ fun test09() {
         val scalarAnalysisOld = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
         ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
-            promoteStoresToMemcpy(cfg, scalarAnalysisOld)
+            promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysisOld)
         }
         println("After transformation\n$cfg")
         Assertions.assertEquals(false, checkMemcpy(cfg))
@@ -950,7 +950,7 @@ fun test09() {
 
         println("Before transformation\n$cfg")
         ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
-            promoteStoresToMemcpy(cfg, scalarAnalysisOld)
+            promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysisOld)
         }
         println("After transformation\n$cfg")
         Assertions.assertEquals(true, checkMemcpy(cfg))
@@ -1002,7 +1002,7 @@ fun test09() {
         println("Before promote stores to memcpy: $cfg")
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
-            promoteStoresToMemcpy(cfg, scalarAnalysis)
+            promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
         }
         println("After transformation\n$cfg")
         removeUselessDefinitions(cfg)
@@ -1036,7 +1036,7 @@ fun test09() {
 
         println("Before promote stores to memcpy: $cfg")
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
-        promoteStoresToMemcpy(cfg, scalarAnalysis, aggressivePromotion = false)
+        promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis, aggressivePromotion = false)
         println("After transformation\n$cfg")
         removeUselessDefinitions(cfg)
         println("After remove useless loads transformation\n$cfg")
@@ -1077,7 +1077,7 @@ fun test09() {
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
         ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
-            promoteStoresToMemcpy(cfg, scalarAnalysis)
+            promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
         }
         println("After transformation\n$cfg")
         removeUselessDefinitions(cfg)
@@ -1085,4 +1085,39 @@ fun test09() {
         Assertions.assertEquals(true, checkMemcpy(cfg))
     }
 
+    @Test
+    fun `narrowing store + memcpy of 16 bytes in same block`() {
+        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val cfg = MutableSbfCFG("test")
+        val b1 = cfg.getOrInsertBlock(Label.Address(1))
+        cfg.setEntry(b1)
+
+
+        b1.add(SbfInstruction.Mem(Deref(8, r10, -24), r1, true))
+        b1.add(SbfInstruction.Mem(Deref(2, r10, -524), r1, false))
+        b1.add(SbfInstruction.Call("CVT_nondet_u16"))
+        b1.add(SbfInstruction.Assume(Condition(CondOp.EQ, r0, Value.Imm(0UL))))
+        b1.add(SbfInstruction.Mem(Deref(8, r10, -56), r1, true))
+        b1.add(SbfInstruction.Mem(Deref(8, r10, -96), r1, false))
+        b1.add(SbfInstruction.Mem(Deref(8, r10, -48), r1, true))
+        b1.add(SbfInstruction.Mem(Deref(8, r10, -88), r1, false))
+        b1.add(SbfInstruction.Call("CVT_nondet_u16"))
+        b1.add(SbfInstruction.Assume(Condition(CondOp.EQ, r0, Value.Imm(0UL))))
+        b1.add(SbfInstruction.Exit())
+        cfg.normalize()
+        cfg.verify(true)
+
+        val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
+        println("Before transformation\n$cfg")
+        ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
+            promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis)
+        }
+        println("After transformation\n$cfg")
+        removeUselessDefinitions(cfg)
+        println("After remove useless loads transformation\n$cfg")
+
+        Assertions.assertEquals(true, getNumOfLoads(cfg) == 0)
+    }
 }

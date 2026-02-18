@@ -22,6 +22,7 @@ import com.certora.collect.*
 import dwarf.DebugSymbols
 import log.*
 
+@Treapable
 sealed class Label {
     /** @return a fresh label derived from this label */
     abstract fun refresh(): Label

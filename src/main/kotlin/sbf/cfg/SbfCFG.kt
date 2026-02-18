@@ -17,6 +17,7 @@
 
 package sbf.cfg
 
+import com.certora.collect.*
 import sbf.SolanaConfig
 import sbf.disassembler.*
 import datastructures.stdcollections.*
@@ -31,6 +32,7 @@ import kotlin.collections.removeLast
 class CFGBuilderError(msg: String): RuntimeException("CFG builder error: $msg")
 class CFGVerifyError(msg: String): RuntimeException("CFG is not well-formed: $msg")
 
+@Treapable
 interface SbfBasicBlock {
     fun getLabel(): Label
     fun getSuccs(): List<SbfBasicBlock>
@@ -53,6 +55,19 @@ class MutableSbfBasicBlock(private val label: Label): SbfBasicBlock {
      */
     private val preds = ArrayList<MutableSbfBasicBlock>()
     private val succs = ArrayList<MutableSbfBasicBlock>()
+
+    override fun hashCode(): Int = label.hashCode()
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) {
+            return true
+        }
+        if (other !is SbfBasicBlock) {
+            return false
+        }
+        return label == other.getLabel()
+    }
+
 
     fun addSucc(b: MutableSbfBasicBlock) {
         check(succs.all { it.label != b.label }) {"Adding twice ${b.label} as successor of $label"}

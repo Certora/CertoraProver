@@ -31,10 +31,12 @@ enum class MemAccessRegion { STACK, NON_STACK, ANY }
  * Extends [Deref] with additional information about the memory region where the access occurs.
  */
 data class MemAccess(val reg: SbfRegister, val offset: Long, val width: Short, val region: MemAccessRegion) {
-    fun overlap(other: FiniteInterval): Boolean {
-        val x = FiniteInterval.mkInterval(offset, width.toLong())
-        return x.overlap(other)
-    }
+    fun overlap(other: FiniteInterval): Boolean =
+        FiniteInterval.mkInterval(offset, width.toLong()).overlap(other)
+
+    fun overlap(other: MemAccess): Boolean =
+        overlap(FiniteInterval.mkInterval(other.offset, other.width.toLong()))
+
 }
 
 /**
