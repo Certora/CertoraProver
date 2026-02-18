@@ -195,7 +195,7 @@ open class CompiledRule<R: SingleRule> protected constructor(val rule: R, val ta
                 generateSingleResult(scene, rule, res, time, isOptimizedRuleFromCache, isSolverResultFromCache, alerts)
             } else {
                 val details = (res as? Verifier.JoinedResult.Success)?.details().orEmpty()
-                val dumpGraphLink = RuleCheckInfo.basicDumpGraphLinkOf(rule)
+                val dumpGraphLink = RuleCheckInfo.basicDumpGraphLinkOf(rule, res.finalResult)
                 RuleCheckResult.Single.Basic(
                     rule = rule,
                     ruleCheckInfo = RuleCheckInfo.BasicInfo(
