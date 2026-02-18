@@ -44,7 +44,7 @@ private val loggerSetupHelpers = Logger(LoggerTypes.SETUP_HELPERS)
 /**
     Loads all move modules acessible to the Prover, including the spec module.
  */
-class MoveScene(
+open class MoveScene(
     val modulePath: Path
 ) {
     private val moduleMap: Map<MoveModuleName, MoveModule> by lazy {
@@ -115,7 +115,7 @@ class MoveScene(
         .toList()
     }
 
-    private val addressAliases: Map<BigInteger, List<String>> by lazy {
+    open protected val addressAliases: Map<BigInteger, List<String>> by lazy {
         buildInfos.flatMap {
             it.compiledPackageInfo.addressAliasInstantiation.entries.map { (alias, address) ->
                 address to alias

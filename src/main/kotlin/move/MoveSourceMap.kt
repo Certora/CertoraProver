@@ -51,14 +51,47 @@ data class MoveSourceMap(
         )
     }
 
+    /**
+        Deserializes a file hash.  Sui move compilers since ~v1.65.2 format this as a hex string, but other/older
+        compilers format it as an array of unsigned integer bytes.  We accept both formats here.
+     */
+    object FileHashSerializer : KSerializer<BigInteger> {
+
+        override val descriptor: SerialDescriptor =
+            PrimitiveSerialDescriptor("FileHashSerializer", PrimitiveKind.STRING)
+
+        override fun serialize(encoder: Encoder, value: BigInteger) {
+            encoder.encodeString(value.toString(16))
+        }
+
+        override fun deserialize(decoder: Decoder): BigInteger {
+            return when (val element = decoder.decodeSerializableValue(JsonElement.serializer())) {
+                is JsonPrimitive -> {
+                    if (element.isString) {
+                        fileHashesByString(element.content)
+                    } else {
+                        throw SerializationException("Expected string or array for file_hash, got primitive: $element")
+                    }
+                }
+                is JsonArray -> {
+                    fileHashesByBytes(element.map { it.jsonPrimitive.int.toUByte() })
+                }
+                else -> {
+                    throw SerializationException("Expected string or array for file_hash, got $element")
+                }
+            }
+        }
+    }
+
     @KSerializable
     data class Location(
-        @SerialName("file_hash") val fileHashBytes: List<UByte>,
+        @SerialName("file_hash")
+        @Serializable(with = FileHashSerializer::class)
+        val fileHash: BigInteger,
+
         @SerialName("start") val start: Int,
         @SerialName("end") val end: Int
-    ) {
-        val fileHash: BigInteger get() = fileHashes(fileHashBytes)
-    }
+    )
 
     @KSerializable(with = NamedLocationSerializer::class)
     data class NamedLocation(
@@ -91,7 +124,7 @@ data class MoveSourceMap(
     /**
         Named locations are represented in the Json as arrays.  E.g.:
         ```
-            ["name", { file_hash: [...], start: 123, end: 142 }]`
+            ["name", { file_hash: "...", start: 123, end: 142 }]`
         ```
         We need a custom serializer to handle this format, as the default for array serialization requires uniform
         element types.
@@ -122,6 +155,7 @@ data class MoveSourceMap(
     }
 
     companion object {
-        private val fileHashes = memoized { bytes: List<UByte> -> BigInteger(1, bytes.toByteArray()) }
+        private val fileHashesByBytes = memoized { bytes: List<UByte> -> BigInteger(1, bytes.toByteArray()) }
+        private val fileHashesByString = memoized { bytes: String -> BigInteger(bytes, 16) }
     }
 }

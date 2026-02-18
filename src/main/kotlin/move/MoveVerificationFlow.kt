@@ -36,10 +36,9 @@ import kotlin.Result.Companion.success
 data class MoveEncodedRule(override val rule: EcosystemAgnosticRule, override val code: CoreTACProgram) : EncodedRule<EcosystemAgnosticRule>
 typealias MoveEncodeResult = Result<MoveEncodedRule>
 
-class MoveVerificationFlow : VerificationFlow<EcosystemAgnosticRule>() {
+abstract class MoveVerificationFlow : VerificationFlow<EcosystemAgnosticRule>() {
     override val webReportMainContractName: String = "MoveMainProgram"
-    private val modulePath = Config.MoveModulePath.get()
-    private val moveScene = MoveScene(Path(modulePath))
+    abstract val moveScene: MoveScene
 
     override suspend fun buildRules(): Collection<MoveEncodeResult> {
         /*

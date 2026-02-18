@@ -198,8 +198,17 @@ class CertoraContextValidator:
 
     def check_move_args_post_argparse(self) -> None:
         context = self.context
-        if context.move_path and context.build_script:
-            raise Util.CertoraUserInputError("'move_path' and 'build_script' cannot be used together.")
+        if context.move_path:
+            # Old-style move_path specification.  We don't support build scripts or package paths in this case
+            if context.build_script:
+                raise Util.CertoraUserInputError(
+                    "'move_path' and 'build_script' cannot be used together.  To target a specific Move package with a "
+                    "build script, specify `spec_package_path`."
+                )
+            if context.spec_package_path:
+                raise Util.CertoraUserInputError(
+                    "'move_path' and 'spec_package_path' cannot be used together. `spec_package_path` is preferred."
+                )
 
     def check_args_post_argparse(self) -> None:
         """

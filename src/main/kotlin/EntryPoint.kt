@@ -38,7 +38,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runInterruptible
 import kotlinx.serialization.json.Json
 import log.*
-import move.MoveVerificationFlow
+import move.SuiVerificationFlow
 import org.apache.commons.cli.UnrecognizedOptionException
 import os.dumpSystemConfig
 import parallel.coroutines.establishMainCoroutineScope
@@ -244,7 +244,7 @@ fun main(args: Array<String>) {
                 fileName == null && BytecodeFiles.getOrNull() != null &&
                     SpecFile.getOrNull() != null -> handleBytecodeFlow(BytecodeFiles.get(), SpecFile.get())
 
-                fileName == null && Config.MoveModulePath.getOrNull() != null -> handleMoveFlow()
+                fileName == null && Config.MoveModulePath.getOrNull() != null -> handleSuiFlow()
 
                 fileName == null && isCertoraScriptFlow(buildFileName, verificationFileName) -> {
                     val cfgFileNames = getFilesInSourcesDir()
@@ -545,14 +545,19 @@ suspend fun handleSorobanFlow(fileName: String): List<RuleCheckResult.Leaf> {
     }
 }
 
-suspend fun handleMoveFlow() {
+suspend fun handleSuiFlow() {
     backupFiles()
-    // And back up the binary modules
+    // And back up the binary modules and optional package summaries
     CertoraConf.backupFiles(
         File(Config.MoveModulePath.get()).walk().filter { it.isFile }.map { it.toString() }.toSet()
     )
+    Config.SuiPackageSummaryPath.getOrNull()?.let {
+        CertoraConf.backupFiles(
+            File(it).walk().filter { it.isFile }.map { it.toString() }.toSet()
+        )
+    }
 
-    MoveVerificationFlow().use {
+    SuiVerificationFlow().use {
         it.solve()
     }
 }
