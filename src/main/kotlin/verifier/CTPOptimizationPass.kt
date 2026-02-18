@@ -18,8 +18,6 @@
 package verifier
 
 import analysis.controlflow.InfeasiblePaths
-import analysis.icfg.SummaryStack
-import analysis.maybeAnnotation
 import analysis.opt.*
 import analysis.opt.bytemaps.optimizeBytemaps
 import analysis.opt.intervals.IntervalsRewriter
@@ -29,15 +27,11 @@ import analysis.split.BoolOptimizer
 import config.Config
 import config.ReportTypes
 import config.ReportTypes.*
-import datastructures.stdcollections.*
 import instrumentation.transformers.*
 import optimizer.Pruner
 import scene.SceneIdentifiers
 import utils.*
 import vc.data.CoreTACProgram
-import vc.data.SimplePatchingProgram.Companion.patchForEach
-import vc.data.TACCmd
-import vc.data.destructiveOptimizations
 
 interface CTPOptimizationPass {
     val reportType: ReportTypes
@@ -55,7 +49,7 @@ interface CTPOptimizationPass {
                 acc.mapIfAllowed(CoreToCoreTransformer(opt.reportType, opt::optimize))
             }.ref
 
-        val snippetRemoval = make(SNIPPET_REMOVAL, SnippetRemover::rewrite)
+        val snippetRemoval = make(ANNOTATION_REMOVAL, AnnotationRemovers::rewrite)
 
         fun constantPropagatorAndSimplifier(mergeBlocks: Boolean) = make(PROPAGATOR_SIMPLIFIER) { ctp ->
             ConstantPropagatorAndSimplifier(ctp).rewrite().letIf(mergeBlocks, BlockMerger::mergeBlocks)
@@ -88,22 +82,6 @@ interface CTPOptimizationPass {
             }
         ) { ctp ->
             ConstantPropagator.propagateConstants(ctp, emptySet()).letIf(mergeBlocks, BlockMerger::mergeBlocks)
-        }
-
-        val removeCallAnnotations = make(REMOVE_CALL_ANNOTATIONS) { ctp ->
-            if (ctp.destructiveOptimizations) {
-                ctp.parallelLtacStream().filter {
-                    it.maybeAnnotation(SummaryStack.END_EXTERNAL_SUMMARY) != null ||
-                        it.maybeAnnotation(SummaryStack.START_EXTERNAL_SUMMARY) != null ||
-                        it.maybeAnnotation(SummaryStack.START_INTERNAL_SUMMARY) != null ||
-                        it.maybeAnnotation(SummaryStack.END_INTERNAL_SUMMARY) != null
-
-                }.patchForEach(ctp) {
-                    replaceCommand(it.ptr, listOf(TACCmd.Simple.NopCmd))
-                }
-            } else {
-                ctp
-            }
         }
 
         val removeUnusedWrites = make(REMOVE_UNUSED_WRITES, SimpleMemoryOptimizer::removeUnusedWrites)

@@ -206,9 +206,6 @@ class BytemapConeOfInf private constructor(
              * variables as `needed`.
              */
             fun blindlyAdd() {
-                if (code.destructiveOptimizations && cmd is TACCmd.Simple.AnnotationCmd) {
-                    return
-                }
                 val (bytemaps, otherVars) = cmd.getFreeVarsOfRhsExtended().partition { it.tag is Tag.ByteMap }
                 addToNeeded(*otherVars.toTypedArray())
                 bytemaps.forEach {

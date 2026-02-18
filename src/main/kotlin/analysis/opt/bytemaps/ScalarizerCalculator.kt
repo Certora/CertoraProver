@@ -28,7 +28,6 @@ import vc.data.CoreTACProgram
 import vc.data.TACCmd
 import vc.data.TACExpr
 import vc.data.TACSymbol
-import vc.data.destructiveOptimizations
 import vc.data.freeVars
 import vc.data.getOperands
 import vc.data.tacexprutil.getFreeVars
@@ -168,11 +167,6 @@ class ScalarizerCalculator private constructor(val code: CoreTACProgram, val isI
 
             is TACCmd.Simple.AssigningCmd.AssignHavocCmd ->
                 Unit
-
-            is TACCmd.Simple.AnnotationCmd ->
-                if (!code.destructiveOptimizations) {
-                    badBases += cmd.freeVars().filter { it.tag is Tag.ByteMap }
-                }
 
             else ->
                 badBases += cmd.freeVars().filter { it.tag is Tag.ByteMap }

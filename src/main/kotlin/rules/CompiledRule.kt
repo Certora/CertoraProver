@@ -373,7 +373,6 @@ open class CompiledRule<R: SingleRule> protected constructor(val rule: R, val ta
                     FPMonotonicityInstrumentor,
                     disjointHashesMaterializer(scene),
                     constantPropagator(1, mergeBlocks = true),
-                    removeCallAnnotations,
                     removeUnusedWrites,
                     rewriteCopyLoops,
                     removeDeadPartitions,

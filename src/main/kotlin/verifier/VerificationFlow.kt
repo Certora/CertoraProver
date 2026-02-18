@@ -41,7 +41,7 @@ import vc.data.CoreTACProgram
 import vc.data.withDestructiveOptimizations
 import java.io.Closeable
 import datastructures.stdcollections.*
-import instrumentation.transformers.SnippetRemover
+import instrumentation.transformers.AnnotationRemovers
 import log.Logger
 import log.LoggerTypes
 import parallel.coroutines.parallelMapOrdered
@@ -267,7 +267,7 @@ abstract class VerificationFlow<R : SingleRule> : Closeable {
      * smaller.
      */
     private fun prepareForDestructiveMode(code: CoreTACProgram): CoreTACProgram {
-        return SnippetRemover.rewrite(code.withDestructiveOptimizations(
+        return AnnotationRemovers.rewrite(code.withDestructiveOptimizations(
             true
         ))
     }
@@ -303,7 +303,7 @@ abstract class VerificationFlow<R : SingleRule> : Closeable {
             logger.debug { "Solving round ${round} of rule ${rule.ruleIdentifier}" }
             when(round){
                 TwoStageRound.ROUNDLESS -> `impossible!`
-                TwoStageRound.FIRST_ROUND -> solve(rule, SnippetRemover.rewrite(updatedCode), round)
+                TwoStageRound.FIRST_ROUND -> solve(rule, AnnotationRemovers.rewrite(updatedCode), round)
                 TwoStageRound.SECOND_ROUND -> solve(rule, updatedCode, round)
             }
         }
