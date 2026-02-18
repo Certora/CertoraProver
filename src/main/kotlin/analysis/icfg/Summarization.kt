@@ -811,7 +811,21 @@ object Summarization {
 
                     else -> emptyList<AppliedSummary.FromUserInput>()
                 }
-                val appliedSummary = (explicitSummary + configSummaries).resolveCandidates()
+                // For resolved calls (hostContractId known), filter out UNRESOLVED_ONLY Dispatchers:
+                // they should not participate in priority resolution since they are only meant for
+                // unresolved calls. Without this filter, an UNRESOLVED_ONLY Dispatcher (e.g. wildcard
+                // `_.foo => DISPATCHER(true)`) could win by priority over a lower-priority catch-all
+                // (e.g. `currentContract._ => HAVOC_ALL`), causing the Dispatcher to be re-applied to
+                // the already-resolved call each round — an infinite loop in [summarizeRemainingCallSummaries].
+                val isCallResolved = callSumm.callTarget.all { it is CallGraphBuilder.CalledContract.FullyResolved }
+                val candidates = if (isCallResolved) {
+                    (explicitSummary + configSummaries).filter {
+                        it.specCallSumm !is SpecCallSummary.Dispatcher || it.specCallSumm.summarizeAllCalls
+                    }
+                } else {
+                    explicitSummary + configSummaries
+                }
+                val appliedSummary = candidates.resolveCandidates()
 
                 if (appliedSummary != null) {
                     when (appliedSummary.specCallSumm) {

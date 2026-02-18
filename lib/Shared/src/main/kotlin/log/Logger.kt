@@ -133,6 +133,7 @@ enum class LoggerTypes : LoggerName {
     SBF_CPI,
     SBF_GLOBAL_VAR_ANALYSIS,
     SBF_MEMORY_ANALYSIS,
+    SBF_MOD_REF_ANALYSIS,
     SBF_PTA_UNIFY,
     SBF_PTA_UNIFY2,
     SBF_PTA_COLLAPSES,
@@ -159,7 +160,8 @@ enum class LoggerTypes : LoggerName {
     BOUNDED_MODEL_CHECKER,
     REQUIRE_REASON_CHECKER,
     MOVE,
-    DEDUPLICATOR
+    DEDUPLICATOR,
+    VERIFICATION_FLOW
     ;
 }
 

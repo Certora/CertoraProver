@@ -19,6 +19,7 @@ package wasm
 
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
+import verifier.EncodedRule
 import wasm.host.NullHost
 import wasm.ir.*
 import wasm.wat.*
@@ -90,7 +91,7 @@ class WasmTestFixtureTest : WasmTestFixture() {
 
         val wasm = watToWasm(wat);
         val program = WasmEntryPoint.wasmToTAC(wasm.toFile(), setOf("entry"), NullHost, optimize = false).single()
-        val code = program.let { it as CompiledGenericRule.Compiled }.code
+        val code = program.let { it.getOrNull() ?: error("wasmToTAC did not produce a rule as expected") }.code
 
         assertEquals(setOf(WasmName("\$fake.fake"), WasmName("\$fake2.fake2")), code.findUnresolveCalls())
     }

@@ -118,8 +118,9 @@ data class EcosystemAgnosticRule(
     override val ruleType: SpecType.Single,
     override val isSatisfyRule: Boolean = false,
     override val range: Range = Range.Empty()
-) : SingleRule()
-
+) : SingleRule() {
+    val isGenerated get() = ruleType is SpecType.Single.GeneratedFromBasicRule.SanityRule || ruleType is SpecType.Single.BuiltIn
+}
 
 //
 // All rules related to CVL, i.e., subtypes of [ICVLRule] follow below.

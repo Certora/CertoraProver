@@ -41,6 +41,12 @@ import verifier.Verifier
 
 private val logger = Logger(LoggerTypes.TWOSTAGE)
 
+enum class TwoStageRound{
+    ROUNDLESS,
+    FIRST_ROUND,
+    SECOND_ROUND
+}
+
 /**
  * This meta stores the original command pointer to an assigning command. This allows to do easily translate the CEX
  * model (that relates to the pre-solver tac) back to the pre-optimized tac that we are dealing with here. As metas
@@ -111,17 +117,13 @@ private fun CoreTACProgram.eliminateBlocks(blocks: Set<NBId>): CoreTACProgram {
  * Perform the first check with destructive optimizations enabled. Annotates the program beforehand, so that the model
  * can be used to fix variables to values in the rerun.
  */
-private suspend fun doFirstCheck(tac: CoreTACProgram, check: suspend (CoreTACProgram) -> CompiledRule.CompileRuleCheckResult): CompiledRule.CompileRuleCheckResult {
+private suspend fun doFirstCheck(tac: CoreTACProgram, check: suspend (CoreTACProgram, TwoStageRound) -> CompiledRule.CompileRuleCheckResult): CompiledRule.CompileRuleCheckResult {
     // annotate each assigning command with its CmdPointer
-    val annotatedTac = tac.patching { p ->
-        tac.analysisCache.graph.commands
-            .filter { it.cmd is TACCmd.Simple.AssigningCmd }
-            .forEach { (ptr, cmd) -> p.update(ptr, cmd.plusMeta(TWOSTAGE_META_VARORIGIN, CmdPointerList(ptr))) }
-    }.withDestructiveOptimizations(true).copy(name = "${tac.name}-firstrun")
+    val annotatedTac = tac.annotateWithTwoStageMeta().withDestructiveOptimizations(true).copy(name = "${tac.name}-firstrun")
     // dump tac of first run
     dumpTAC(annotatedTac)
     // do the first check
-    return check(annotatedTac)
+    return check(annotatedTac, TwoStageRound.FIRST_ROUND)
 }
 
 
@@ -190,7 +192,7 @@ private suspend fun doSecondCheck(
     tac: CoreTACProgram,
     model: CounterexampleModel,
     subname: String,
-    check: suspend (CoreTACProgram) -> CompiledRule.CompileRuleCheckResult,
+    check: suspend (CoreTACProgram, TwoStageRound) -> CompiledRule.CompileRuleCheckResult,
     filter: (TACSymbol.Var, TACValue) -> Boolean
 ): CompiledRule.CompileRuleCheckResult? {
     val name = "${tac.name}-${subname}"
@@ -205,7 +207,7 @@ private suspend fun doSecondCheck(
         Logger.regression { "${name}: violation failed sanity check" }
     }
 
-    val secondResult = check(patchedTac)
+    val secondResult = check(patchedTac, TwoStageRound.SECOND_ROUND)
 
     return if (secondResult.result.getOrThrow().result is Verifier.JoinedResult.Failure) {
         logger.info { "${name}: violation was confirmed, returning the second result" }
@@ -215,6 +217,15 @@ private suspend fun doSecondCheck(
         logger.info { "${name}: violation could not be confirmed, it is spurious" }
         Logger.regression { "${name}: violation was not confirmed" }
         null
+    }
+}
+
+
+fun CoreTACProgram.annotateWithTwoStageMeta(): CoreTACProgram {
+    return this.patching { p ->
+        this.analysisCache.graph.commands
+            .filter { it.cmd is TACCmd.Simple.AssigningCmd }
+            .forEach { (ptr, cmd) -> p.update(ptr, cmd.plusMeta(TWOSTAGE_META_VARORIGIN, CmdPointerList(ptr))) }
     }
 }
 
@@ -236,7 +247,7 @@ suspend fun twoStageDestructiveOptimizationsCheck(
     rule: IRule,
     ruleDescription: String,
     tac: CoreTACProgram,
-    check: suspend (CoreTACProgram) -> CompiledRule.CompileRuleCheckResult
+    check: suspend (CoreTACProgram, TwoStageRound) -> CompiledRule.CompileRuleCheckResult
 ): CompiledRule.CompileRuleCheckResult {
     // dump original tac
     dumpTAC(tac)
@@ -250,6 +261,7 @@ suspend fun twoStageDestructiveOptimizationsCheck(
         val model =
             firstResult.result.getOrNull()?.result?.examplesInfo?.head?.model
                 ?: throw ViolationWithoutModelException()
+
         val checkResult = (doSecondCheck(tac, model, "rerun-allvars", check) { _, _ -> true }).addToVerifyTime()
             ?: (doSecondCheck(tac, model, "rerun-numvars", check) { v, _ -> v.tag != Tag.Bool }).addToVerifyTime()
             ?: (doSecondCheck(tac, model, "rerun-boolvars", check) { v, _ -> v.tag == Tag.Bool }).addToVerifyTime()
@@ -272,7 +284,7 @@ suspend fun <T: SingleRule> twoStageDestructiveOptimizationsCheck(
     scene: IScene,
     rule: CompiledRule<T>,
 ): CompiledRule.CompileRuleCheckResult {
-    return twoStageDestructiveOptimizationsCheck(rule.rule, rule.rule.declarationId, rule.tac) { tac ->
+    return twoStageDestructiveOptimizationsCheck(rule.rule, rule.rule.declarationId, rule.tac) { tac, _ ->
         CompiledRule.create(rule.rule, tac, rule.liveStatsReporter).check(scene.toIdentifiers())
     }
 }

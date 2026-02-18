@@ -307,6 +307,14 @@ sealed class SpecType: AmbiSerializable {
                     }
                 }
             }
+
+            @Serializable
+            data class ParametricRuleInstantiation(
+                override val originalRule: IRule
+            ) : GeneratedFromBasicRule() {
+                override fun copyWithOriginalRule(newOriginalRule: IRule): ParametricRuleInstantiation =
+                    copy(originalRule = newOriginalRule)
+            }
         }
         @Serializable
         sealed class EnvFree : Single() {

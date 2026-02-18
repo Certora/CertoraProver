@@ -17,7 +17,6 @@
 
 package sbf.domains
 
-import org.jetbrains.annotations.TestOnly
 import datastructures.stdcollections.*
 
 /**
@@ -31,6 +30,8 @@ data class FiniteInterval(val l: Long, val u: Long) {
     companion object {
         fun mkInterval(l: Long, size: Long) = FiniteInterval(l, l+size-1)
     }
+
+    override fun toString(): String = "[$l,$u]"
 
     fun size(): ULong {
         check(u >= l) {"FiniteInterval is not supposed to wrap around"}
@@ -100,7 +101,7 @@ data class FiniteInterval(val l: Long, val u: Long) {
 }
 
 
-data class SetOfFiniteIntervals(private val intervals: List<FiniteInterval>) {
+data class SetOfFiniteIntervals(val intervals: List<FiniteInterval>) {
     /// Class invariants:
     //  1. for all i in {0,...,intervals.size-1}:: intervals[i].u < intervals[i+1].l
     //  2. There is no consecutive intervals.
@@ -161,7 +162,10 @@ data class SetOfFiniteIntervals(private val intervals: List<FiniteInterval>) {
             } else if (x.l > cur.u) {
                 out.add(cur)
             } else if (x == cur) {
+                // Note that x = intervals[i]. Thus, this will add x and the rest of intervals[i+1,...]
+                out.addAll(intervals.subList(i, intervals.size))
                 alreadyInserted = true
+                break
             } else { // overlap cases
                 if (x.includes(cur)) {
                     continue
@@ -192,6 +196,113 @@ data class SetOfFiniteIntervals(private val intervals: List<FiniteInterval>) {
         return SetOfFiniteIntervals(out)
     }
 
+    fun join(other: SetOfFiniteIntervals): SetOfFiniteIntervals =
+        other.intervals.fold(this) { acc, i -> acc.add(i) }
+
+    fun remove(itv: FiniteInterval): SetOfFiniteIntervals {
+        val out = ArrayList<FiniteInterval>()
+
+        for (cur in intervals) {
+            // Case 1: No overlap - keep the interval as-is
+            if (cur.u < itv.l || cur.l > itv.u) {
+                out.add(cur)
+            }
+            // Case 2: itv completely covers cur - skip it (remove entirely)
+            else if (itv.includes(cur)) {
+                continue
+            }
+            // Case 3: Partial overlap - split or trim
+            else {
+                // cur partially overlaps with itv
+                // We need to keep the parts of cur that don't overlap with itv
+
+                // Left part: if cur starts before itv
+                if (cur.l < itv.l) {
+                    out.add(FiniteInterval(cur.l, minOf(cur.u, itv.l - 1)))
+                }
+
+                // Right part: if cur ends after itv
+                if (cur.u > itv.u) {
+                    out.add(FiniteInterval(maxOf(cur.l, itv.u + 1), cur.u))
+                }
+            }
+        }
+
+        return SetOfFiniteIntervals(out)
+    }
+
+    /**
+     * Returns true if every interval in this set is included in some interval from [other].
+     **/
+    fun included(other: SetOfFiniteIntervals): Boolean {
+        if (intervals.isEmpty()) {
+            return true
+        }
+        if (other.intervals.isEmpty()) {
+            return false
+        }
+
+        var j = 0
+        for (i in intervals) {
+            // Advance j to find a candidate interval in other that might include i
+            while (j < other.intervals.size && other.intervals[j].u < i.l) {
+                j++
+            }
+
+            // No more intervals in other to check
+            if (j >= other.intervals.size) {
+                return false
+            }
+
+            // Check if current interval from other includes i
+            if (!other.intervals[j].includes(i)) {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    /**
+     * Returns a new SetOfFiniteIntervals containing all intervals from this set that intersect
+     * with at least one interval from [other].
+     */
+    fun filterIntersecting(other: SetOfFiniteIntervals): SetOfFiniteIntervals {
+        if (intervals.isEmpty() || other.intervals.isEmpty()) {
+            return SetOfFiniteIntervals(emptyList())
+        }
+
+        val out = mutableListOf<FiniteInterval>()
+        var j = 0
+
+        for (i in intervals.indices) {
+            val thisInterval = intervals[i]
+
+            // Advance j to the first interval in other that might intersect with thisInterval
+            while (j < other.intervals.size && other.intervals[j].u < thisInterval.l) {
+                j++
+            }
+
+            // Check if thisInterval  intersects with any interval in other starting from j
+            var found = false
+            var k = j
+            while (k < other.intervals.size && other.intervals[k].l <= thisInterval.u) {
+                if (thisInterval.intersection(other.intervals[k]) != null) {
+                    found = true
+                    break
+                }
+                k++
+            }
+
+            if (found) {
+                out.add(thisInterval)
+            }
+        }
+
+        return SetOfFiniteIntervals(out)
+    }
+
+
     fun getSingleton() = intervals.singleOrNull()
 
     fun includes(x: FiniteInterval): Boolean {
@@ -200,10 +311,5 @@ data class SetOfFiniteIntervals(private val intervals: List<FiniteInterval>) {
 
     fun intersects(x: FiniteInterval): Boolean {
         return intervals.any{i -> i.intersection(x) != null}
-    }
-
-    @TestOnly
-    fun contains(x: FiniteInterval): Boolean {
-        return intervals.contains(x)
     }
 }

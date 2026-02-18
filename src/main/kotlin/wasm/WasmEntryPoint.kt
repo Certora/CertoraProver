@@ -17,7 +17,6 @@
 
 package wasm
 
-import CompiledGenericRule
 import analysis.opt.bytemaps.optimizeBytemaps
 import analysis.controlflow.*
 import analysis.loop.LoopHoistingOptimization
@@ -72,6 +71,8 @@ import wasm.transform.BitopsRewriter
 import wasm.transform.BranchConditionSimplifier
 import wasm.transform.MaskNormalizer
 import wasm.transform.StaticMemoryInliner
+import kotlin.Result.Companion.failure
+import kotlin.Result.Companion.success
 
 class InvalidRules(msg: String) : Exception(msg)
 class TrivialRule(msg: String) : Exception(msg)
@@ -103,7 +104,7 @@ object WasmEntryPoint {
     /**
      * This function takes an input file in .wasm format and generates a [CoreTACProgram] from it.
      */
-    fun webAssemblyToTAC(inputFile: File, selectedRules: Set<String>, env: WasmHost, optimize: Boolean): Collection<CompiledGenericRule> {
+    fun webAssemblyToTAC(inputFile: File, selectedRules: Set<String>, env: WasmHost, optimize: Boolean): Collection<WasmEncodeResult> {
         wasmLogger.info { "Starting WASM front-end" }
         val startTime = System.currentTimeMillis()
 
@@ -117,7 +118,7 @@ object WasmEntryPoint {
     }
 
     // Alternate entrypoint for tests (do we still need this? --Eric)
-    fun wasmToTAC(wasmFile: File, selectedRules: Set<String>, env: WasmHost, optimize: Boolean): Collection<CompiledGenericRule> {
+    fun wasmToTAC(wasmFile: File, selectedRules: Set<String>, env: WasmHost, optimize: Boolean): Collection<WasmEncodeResult> {
         return wasmProgramToTAC(WasmLoader(wasmFile).convert(), selectedRules, env, optimize)
     }
 
@@ -170,7 +171,12 @@ object WasmEntryPoint {
         return selectedRules
     }
 
-    private fun wasmProgramToTAC(wasmAST: WasmProgram, selectedRules: Set<String>, env: WasmHost, optimize: Boolean): Collection<CompiledGenericRule.Compiled> {
+    private fun wasmProgramToTAC(
+        wasmAST: WasmProgram,
+        selectedRules: Set<String>,
+        env: WasmHost,
+        optimize: Boolean
+    ): Collection<WasmEncodeResult> {
         /*
         Convert the sexpression object to a WasmProgram AST
         */
@@ -234,7 +240,7 @@ object WasmEntryPoint {
         Logger.always("Running initial transformations", respectQuiet = true)
 
         val rules = targets.entries.parallelStream().map { (ruleExportName, ruleFuncId) ->
-            wasmLogger.info { "Running on entrypoint: $ruleFuncId"}
+            wasmLogger.info { "Running on entrypoint: $ruleFuncId" }
 
             wasmLogger.info { "Before inlining WasmImpCfg program" }
             wasmLogger.info { wasmTacs[ruleFuncId]!!.dumpWasmImpCfg() }
@@ -245,120 +251,194 @@ object WasmEntryPoint {
 
             val isSatisfyRule = computeIsSatisfyRule(inlined, wasmAST.allFuncTypes)
 
-            wasmLogger.info { "After inlining WasmImpCfg program" }
-            wasmLogger.info { inlined.dumpWasmImpCfg() }
-
-            val prog = inlined.pruneUnreachableImp(inlined.entryPt)
-            // append the values of the globals, and havoc the input arguments
-            val wtacWithGlobalsInitialized = initializeGlobalsAndArgs(ruleFuncId, prog.first, wasmAST)
-            wasmLogger.info { "Pruned inlined WasmImpCfg program" }
-            wasmLogger.info { wtacWithGlobalsInitialized.dumpWasmImpCfg() }
-
-            /*
-            Convert the wasmTAC program to a CoreTACProgram.
-            */
-            wasmLogger.info { "Generating CoreTAC from WasmImpCfg" }
-            val coreTac = WasmImpCfgToTAC.wasmImpCfgToCoreTac(
-                targetFuncName = ruleExportName,
-                wasmAST = wasmAST,
-                wasmTac = wtacWithGlobalsInitialized,
-                summarizer = summarizer,
-                hostInit = env.init()
+            val rule = EcosystemAgnosticRule(
+                ruleIdentifier = RuleIdentifier.freshIdentifier(ruleExportName),
+                ruleType = SpecType.Single.FromUser.SpecFile,
+                isSatisfyRule = isSatisfyRule
             )
-            wasmLogger.info { WasmImpCfgToTAC.dumpTAC(coreTac) }
-            ArtifactManagerFactory().dumpCodeArtifacts(coreTac, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
+            try {
+                wasmLogger.info { "After inlining WasmImpCfg program" }
+                wasmLogger.info { inlined.dumpWasmImpCfg() }
 
-            val preprocessed = CoreTACProgram.Linear(coreTac)
-                .map(CoreToCoreTransformer(ReportTypes.ANNOTATE_STACK_FRAMES) { WASMStackFrame().annotate(it) })
-                .let { env.applyPreUnrollTransforms(it, wasmAST) }
-                .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
-                .map(CoreToCoreTransformer(ReportTypes.JUMP_COND_NORMALIZATION, BranchConditionSimplifier::rewrite))
-                .map(CoreToCoreTransformer(ReportTypes.OPTIMIZE_WASM_BITOPS, BitopsRewriter::rewriteXorEquality))
-                .map(CoreToCoreTransformer(ReportTypes.OPTIMIZE_WASM_BITOPS, BitopsRewriter::rewriteSignedOverflowCheck))
-                .map(CoreToCoreTransformer(ReportTypes.NORMALIZE_MASK, MaskNormalizer::normalizeMasks))
-                .map(CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE, IntervalBasedExprSimplifier::analyze))
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.HOIST_LOOPS, LoopHoistingOptimization::hoistLoopComputations))
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.WASM_INIT_LOOP_SUMMARIZATION, ConstantArrayInitializationSummarizer::annotateLoops))
-                .map(CoreToCoreTransformer(ReportTypes.WASM_INIT_LOOP_REWRITE, ConstantArrayInitializationRewriter::unrollStaticLoops))
-                .map(CoreToCoreTransformer(ReportTypes.UNROLL, CoreTACProgram::convertToLoopFreeCode))
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantPropagator::propagateConstants))
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantComputationInliner::rewriteConstantCalculations))
-                .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_SUMMARIES_PRE_OPTIMIZAITON) {
-                    PostUnrollAssignmentSummary.materialize(it, WasmPipelinePhase.PreOptimization)
-                })
-                .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_CONDITIONAL_TRAPS, ConditionalTrapRevert::materialize))
-                .map(CoreToCoreTransformer(ReportTypes.INLINE_STATIC_MEMORY, StaticMemoryInliner::transform))
-                .mapIf(isSatisfyRule, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, ::rewriteAsserts))
+                val prog = inlined.pruneUnreachableImp(inlined.entryPt)
+                // append the values of the globals, and havoc the input arguments
+                val wtacWithGlobalsInitialized = initializeGlobalsAndArgs(ruleFuncId, prog.first, wasmAST)
+                wasmLogger.info { "Pruned inlined WasmImpCfg program" }
+                wasmLogger.info { wtacWithGlobalsInitialized.dumpWasmImpCfg() }
 
-            val maybeOptimized = runIf(optimize) {
-                preprocessed
-                // This sequence helps us eliminate branches from encoding rust enums into Val when the
-                // constructor is constant. This in turn can simplify the job for the soroban memory optimization
-                .map(CoreToCoreTransformer(ReportTypes.OPTIMIZE, GlobalInliner::inlineAll))
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })
-                .let { env.applyOptimizations(it, wasmAST) }
-                .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_SUMMARIES_POST_OPTIMIZAITON) {
-                    PostUnrollAssignmentSummary.materialize(it,WasmPipelinePhase.PostOptimization)
-                })
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) { ConstantPropagatorAndSimplifier(it).rewrite() })
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_BOOL_VARIABLES) { BoolOptimizer(it).go() })
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) { ConstantPropagatorAndSimplifier(it).rewrite() })
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.NEGATION_NORMALIZER) { NegationNormalizer(it).rewrite() })
-                .mapIfAllowed(
-                    CoreToCoreTransformer(ReportTypes.UNUSED_ASSIGNMENTS) {
-                        val filtering = FilteringFunctions.default(it, keepRevertManagment = true)::isErasable
-                        removeUnusedAssignments(it, expensive = false, filtering, isTypechecked = true)
-                            .let(BlockMerger::mergeBlocks)
-                    }
+                /*
+                Convert the wasmTAC program to a CoreTACProgram.
+                */
+                wasmLogger.info { "Generating CoreTAC from WasmImpCfg" }
+                val coreTac = WasmImpCfgToTAC.wasmImpCfgToCoreTac(
+                    targetFuncName = ruleExportName,
+                    wasmAST = wasmAST,
+                    wasmTac = wtacWithGlobalsInitialized,
+                    summarizer = summarizer,
+                    hostInit = env.init()
                 )
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.COLLAPSE_EMPTY_DSA, TACDSA::collapseEmptyAssignmentBlocks))
-                .mapIfAllowed(
-                    CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS1) {
-                        ConstantPropagator.propagateConstants(it, emptySet()).let {
-                            BlockMerger.mergeBlocks(it)
-                        }
-                    }
-                )
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.BYTEMAP_OPTIMIZER1) {
-                        optimizeBytemaps(it, FilteringFunctions.default(it, keepRevertManagment = true), cheap = false)
-                            .let(BlockMerger::mergeBlocks)
+                wasmLogger.info { WasmImpCfgToTAC.dumpTAC(coreTac) }
+                ArtifactManagerFactory().dumpCodeArtifacts(coreTac, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
+
+                val preprocessed = CoreTACProgram.Linear(coreTac)
+                    .map(CoreToCoreTransformer(ReportTypes.ANNOTATE_STACK_FRAMES) { WASMStackFrame().annotate(it) })
+                    .let { env.applyPreUnrollTransforms(it, wasmAST) }
+                    .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
+                    .map(CoreToCoreTransformer(ReportTypes.JUMP_COND_NORMALIZATION, BranchConditionSimplifier::rewrite))
+                    .map(CoreToCoreTransformer(ReportTypes.OPTIMIZE_WASM_BITOPS, BitopsRewriter::rewriteXorEquality))
+                    .map(
+                        CoreToCoreTransformer(
+                            ReportTypes.OPTIMIZE_WASM_BITOPS,
+                            BitopsRewriter::rewriteSignedOverflowCheck
+                        )
+                    )
+                    .map(CoreToCoreTransformer(ReportTypes.NORMALIZE_MASK, MaskNormalizer::normalizeMasks))
+                    .map(CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE, IntervalBasedExprSimplifier::analyze))
+                    .mapIfAllowed(
+                        CoreToCoreTransformer(
+                            ReportTypes.HOIST_LOOPS,
+                            LoopHoistingOptimization::hoistLoopComputations
+                        )
+                    )
+                    .mapIfAllowed(
+                        CoreToCoreTransformer(
+                            ReportTypes.WASM_INIT_LOOP_SUMMARIZATION,
+                            ConstantArrayInitializationSummarizer::annotateLoops
+                        )
+                    )
+                    .map(
+                        CoreToCoreTransformer(
+                            ReportTypes.WASM_INIT_LOOP_REWRITE,
+                            ConstantArrayInitializationRewriter::unrollStaticLoops
+                        )
+                    )
+                    .map(CoreToCoreTransformer(ReportTypes.UNROLL, CoreTACProgram::convertToLoopFreeCode))
+                    .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantPropagator::propagateConstants))
+                    .mapIfAllowed(
+                        CoreToCoreTransformer(
+                            ReportTypes.OPTIMIZE,
+                            ConstantComputationInliner::rewriteConstantCalculations
+                        )
+                    )
+                    .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_SUMMARIES_PRE_OPTIMIZAITON) {
+                        PostUnrollAssignmentSummary.materialize(it, WasmPipelinePhase.PreOptimization)
                     })
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.REMOVE_UNUSED_WRITES, SimpleMemoryOptimizer::removeUnusedWrites))
-                .mapIfAllowed(
-                    CoreToCoreTransformer(ReportTypes.OPTIMIZE) { c ->
-                        optimizeAssignments(c,
-                            FilteringFunctions.default(c, keepRevertManagment = true)
-                        ).let(BlockMerger::mergeBlocks)
-                    }
-                )
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_INFEASIBLE_PATHS) { InfeasiblePaths.doInfeasibleBranchAnalysisAndPruning(it) })
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.SIMPLE_SUMMARIES1) { it.simpleSummaries() })
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_OVERFLOW) { OverflowPatternRewriter(it).go() })
-                .mapIfAllowed(
-                    CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE) {
-                        IntervalsRewriter.rewrite(it, handleLeinoVars = false)
-                    }
-                )
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { DiamondSimplifier.simplifyDiamonds(it, iterative = true) })
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS2) {
-                        // after pruning infeasible paths, there are more constants to propagate
-                        ConstantPropagator.propagateConstants(it, emptySet())
-                    }
-                )
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE2) { Pruner(it).prune() })
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_MERGE_BLOCKS, BlockMerger::mergeBlocks))
-                .map(CoreToCoreTransformer(ReportTypes.QUANTIFIER_POLARITY) { QuantifierAnnotator(it).annotate() })
-            }
+                    .map(
+                        CoreToCoreTransformer(
+                            ReportTypes.MATERIALIZE_CONDITIONAL_TRAPS,
+                            ConditionalTrapRevert::materialize
+                        )
+                    )
+                    .map(CoreToCoreTransformer(ReportTypes.INLINE_STATIC_MEMORY, StaticMemoryInliner::transform))
+                    .mapIf(isSatisfyRule, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, ::rewriteAsserts))
 
-            CompiledGenericRule.Compiled(
-                code = maybeOptimized?.ref ?: preprocessed.ref,
-                rule = EcosystemAgnosticRule(
-                    ruleIdentifier = RuleIdentifier.freshIdentifier(ruleExportName),
-                    ruleType = SpecType.Single.FromUser.SpecFile,
-                    isSatisfyRule = isSatisfyRule
-                ),
-            )
+                val maybeOptimized = runIf(optimize) {
+                    preprocessed
+                        // This sequence helps us eliminate branches from encoding rust enums into Val when the
+                        // constructor is constant. This in turn can simplify the job for the soroban memory optimization
+                        .map(CoreToCoreTransformer(ReportTypes.OPTIMIZE, GlobalInliner::inlineAll))
+                        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })
+                        .let { env.applyOptimizations(it, wasmAST) }
+                        .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_SUMMARIES_POST_OPTIMIZAITON) {
+                            PostUnrollAssignmentSummary.materialize(it, WasmPipelinePhase.PostOptimization)
+                        })
+                        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) {
+                            ConstantPropagatorAndSimplifier(
+                                it
+                            ).rewrite()
+                        })
+                        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_BOOL_VARIABLES) { BoolOptimizer(it).go() })
+                        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) {
+                            ConstantPropagatorAndSimplifier(
+                                it
+                            ).rewrite()
+                        })
+                        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.NEGATION_NORMALIZER) { NegationNormalizer(it).rewrite() })
+                        .mapIfAllowed(
+                            CoreToCoreTransformer(ReportTypes.UNUSED_ASSIGNMENTS) {
+                                val filtering = FilteringFunctions.default(it, keepRevertManagment = true)::isErasable
+                                removeUnusedAssignments(it, expensive = false, filtering, isTypechecked = true)
+                                    .let(BlockMerger::mergeBlocks)
+                            }
+                        )
+                        .mapIfAllowed(
+                            CoreToCoreTransformer(
+                                ReportTypes.COLLAPSE_EMPTY_DSA,
+                                TACDSA::collapseEmptyAssignmentBlocks
+                            )
+                        )
+                        .mapIfAllowed(
+                            CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS1) {
+                                ConstantPropagator.propagateConstants(it, emptySet()).let {
+                                    BlockMerger.mergeBlocks(it)
+                                }
+                            }
+                        )
+                        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.BYTEMAP_OPTIMIZER1) {
+                            optimizeBytemaps(
+                                it,
+                                FilteringFunctions.default(it, keepRevertManagment = true),
+                                cheap = false
+                            )
+                                .let(BlockMerger::mergeBlocks)
+                        })
+                        .mapIfAllowed(
+                            CoreToCoreTransformer(
+                                ReportTypes.REMOVE_UNUSED_WRITES,
+                                SimpleMemoryOptimizer::removeUnusedWrites
+                            )
+                        )
+                        .mapIfAllowed(
+                            CoreToCoreTransformer(ReportTypes.OPTIMIZE) { c ->
+                                optimizeAssignments(
+                                    c,
+                                    FilteringFunctions.default(c, keepRevertManagment = true)
+                                ).let(BlockMerger::mergeBlocks)
+                            }
+                        )
+                        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })
+                        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_INFEASIBLE_PATHS) {
+                            InfeasiblePaths.doInfeasibleBranchAnalysisAndPruning(
+                                it
+                            )
+                        })
+                        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.SIMPLE_SUMMARIES1) { it.simpleSummaries() })
+                        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_OVERFLOW) { OverflowPatternRewriter(it).go() })
+                        .mapIfAllowed(
+                            CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE) {
+                                IntervalsRewriter.rewrite(it, handleLeinoVars = false)
+                            }
+                        )
+                        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) {
+                            DiamondSimplifier.simplifyDiamonds(
+                                it,
+                                iterative = true
+                            )
+                        })
+                        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS2) {
+                            // after pruning infeasible paths, there are more constants to propagate
+                            ConstantPropagator.propagateConstants(it, emptySet())
+                        }
+                        )
+                        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE2) { Pruner(it).prune() })
+                        .mapIfAllowed(
+                            CoreToCoreTransformer(
+                                ReportTypes.OPTIMIZE_MERGE_BLOCKS,
+                                BlockMerger::mergeBlocks
+                            )
+                        )
+                        .map(CoreToCoreTransformer(ReportTypes.QUANTIFIER_POLARITY) { QuantifierAnnotator(it).annotate() })
+                }
+
+                success(
+                    WasmEncodedRule(
+                        code = maybeOptimized?.ref ?: preprocessed.ref,
+                        rule = rule
+                    )
+                )
+            } catch (e: CertoraException) {
+                failure(RuleEncodingException(rule, e))
+            }
         }.collect(Collectors.toList())
         Logger.always("Completed initial transformations", respectQuiet = true)
 

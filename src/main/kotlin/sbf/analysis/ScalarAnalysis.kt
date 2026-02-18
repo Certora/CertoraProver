@@ -24,6 +24,8 @@ import sbf.disassembler.*
 import sbf.domains.*
 import sbf.fixpoint.WtoBasedFixpointOptions
 import sbf.fixpoint.WtoBasedFixpointSolver
+import sbf.support.DerefOfAbsoluteAddressError
+import sbf.support.PointerAnalysisError
 import sbf.support.UnknownStackPointerError
 
 class ScalarAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>
@@ -40,8 +42,8 @@ typealias TOffsetAdaptiveScalarAnalysis = ConstantSet
 
 /**
  *  It runs first a scalar analysis where each register and stack content is over-approximated by a single value.
- *  Only if this analysis throws a [UnknownStackPointerError] exception then it repeats the analysis but this time by
- *  using a set of values.
+ *  Only if this analysis throws a [UnknownStackPointerError] or [DerefOfAbsoluteAddressError] exception
+ *  then it repeats the analysis but this time by using a set of values.
  */
 class AdaptiveScalarAnalysis
     (val cfg: SbfCFG,
@@ -56,14 +58,21 @@ class AdaptiveScalarAnalysis
     private val scalarAnalysis = try {
         sbfTypesFac = ConstantSetSbfTypeFactory(1UL)
         GenericScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac, domainFac, isEntryPoint)
-    } catch (e: UnknownStackPointerError) {
-        sbf.sbfLogger.warn {
-                "Scalar analysis was configured to track only a single value per stack offset. It cannot proceed without clearing the entire stack. " +
-                "Re-running scalar analysis configured to track up to ${SolanaConfig.ScalarMaxVals.get()} values."
+    } catch (e: PointerAnalysisError) {
+        when(e) {
+            is UnknownStackPointerError,
+            is DerefOfAbsoluteAddressError -> {
+                sbf.sbfLogger.warn {
+                    "Scalar analysis was configured to track only a single value per stack offset. It cannot proceed without clearing the entire stack. " +
+                        "Re-running scalar analysis configured to track up to ${SolanaConfig.ScalarMaxVals.get()} values."
+                }
+                sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
+                GenericScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac, domainFac, isEntryPoint)
+            }
+            else -> throw e
         }
-        sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
-        GenericScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac, domainFac, isEntryPoint)
     }
+
 
     fun getSbfTypesFac() = sbfTypesFac
     override fun getPre(block: Label) = scalarAnalysis.getPre(block)

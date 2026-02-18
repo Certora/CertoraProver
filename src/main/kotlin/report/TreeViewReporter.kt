@@ -35,7 +35,8 @@ import report.callresolution.GlobalCallResolutionReportView
 import rules.RuleCheckResult
 import rules.VerifyTime
 import scene.IContractWithSource
-import scene.IScene
+import scene.ISceneIdentifiers
+import scene.SceneFactory
 import solver.SolverResult
 import spec.cvlast.*
 import spec.rules.*
@@ -158,7 +159,7 @@ enum class NodeType {
 class TreeViewReporter(
     contractName: String?,
     specFile: String,
-    scene: IScene,
+    scene: ISceneIdentifiers = SceneFactory.EMPTY_SCENE
 ) : Closeable {
     // XXX: this path used to configurable, but I believe it's now hardcoded in some of our infrastructure.
     private val versionedFile get() = VersionedFile("treeViewStatus.json")
@@ -295,7 +296,7 @@ class TreeViewReporter(
     /**
      * Available contracts table. This table lists all the contract available in [scene].
      */
-    class ContractsTable(val scene: IScene) : TreeViewReportable {
+    class ContractsTable(val scene: ISceneIdentifiers) : TreeViewReportable {
         /**
          * Represents a row (or an entry) in the Available Contracts table.
          */
@@ -891,6 +892,7 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
             is SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule -> NodeType.ASSERT_SUBRULE_AUTO_GEN
 
             is SpecType.Single.GeneratedFromBasicRule.SanityRule -> NodeType.SANITY
+            is SpecType.Single.GeneratedFromBasicRule.ParametricRuleInstantiation -> NodeType.METHOD_INSTANTIATION
         }
     }
 
@@ -1172,7 +1174,7 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
 
 
     /**
-     * IMPORTANT: Please be aware that this is only used in the Solana / Soroban / TAC flow.
+     * IMPORTANT: Please be aware that this is only used in the Solana / Soroban / Move / TAC flow.
      * The CVL/Solidity flow builds the rule tree manually by calling [registerSubruleOf] and [addTopLevelRule] explicitly
      * (see [RuleChecker]).
      *
@@ -1187,22 +1189,18 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
      * Examples for the Solana Flow: The list [rules] contains all split rules when running in mode [Config.MultiAssertCheck],
      * alternatively, the list contains vacuity checks when [Config.DoSanityChecksForRules] is set to [SanityValues.BASIC].
      * All these rules are derived from the original rule.
-     *
-     * Note: This function currently only supports one level of [GeneratedFromBasicRule] and doesn't build the tree recursively,
-     * in the case the parentRule is of ruleType [GeneratedFromBasicRule] again.
      */
     fun buildRuleTree(rules: Iterable<IRule>) {
-        rules.forEach { rule ->
-            when (rule.ruleType) {
-                is SpecType.Single.GeneratedFromBasicRule -> {
-                    val parentRule = rule.ruleType.getOriginatingRule()!!
-                    addTopLevelRule(parentRule)
-                    registerSubruleOf(rule, parentRule)
+        fun addRule(rule: IRule) {
+            when (val parent = rule.ruleType.getOriginatingRule()) {
+                null -> addTopLevelRule(rule)
+                else -> {
+                    addRule(parent)
+                    registerSubruleOf(rule, parent)
                 }
-
-                else -> addTopLevelRule(rule)
             }
         }
+        rules.forEach(::addRule)
     }
 
     @TestOnly

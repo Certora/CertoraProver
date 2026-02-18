@@ -17,10 +17,10 @@
 
 package sbf
 
-import CompiledGenericRule
 import analysis.maybeAnnotation
 import cli.SanityValues
 import config.Config
+import config.isTwoStageMode
 import vc.data.CoreTACProgram
 import datastructures.stdcollections.*
 import dwarf.DebugInfoReader
@@ -33,20 +33,20 @@ import sbf.slicer.*
 import sbf.support.*
 import sbf.tac.*
 import log.*
-import org.jetbrains.annotations.TestOnly
-import report.RuleAlertReport
 import sbf.analysis.cpis.InvokeInstructionListener
 import sbf.analysis.cpis.getInvokes
 import sbf.analysis.cpis.cpisSubstitutionMap
 import sbf.cfg.*
 import sbf.domains.*
-import sbf.dwarf.DWARFEdgeLabelAnnotator
 import utils.Range
 import spec.cvlast.RuleIdentifier
 import spec.rules.EcosystemAgnosticRule
 import spec.cvlast.SpecType
 import utils.*
+import verifier.RuleEncodingException
 import java.io.File
+import kotlin.Result.Companion.failure
+import kotlin.Result.Companion.success
 
 /**
  * For logging solana
@@ -62,9 +62,11 @@ private val sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.g
 /** `PTANode` flags used by `WholeProgramMemoryAnalysis` **/
 private val ptaFlagsFac = { SolanaPTANodeFlags() }
 
+
+
 /* Entry point to the Solana SBF front-end */
 @Suppress("ForbiddenMethodCall")
-fun solanaSbfToTAC(elfFile: String): List<CompiledGenericRule> {
+fun solanaSbfToTAC(elfFile: String): List<SolanaEncodeResult> {
     sbfLogger.info { "Started Solana front-end" }
     val start0 = System.currentTimeMillis()
     val targets = Config.SolanaEntrypoint.get().map { ruleName ->
@@ -121,10 +123,9 @@ fun solanaSbfToTAC(elfFile: String): List<CompiledGenericRule> {
 
     val rules = (targets + sanityRules).mapNotNull { target ->
         try {
-            solanaRuleToTAC(target, cfgs, inliningConfig, memSummaries)
+            solanaRuleToTAC(target, cfgs, inliningConfig, memSummaries)?.let { success(it) }
         } catch (e: SolanaError) {
-            val alert = RuleAlertReport.Error(e)
-            CompiledGenericRule.AnalysisFail(target, alert)
+            failure(RuleEncodingException(target, e))
         }
     }
 
@@ -135,12 +136,13 @@ fun solanaSbfToTAC(elfFile: String): List<CompiledGenericRule> {
 }
 
 /** errors here are handled by throwing, while returning null signifies that the rule should be skipped */
+@OptIn(Config.DestructiveOptimizationsOption::class)
 private fun solanaRuleToTAC(
     rule: EcosystemAgnosticRule,
     prog: SbfCallGraph,
     inliningConfig: InlinerConfig,
     memSummaries: MemorySummaries
-): CompiledGenericRule? {
+): SolanaEncodedRule? {
 
     val target = rule.ruleIdentifier.toString()
     // 1. Inline all internal calls starting from `target` as root
@@ -246,17 +248,23 @@ private fun solanaRuleToTAC(
         sbfCFGsToTAC(progWithLocations, memSummaries, analysisResults)
     }
 
-    // 6. Unroll loops and perform optionally some TAC-to-TAC optimizations
-    val optCoreTAC = timeIt(target, "TAC optimizations") {
-        if (SolanaConfig.UseLegacyTACOpt.get()) {
-            legacyOptimize(coreTAC, isSatisfiedRule)
-        } else {
-            optimize(coreTAC, isSatisfiedRule)
-        }
+    val mayBeUnrollLoops = if(Config.DestructiveOptimizationsMode.get().isTwoStageMode()){
+        /**
+         * When [config.isTwoStageMode] is set, DSA and loop unrolling is performed here so that
+         * in the second round ([rules.TwoStageRound.SECOND_ROUND]) loops are already unrolled.
+         *
+         * Having no loops in the second round of two stage mode is beneficial, as more variables
+         * can be fixed.
+         */
+        runDSAandUnrollLoops(coreTAC)
+    } else {
+        /**
+         * DAS + loop unrolling is delayed in the pipeline and is part of [sbf.tac.levelZeroOptimizations]
+         */
+        coreTAC
     }
 
-    DWARFEdgeLabelAnnotator.printDebugAnnotatorStats(optCoreTAC, "After TAC optimizations")
-    return attachRangeToRule(rule, optCoreTAC, isSatisfiedRule)
+    return attachRangeToRule(rule, mayBeUnrollLoops, isSatisfiedRule)
 }
 
 /**
@@ -394,7 +402,7 @@ private fun attachRangeToRule(
     rule: EcosystemAgnosticRule,
     optCoreTAC: CoreTACProgram,
     isSatisfyRule: Boolean
-): CompiledGenericRule {
+): SolanaEncodedRule {
     return if (rule.ruleType is SpecType.Single.GeneratedFromBasicRule) {
         // If the rule has been generated from a basic rule, then we have to update the parent rule range.
         // It would be more elegant to generate the original rule with the correct range, but [getRuleRange] relies on
@@ -408,7 +416,7 @@ private fun attachRangeToRule(
             ?: getRuleRange(optCoreTAC) // If debug information is not available, reads the range from CVT_rule_location
         val newBaseRule = parentRule.copy(range = ruleRange)
         val ruleType = (rule.ruleType as SpecType.Single.GeneratedFromBasicRule).copyWithOriginalRule(newBaseRule)
-        CompiledGenericRule.Compiled(
+        SolanaEncodedRule(
             rule = rule.copy(ruleType = ruleType, isSatisfyRule = isSatisfyRule, range = ruleRange),
             code = optCoreTAC,
         )
@@ -416,7 +424,7 @@ private fun attachRangeToRule(
         val ruleRange: Range =
             DebugInfoReader.findFunctionRangeInSourcesDir(rule.ruleIdentifier.displayName)
                 ?: getRuleRange(optCoreTAC) // If debug information is not available, reads the range from CVT_rule_location
-        CompiledGenericRule.Compiled(
+        SolanaEncodedRule(
             rule = rule.copy(isSatisfyRule = isSatisfyRule, range = ruleRange),
             code = optCoreTAC,
         )
@@ -472,21 +480,6 @@ private fun readEnvironmentFiles(): Pair<MemorySummaries, InlinerConfig> {
     val memSummaries = MemorySummaries.readSpecFile(summariesFilename)
     val inliningConfig = InlinerConfigFromFile.readSpecFile(inliningFilename)
     return Pair(memSummaries, inliningConfig)
-}
-
-/**
- * given a single rule and depending on conditions,
- * may split it into multiple asserts, which are children of the original rule
- */
-@TestOnly
-fun splitAsserts(rule: CompiledGenericRule.Compiled): List<CompiledGenericRule.Compiled> {
-    return if (!TACMultiAssert.canSplit(rule)) {
-        listOf(rule)
-    } else if (Config.MultiAssertCheck.get()) {
-        TACMultiAssert.transformMulti(rule)
-    } else {
-        listOf(TACMultiAssert.transformSingle(rule))
-    }
 }
 
 /**

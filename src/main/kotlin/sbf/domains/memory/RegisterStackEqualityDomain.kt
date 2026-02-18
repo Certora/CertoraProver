@@ -30,6 +30,20 @@ import sbf.callgraph.SolanaFunction
 fun StackLocation.toInterval() = FiniteInterval.mkInterval(offset, width.toLong())
 
 /**
+ * Represents a load instruction from a stack location.
+ *
+ * @param loc the stack location being loaded from
+ * @param locInst the load instruction
+ */
+data class StackLoad(val loc: StackLocation, val locInst: LocatedSbfInstruction) {
+    init {
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Mem && inst.isLoad)
+    }
+}
+
+
+/**
  * Tracks equality relationships between register contents and stack memory locations.
  *
  * This domain maintains facts of the form `r1 == stack(offset, width)`, indicating that
@@ -61,8 +75,8 @@ class RegisterStackEqualityDomain(
     // the same StackLocation. For stores, we need to invalidate any mapping reg -> StackLocation if
     // StackLocation might have modified by the store. Since the number of registers is very small
     // we don't keep an inverse mapping StackLocation -> reg
-    private val registers: TreapMap<Value.Reg, StackLocation> = treapMapOf(),
-    private val scratchRegisters: PersistentList<StackLocation?>, // null represents "top"
+    private val registers: TreapMap<Value.Reg, StackLoad> = treapMapOf(),
+    private val scratchRegisters: PersistentList<StackLoad?>, // null represents "top"
     val globalState: GlobalState
 ) {
 
@@ -76,10 +90,10 @@ class RegisterStackEqualityDomain(
     companion object {
         fun makeTop(globalState: GlobalState) = RegisterStackEqualityDomain(globalState)
 
-        private fun lessOrEqual(left: StackLocation?, right: StackLocation?) =
+        private fun lessOrEqual(left: StackLoad?, right: StackLoad?) =
             right == null || left == right
 
-        private fun join(left: StackLocation?, right: StackLocation?): StackLocation? =
+        private fun join(left: StackLoad?, right: StackLoad?): StackLoad? =
             if (left == right) { left } else { null }
     }
 
@@ -104,6 +118,18 @@ class RegisterStackEqualityDomain(
         }
         return result
     }
+
+    private fun <A> PersistentList<A>.mapToPersistent(
+        transform: (A) -> A
+    ): PersistentList<A> {
+        val size = this.size
+        var result = this
+        for (i in 0 until size) {
+            result = result.set(i, transform(this[i]))
+        }
+        return result
+    }
+
 
     fun join(other: RegisterStackEqualityDomain): RegisterStackEqualityDomain {
         return when {
@@ -156,11 +182,11 @@ class RegisterStackEqualityDomain(
         }
     }
 
-    fun getRegister(reg: Value.Reg): StackLocation? {
+    fun getRegister(reg: Value.Reg): StackLoad? {
         return registers[reg]
     }
 
-    private fun setRegister(reg: Value.Reg, stackSlot: StackLocation?) =
+    private fun setRegister(reg: Value.Reg, stackSlot: StackLoad?) =
         RegisterStackEqualityDomain(
             if (stackSlot == null) {
                 registers.remove(reg)
@@ -203,7 +229,7 @@ class RegisterStackEqualityDomain(
         }
     }
 
-    private fun pushScratchReg(v: StackLocation?) =
+    private fun pushScratchReg(v: StackLoad?) =
         RegisterStackEqualityDomain(
             registers,
             scratchRegisters.add(v),
@@ -392,10 +418,16 @@ class RegisterStackEqualityDomain(
 
         return RegisterStackEqualityDomain(
             registers.removeAll {
-                val stackSlot = it.value
-                mayOverlap(stackSlot, offsets, size)
+                val stackLoad = it.value
+                mayOverlap(stackLoad.loc, offsets, size)
             },
-            scratchRegisters,
+            scratchRegisters.mapToPersistent { stackLoad ->
+                if (stackLoad == null || mayOverlap(stackLoad.loc, offsets, size)) {
+                    null
+                } else {
+                    stackLoad
+                }
+            },
             globalState
         )
     }
@@ -456,7 +488,7 @@ class RegisterStackEqualityDomain(
         }
 
         val stackSlot = StackLocation(stackOffset, width)
-        return setRegister(lhs, stackSlot)
+        return setRegister(lhs, StackLoad(stackSlot, locInst))
     }
 
     fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyze(
@@ -541,7 +573,7 @@ private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> ScalarDomain<TNum,
         }
         inst is SbfInstruction.Assume && inst.cond.op == CondOp.EQ-> {
             val reg = getRegFromUnaryConditionOrNull(inst.cond) ?: return
-            val stackSlot = equalities.getRegister(reg) ?: return
+            val stackSlot = equalities.getRegister(reg)?.loc ?: return
             val scalarVal = this.getValue(reg)
             if (!scalarVal.isTop()) {
                 this.setStackContent(stackSlot.offset, stackSlot.width, scalarVal)
@@ -713,7 +745,9 @@ class ScalarRegisterStackEqualityDomain<TNum: INumValue<TNum>, TOffset: IOffset<
             globalState
         )
 
-    override fun getStackSource(reg: Value.Reg): StackLocation? = equalities.getRegister(reg)
+    override fun getStackSource(reg: Value.Reg): StackLocation? = equalities.getRegister(reg)?.loc
+
+    fun getRegisterStackEqualityDomain() = equalities
 
     override fun toString() = "($scalars,equalities=$equalities)"
 

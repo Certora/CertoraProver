@@ -23,18 +23,15 @@ import bridge.CertoraConf
 import bridge.NamedContractIdentifier
 import certora.CVTVersion
 import cli.Ecosystem
-import cli.SanityValues
-import cli.WasmHost
 import config.*
 import config.Config.BytecodeFiles
 import config.Config.CustomBuildScript
-import config.Config.DoSanityChecksForRules
 import config.Config.SpecFile
 import config.Config.getSourcesSubdirInInternal
 import config.component.EventConfig
-import datastructures.stdcollections.*
 import dependencyinjection.setupDependencyInjection
 import diagnostics.JavaFlightRecorder
+import dwarf.DebugInfoReader
 import event.CacheEvent
 import event.CvtEvent
 import event.RunMetadata
@@ -42,18 +39,13 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runInterruptible
 import kotlinx.serialization.json.Json
 import log.*
-import move.MoveVerifier
+import move.SuiVerificationFlow
 import org.apache.commons.cli.UnrecognizedOptionException
 import os.dumpSystemConfig
 import parallel.coroutines.establishMainCoroutineScope
-import parallel.coroutines.parallelMapOrdered
 import report.*
-import rules.CompiledRule
-import rules.IsFromCache
-import rules.RuleCheckResult
-import rules.VerifyTime
-import rules.sanity.TACSanityChecks
-import sbf.splitAsserts
+import rules.*
+import sbf.SolanaVerificationFlow
 import scene.*
 import scene.source.*
 import smt.BackendStrategyEnum
@@ -67,16 +59,11 @@ import spec.rules.EcosystemAgnosticRule
 import statistics.RunIDFactory
 import statistics.SDCollectorFactory
 import statistics.startResourceUsageCollector
-import tac.DumpTime
 import utils.*
 import utils.ArtifactFileUtils.getRelativeFileName
 import vc.data.CoreTACProgram
 import verifier.*
-import verifier.mus.UnsatCoreAnalysis
-import wasm.WasmEntryPoint
-import wasm.host.NullHost
-import wasm.host.near.NEARHost
-import wasm.host.soroban.SorobanHost
+import wasm.WasmVerificationFlow
 import java.io.File
 import java.io.FileInputStream
 import java.io.IOException
@@ -258,7 +245,7 @@ fun main(args: Array<String>) {
                 fileName == null && BytecodeFiles.getOrNull() != null &&
                     SpecFile.getOrNull() != null -> handleBytecodeFlow(BytecodeFiles.get(), SpecFile.get())
 
-                fileName == null && Config.MoveModulePath.getOrNull() != null -> handleMoveFlow()
+                fileName == null && Config.MoveModulePath.getOrNull() != null -> handleSuiFlow()
 
                 fileName == null && isCertoraScriptFlow(buildFileName, verificationFileName) -> {
                     val cfgFileNames = getFilesInSourcesDir()
@@ -277,7 +264,7 @@ fun main(args: Array<String>) {
                 fileName != null -> when {
                     ArtifactFileUtils.isTAC(fileName) -> handleTACFlow(fileName)
                     ArtifactFileUtils.isSolana(fileName) -> {
-                        val (_, ruleCheckResults) = handleSolanaFlow(fileName)
+                        val ruleCheckResults = handleSolanaFlow(fileName)
                         if (ruleCheckResults.anyDiagnosticErrors()) {
                             finalResult = FinalResult.DIAGNOSTIC_ERROR
                         }
@@ -355,6 +342,7 @@ fun main(args: Array<String>) {
         timePing.interruptThread()
         timeChecker?.interruptThread()
         CVTAlertReporter().close()
+        DebugInfoReader.close()
         // always output stats, even if erroneous
         RunIDFactory.runId().reportRunEnd()
         // collect run id for stats
@@ -522,25 +510,29 @@ suspend fun handleBytecodeFlow(bytecodeFiles: Set<String>, specFilename: String)
 }
 
 suspend fun handleTACFlow(fileName: String) {
-    val (scene, reporter, treeView) = createSceneReporterAndTreeview(fileName, "TACMainProgram")
-
     // Create a fake rule for the whole program although the program can have more than one assertion.
     // since `satisfy` is not a TAC statement, we handle it as an assert rule
     val rule = EcosystemAgnosticRule(ruleIdentifier = RuleIdentifier.freshIdentifier(fileName), ruleType = SpecType.Single.FromUser.SpecFile)
 
     when (val reportType = Config.TacEntryPoint.get()) {
-        ReportTypes.PRESOLVER_RULE -> TACVerifier.verifyPresolver(scene, fileName, rule)
+        ReportTypes.PRESOLVER_RULE -> TACVerifier.verifyPresolver(SceneFactory.EMPTY_SCENE, fileName, rule)
         ReportTypes.GENERIC_FLOW -> {
-            treeView.use {
-                val parsedTACCode = runInterruptible {
-                    CoreTACProgram.fromStream(FileInputStream(fileName), ArtifactFileUtils.getBasenameOnly(fileName))
-                }
-                val compiledRule = CompiledGenericRule.Compiled(rule, parsedTACCode)
-                handleGenericFlow(scene, reporter, treeView, listOf(compiledRule))
+            backupFiles()
+            val parsedTACCode = runInterruptible {
+                CoreTACProgram.fromStream(FileInputStream(fileName), ArtifactFileUtils.getBasenameOnly(fileName))
+            }
+            val encodedRule = object : EncodedRule<EcosystemAgnosticRule>{
+                override val rule: EcosystemAgnosticRule
+                    get() = rule
+                override val code: CoreTACProgram
+                    get() = parsedTACCode
+            }
+            RawTACVerificationFlow(encodedRule).use {
+                it.solve()
             }
         }
 
-        ReportTypes.PRESIMPLIFIED_RULE -> TACVerifier.verify(scene, fileName, rule)
+        ReportTypes.PRESIMPLIFIED_RULE -> TACVerifier.verify(SceneFactory.EMPTY_SCENE, fileName, rule)
         else -> {
             logger.error("Report type \"$reportType\" is not supported as a tac entry point.")
             /* do nothing / just return to CLI */
@@ -548,163 +540,43 @@ suspend fun handleTACFlow(fileName: String) {
     }
 }
 
-
-fun createSceneReporterAndTreeview(fileName: String, contractName: String): Triple<IScene, ReporterContainer, TreeViewReporter> {
-    val scene = SceneFactory.getScene(DegenerateContractSource(fileName))
-    val reporterContainer = ReporterContainer(
-        listOf(
-            ConsoleReporter
-        )
-    )
-    val treeView = TreeViewReporter(
-        contractName,
-        "",
-        scene,
-    )
-    return Triple(scene, reporterContainer, treeView)
-}
-
-sealed interface CompiledGenericRule {
-    val rule: EcosystemAgnosticRule
-
-    /** [TreeViewReporter.signalStart] and [TreeViewReporter.signalEnd] should not be called from inside this function */
-    suspend fun check(scene: IScene, treeView: TreeViewReporter): RuleCheckResult.Leaf
-
-    data class Compiled(override val rule: EcosystemAgnosticRule, val code: CoreTACProgram) : CompiledGenericRule {
-        override suspend fun check(scene: IScene, treeView: TreeViewReporter): RuleCheckResult.Leaf {
-            ArtifactManagerFactory().dumpCodeArtifacts(
-                this.code,
-                ReportTypes.GENERIC_FLOW,
-                StaticArtifactLocation.Outputs,
-                DumpTime.AGNOSTIC
-            )
-
-            val startTime = System.currentTimeMillis()
-            val vRes = TACVerifier.verify(scene, this.code, treeView.liveStatsReporter, this.rule)
-            val endTime = System.currentTimeMillis()
-
-            if (DoSanityChecksForRules.get() != SanityValues.NONE &&
-                /* For Solana there are two types of sanity checks: Sanity rules that are created earlier in the pipeline
-                   and TAC sanity checks that are performed here. We explicitly don't want to run TAC sanity on the sanity rules
-                   created earlies.
-                 */
-                this.rule.ruleType !is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck) {
-                TACSanityChecks(vacuityCheckLevel = SanityValues.ADVANCED).analyse(scene, this.rule, this.code, vRes, treeView)
-            }
-
-            if (vRes.unsatCoreSplitsData != null) {
-                UnsatCoreAnalysis(vRes.unsatCoreSplitsData, this.code).dumpToJsonAndRenderCodemaps()
-            }
-
-            val joinedRes = Verifier.JoinedResult(vRes)
-            // Print verification results and create a html file with the cex (if applicable)
-            joinedRes.reportOutput(this.rule)
-
-            return CompiledRule.generateSingleResult(
-                scene = scene,
-                rule = this.rule,
-                vResult = joinedRes,
-                verifyTime = VerifyTime.WithInterval(startTime, endTime),
-                isOptimizedRuleFromCache = IsFromCache.INAPPLICABLE,
-                isSolverResultFromCache = IsFromCache.INAPPLICABLE,
-                ruleAlerts = emptyList(),
-            )
-        }
-    }
-
-    data class AnalysisFail(override val rule: EcosystemAgnosticRule, val alert: RuleAlertReport.Error?) : CompiledGenericRule {
-        override suspend fun check(scene: IScene, treeView: TreeViewReporter): RuleCheckResult.Error {
-            return RuleCheckResult.Error(rule, listOfNotNull(alert))
-        }
-    }
-}
-
-suspend fun handleGenericFlow(
-    scene: IScene,
-    reporterContainer: ReporterContainer,
-    treeView: TreeViewReporter,
-    rules: Iterable<CompiledGenericRule>
-): List<RuleCheckResult.Leaf> {
-
-    // Copy in `inputs` directory the contents of the `.certora_sources` directory.
-    val filesInSourceDir = getFilesInSourcesDir()
-    CertoraConf.backupFiles(filesInSourceDir)
-
-    treeView.buildRuleTree(rules.map { it.rule })
-
-    return rules.parallelMapOrdered { _, compiled ->
-        treeView.signalStart(compiled.rule)
-
-        val checkResult = compiled.check(scene, treeView)
-
-        reporterContainer.addResults(checkResult)
-
-        // Signal termination of the fake rule and persist result to TreeView JSON for the web UI to pick it up.
-        treeView.signalEnd(compiled.rule, checkResult)
-        reporterContainer.hotUpdate(scene)
-
-        checkResult
-    }
-}
-
 suspend fun handleSorobanFlow(fileName: String): List<RuleCheckResult.Leaf> {
-    val (scene, reporterContainer, treeView) = createSceneReporterAndTreeview(fileName, "SorobanMainProgram")
-    treeView.use {
-        val env = when(Config.WASMHostEnv.get()) {
-            WasmHost.SOROBAN -> SorobanHost
-            WasmHost.NEAR -> NEARHost
-            WasmHost.NONE -> NullHost
-        }
-        val wasmRules = WasmEntryPoint.webAssemblyToTAC(
-            inputFile = File(fileName),
-            selectedRules = Config.WasmEntrypoint.getOrNull().orEmpty(),
-            env = env,
-            optimize = true
-        )
-
-        val result = handleGenericFlow(
-            scene,
-            reporterContainer,
-            treeView,
-            wasmRules
-        )
-        reporterContainer.toFile(scene)
-        return result
+    backupFiles()
+    return WasmVerificationFlow(fileName).use {
+        it.solve()
     }
 }
 
-suspend fun handleMoveFlow() {
-    // Copy in `inputs` directory the contents of the `.certora_sources` directory.
-    val filesInSourceDir = getFilesInSourcesDir()
-    CertoraConf.backupFiles(filesInSourceDir)
-
-    // And back up the binary modules
+suspend fun handleSuiFlow() {
+    backupFiles()
+    // And back up the binary modules and optional package summaries
     CertoraConf.backupFiles(
         File(Config.MoveModulePath.get()).walk().filter { it.isFile }.map { it.toString() }.toSet()
     )
+    Config.SuiPackageSummaryPath.getOrNull()?.let {
+        CertoraConf.backupFiles(
+            File(it).walk().filter { it.isFile }.map { it.toString() }.toSet()
+        )
+    }
 
-    MoveVerifier().use {
-        it.verify()
+    SuiVerificationFlow().use {
+        it.solve()
     }
 }
 
-suspend fun handleSolanaFlow(fileName: String): Pair<TreeViewReporter,List<RuleCheckResult.Leaf>> {
-    val (scene, reporterContainer, treeView) = createSceneReporterAndTreeview(fileName, "SolanaMainProgram")
-    treeView.use {
-        val solanaRules = sbf.solanaSbfToTAC(fileName).flatMap {
-            when (it) {
-                is CompiledGenericRule.AnalysisFail -> listOf(it)
-                is CompiledGenericRule.Compiled -> splitAsserts(it)
-            }
-        }
-        val result = handleGenericFlow(
-            scene,
-            reporterContainer,
-            treeView,
-            solanaRules
-        )
-        reporterContainer.toFile(scene)
-        return treeView to result
+/**
+ * Copies the `inputs` directory the contents of the `.certora_sources` directory. This is required for the JTS feature
+ * to work.
+ */
+private fun backupFiles() {
+    val filesInSourceDir = getFilesInSourcesDir()
+    CertoraConf.backupFiles(filesInSourceDir)
+}
+
+suspend fun handleSolanaFlow(fileName: String): List<RuleCheckResult.Leaf> {
+    backupFiles()
+    return SolanaVerificationFlow( fileName).use {
+        it.solve()
     }
 }
 

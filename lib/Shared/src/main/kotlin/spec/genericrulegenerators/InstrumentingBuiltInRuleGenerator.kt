@@ -79,13 +79,20 @@ sealed class InstrumentingBuiltInRuleGenerator: BuiltInRuleGenerator() {
      */
     open val noRevert = true
 
+    @Suppress("ConstPropertyName")
+    object ParamNames {
+        const val symbolicFunction = "f"
+        const val symbolicCallDataArg = "fcalldataarg"
+        const val symbolicEnv = "fenv"
+    }
+
     /**
      * Generates the arguments for CVLCmd.Simple.contractFunction
      */
-    private fun generateFunctionParams(symbolicFunction: String, symbolicCallDataArg: String, symbolicEnv: String) = listOf(
-        CVLParam(EVMBuiltinTypes.method, symbolicFunction, Range.Empty()),
-        CVLParam(EVMBuiltinTypes.env, symbolicEnv, Range.Empty()),
-        CVLParam(CVLType.PureCVLType.VMInternal.RawArgs, symbolicCallDataArg, Range.Empty())
+    private fun functionParams() = listOf(
+        CVLParam(EVMBuiltinTypes.method, ParamNames.symbolicFunction, Range.Empty()),
+        CVLParam(EVMBuiltinTypes.env, ParamNames.symbolicEnv, Range.Empty()),
+        CVLParam(CVLType.PureCVLType.VMInternal.RawArgs, ParamNames.symbolicCallDataArg, Range.Empty())
     )
 
     override fun doGenerate(
@@ -97,20 +104,16 @@ sealed class InstrumentingBuiltInRuleGenerator: BuiltInRuleGenerator() {
         checkIfCanGenerate(range).errorOrNull()?.let { return it.asError() }
 
         logger.debug { "Start generating builtin rule $eId" }
-        val symbolicFunction = "f"
-        val symbolicCallDataArg = "fcalldataarg"
-        val symbolicEnv = "fenv"
-        val functionParams = generateFunctionParams(symbolicFunction, symbolicCallDataArg, symbolicEnv)
 
         return scope.extendIn(CVLScope.Item::RuleScopeItem) { ruleScope ->
             withScopeAndRange(ruleScope, range) {
                 val arguments = listOf(
                     CVLExp.VariableExp(
-                        symbolicEnv,
+                        ParamNames.symbolicEnv,
                         EVMBuiltinTypes.env.asTag()
                     ),
                     CVLExp.VariableExp(
-                        symbolicCallDataArg,
+                        ParamNames.symbolicCallDataArg,
                         CVLType.PureCVLType.VMInternal.RawArgs.asTag()
                     )
                 )
@@ -119,7 +122,7 @@ sealed class InstrumentingBuiltInRuleGenerator: BuiltInRuleGenerator() {
                         range,
                         ruleScope,
                         ParametricMethod(
-                            symbolicFunction,
+                            ParamNames.symbolicFunction,
                             host = if(allSceneFunctions) {
                                 AllContracts
                             } else {
@@ -163,13 +166,13 @@ sealed class InstrumentingBuiltInRuleGenerator: BuiltInRuleGenerator() {
                         BuiltInRuleSinkType.NOP -> listOf(CVLCmd.Simple.Nop(range, ruleScope))
                     }
 
-                val filters = getMethodParamFilters(range, ruleScope, symbolicFunction)
+                val filters = getMethodParamFilters(range, ruleScope, ParamNames.symbolicFunction)
 
                 CVLSingleRule(
                     ruleIdentifier = RuleIdentifier.freshIdentifier(eId.name),
                     range = range,
                     ruleType = birType,
-                    params = functionParams,
+                    params = functionParams(),
                     block = block,
                     scope = ruleScope,
                     methodParamFilters = filters,
@@ -180,5 +183,4 @@ sealed class InstrumentingBuiltInRuleGenerator: BuiltInRuleGenerator() {
             }
         }.lift()
     }
-
 }

@@ -163,8 +163,9 @@ object SolanaConfig {
         Option(
             "solanaOptimisticMemcpyPromotion",
             true,
-            "Optimistically promote stores to memcpy if the analysis cannot prove that source and " +
-                      "destination do not overlap. [default: false]"
+            "Optimistically promote load-store pairs to memcpy even when the analysis cannot prove that: " +
+                      "(1) source and destination do not overlap, and (2) it is safe to reorder store next to the load. " +
+                      "[default: false]"
         )
     ) {}
 
@@ -183,6 +184,17 @@ object SolanaConfig {
             "solanaOptimisticNoMemmove",
             true,
             "Optimistically replace memmove with memcpy [default: false]"
+        )
+    ) {}
+
+    private val OptimisticScalarAnalysis = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "solanaOptimisticScalarAnalysis",
+            true,
+            "Optimistically assume that stores to unknown memory regions either: " +
+                "(1) target non-stack memory, or (2) do not overwrite stack locations that are live. " +
+                "[default: false]"
         )
     ) {}
 
@@ -511,6 +523,8 @@ object SolanaConfig {
     fun optimisticMemcpyPromotion() = DefactoSemantics.get() || OptimisticMemcpyPromotion.get()
     fun optimisticMemcmp() = DefactoSemantics.get() || OptimisticMemcmp.get()
     fun optimisticNoMemmove() = DefactoSemantics.get() || OptimisticNoMemmove.get()
+    fun optimisticScalarAnalysis(): Boolean = DefactoSemantics.get() || OptimisticScalarAnalysis.get()
+
     fun optimisticDealloc(): Boolean = OptimisticDealloc.get()
     fun optimisticJoinWithStackPtr(): Boolean = OptimisticPTAJoinWithStackPtr.get()
 }

@@ -430,12 +430,22 @@ sealed class RuleCheckResult(open val rule: IRule) {
                  * Returns the filename (with an '.html' extension) of the HTML report generated to show the TAC dump of [rule],
                  * just before calling solvers in usual Prover mode.
                  */
-                fun basicDumpGraphLinkOf(rule: IRule): String =
-                    dumpGraphLinkOf(
-                        rule,
+                fun basicDumpGraphLinkOf(rule: IRule, finalResult: SolverResult): String {
+                    val ruleType = rule.ruleType
+                    val ruleToDump = if (ruleType is SpecType.Single.GeneratedFromBasicRule && finalResult == SolverResult.UNSAT) {
+                        // in this case of an UNSAT leaf, the rule's TAC graph is not dumped.
+                        // however the parent rule's graph is always dumped, so we default to that.
+                        ruleType.originalRule
+                    } else {
+                        rule
+                    }
+
+                    return dumpGraphLinkOf(
+                        ruleToDump,
                         ReportTypes.PRESOLVER_RULE,
                         HTMLReporter.ReportNameIndex.None
                     )
+                }
             }
 
             /**
@@ -495,7 +505,7 @@ sealed class RuleCheckResult(open val rule: IRule) {
                         dumpGraphLink: String? = null
                     ): BasicInfo = BasicInfo(
                         details = Result.success(vResponse.details(rule)),
-                        dumpGraphLink = dumpGraphLink ?: basicDumpGraphLinkOf(rule),
+                        dumpGraphLink = dumpGraphLink ?: basicDumpGraphLinkOf(rule, vResponse.finalResult),
                         isOptimizedRuleFromCache = isOptimizedRuleFromCache,
                         isSolverResultFromCache = isSolverResultFromCache,
                     )
@@ -563,7 +573,7 @@ sealed class RuleCheckResult(open val rule: IRule) {
                                     logger.warn { "vResponse for rule ${rule.declarationId} has no unsolvedSplitsData; reverting to " +
                                         "dumping / linking Presolver report instead of the colored graph with " +
                                         "unsolved split info" }
-                                    basicDumpGraphLinkOf(rule)
+                                    basicDumpGraphLinkOf(rule, vResponse.finalResult)
                                 }
 
                         val details: Result<String> = Result.success(vResponse.details(rule))

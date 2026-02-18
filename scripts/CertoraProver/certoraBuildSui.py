@@ -55,22 +55,42 @@ def build_sui_project(context: CertoraContext, timings: Dict) -> None:
 def set_sui_build_directory(context: CertoraContext) -> None:
     sources: Set[Path] = set()
 
+    move_toml_file: Path | None = None
+
     if context.move_path:
-        # If move_path is specified, we assume the user has already built the spec package separately
+        # If move_path is specified, we assume the user has already built the spec package separately.  This is a legacy
+        # option that should not be used by new projects; they should use `spec_package_path` and/or `build_script`
+        # instead.
         assert not context.build_script, "cannot have move_path and build_script together"
+        assert not context.spec_package_path, "cannot have move_path and spec_package_path together"
+        context.sui_package_summary_path = None
     else:
-        # If no move_path was specified, try to build the package
-        move_toml_file = Util.find_file_in_parents("Move.toml")
-        if not move_toml_file:
-            raise Util.CertoraUserInputError("Could not find Move.toml, and no move_path was specified.")
+        if context.spec_package_path:
+            # Verify that there is a Move.toml at the specified spec_package_path
+            spec_package_dir = Path(context.spec_package_path)
+            move_toml_file = spec_package_dir / "Move.toml"
+            if not move_toml_file.exists():
+                raise Util.CertoraUserInputError(f"Could not find Move.toml at specified spec_package_path '{context.spec_package_path}'")
+        else:
+            # If spec_package_path is not specified, try to find the package that the current directory is in.
+            move_toml_file = Util.find_file_in_parents("Move.toml")
+            if not move_toml_file:
+                raise Util.CertoraUserInputError("Could not find Move.toml, and no spec_package_path was specified.")
+            spec_package_dir = move_toml_file.parent
+            context.spec_package_path = str(spec_package_dir)
+
         sources.add(move_toml_file.absolute())
-        context.move_path = str(move_toml_file.parent / "build")
+        context.move_path = str(spec_package_dir / "build")
+        context.sui_package_summary_path = str(spec_package_dir / "package_summaries")
+
         if context.build_script:
+            # Run the user-provided build script
             script_path = Path(context.build_script).resolve()
             sources.add(script_path)
-            run_sui_build(context, [str(script_path), str(move_toml_file.parent)])
+            run_sui_build([str(script_path), str(spec_package_dir)])
         else:
-            run_sui_build(context, ["sui", "move", "build", "--test", "--path", str(move_toml_file.parent)])
+            # Build the package using `sui move summary`, which will also produce the package summaries.
+            run_sui_build(["sui", "move", "summary", "--test", "--path", str(move_toml_file.parent)])
 
     assert context.move_path, "expecting move_path to be set after build"
     move_dir = Path(context.move_path)
@@ -90,6 +110,14 @@ def set_sui_build_directory(context: CertoraContext) -> None:
                     Util.get_build_dir() / move_dir.name,
                     ignore=shutil.ignore_patterns('*.move'))
 
+    # Copy package summary directory if it exists.  Projects built manually with "sui move build" may not have this.
+    if context.sui_package_summary_path:
+        package_summary_dir = Path(context.sui_package_summary_path)
+        if package_summary_dir.exists():
+            assert package_summary_dir.is_dir(), f"Package summary path '{package_summary_dir}' is not a directory"
+            shutil.copytree(package_summary_dir,
+                            Util.get_build_dir() / package_summary_dir.name)
+
     try:
         # Create generators
         build_source_tree(sources, context)
@@ -97,7 +125,8 @@ def set_sui_build_directory(context: CertoraContext) -> None:
     except Exception as e:
         raise Util.CertoraUserInputError(f"Collecting build files failed with the exception: {e}")
 
-def run_sui_build(context: CertoraContext, build_cmd: list[str]) -> None:
+
+def run_sui_build(build_cmd: list[str]) -> None:
     try:
         build_cmd_text = ' '.join(build_cmd)
         log.info(f"Building by calling `{build_cmd_text}`")

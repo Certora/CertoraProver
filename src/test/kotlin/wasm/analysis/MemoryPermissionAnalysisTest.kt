@@ -19,6 +19,7 @@ package wasm.analysis
 
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import verifier.EncodedRule
 import wasm.WasmEntryPoint.wasmToTAC
 import wasm.WasmTestFixture
 import wasm.analysis.memory.IMemoryPartitions.*
@@ -41,7 +42,7 @@ class MemoryPermissionAnalysisTest: WasmTestFixture() {
         })
         val tac = wasmToTAC(wasmFile.toFile(), setOf(entry), NullHost, optimize = false)
             .single()
-            .let { it as CompiledGenericRule.Compiled }.code
+            .let { it.getOrNull() ?: error("wasmToTAC did not produce a rule as expected") }.code
 
         return tac.analysisCache[MemoryPartitionAnalysis]
     }

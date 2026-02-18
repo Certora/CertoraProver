@@ -25,9 +25,7 @@ import datastructures.stdcollections.*
 import log.*
 import org.jetbrains.annotations.TestOnly
 import sbf.SolanaConfig
-import sbf.analysis.AdaptiveScalarAnalysis
-import sbf.analysis.AnalysisRegisterTypes
-import sbf.analysis.IAnalysis
+import sbf.analysis.*
 import kotlin.math.absoluteValue
 
 private val logger = Logger(LoggerTypes.SBF_MEMCPY_PROMOTION)
@@ -35,49 +33,80 @@ private fun info(msg: () -> Any) { logger.info(msg)}
 private fun dbg(msg: () -> Any) { logger.debug(msg)}
 
 /**
- *  Promote sequence of loads and stores into `memcpy` instructions.
- *  The transformation is intra-block.
+ *  Promote load-store pairs into `memcpy` instructions.
  */
-fun promoteStoresToMemcpy(cfg: MutableSbfCFG,
-                          globals: GlobalVariables,
-                          memSummaries: MemorySummaries) {
-    val scalarAnalysis = AdaptiveScalarAnalysis(cfg, globals, memSummaries)
+fun promoteStoresToMemcpy(
+    cfg: MutableSbfCFG,
+    globals: GlobalVariables,
+    memSummaries: MemorySummaries
+) {
+    val sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
+    val scalarAnalysis = GenericScalarAnalysis(
+        cfg,
+        globals,
+        memSummaries,
+        sbfTypesFac,
+        // We specifically want to use this scalar domain
+        ScalarRegisterStackEqualityDomainFactory()
+    )
     // [findWideningAndNarrowingStores] depends on endianness. Since we never expect big-endian,
     // we prefer to fail so that we are aware.
     check(globals.elf.isLittleEndian())
-    promoteStoresToMemcpy(cfg, scalarAnalysis, globals.elf.useDynamicFrames())
+
+    promoteIntraBlockLoadStorePairsToMemcpy(cfg, scalarAnalysis, globals.elf.useDynamicFrames())
+    promoteInterBlockLoadStoreToMemcpy(cfg, scalarAnalysis)
 }
 
+/**
+ * Replace multiple load-store pairs and replace them with `memcpy` instructions.
+ *
+ * The transformation is **intra-block**.
+ */
 @TestOnly
-fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteStoresToMemcpy(
+fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteIntraBlockLoadStorePairsToMemcpy(
     cfg: MutableSbfCFG,
     scalarAnalysis: IAnalysis<D>,
     // For tests, we use static frames by default
     useDynFrames: Boolean = false,
     // For tests, it's sometimes convenient to disable it
     aggressivePromotion: Boolean = true)
-    where D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
+    where D: AbstractDomain<D>,
+          D: ScalarValueProvider<TNum, TOffset> {
 
     reorderLoads(cfg, scalarAnalysis)
 
+    /**
+     * After each call to [applyRewrites], the basic block changes.
+     * Thus, we must be careful not to use invalidated/obsolete type information.
+     *
+     * Since the transformation is intra-block and it preserves semantics
+     * (replace load-store pairs with `memcpy`/`memcpy_trunc`/`memcpy_zext`), we can still use
+     * [scalarAnalysis] since it only contains the invariants that hold at the entry of the block.
+     *
+     * However, [AnalysisRegisterTypes] will collect information at the instruction level.
+     * Thus, `types` should NOT be used for answering queries about basic block `b`
+     * once `b` has changed. But information about other blocks is still valid.
+     */
     val types = AnalysisRegisterTypes(scalarAnalysis)
-    var numOfInsertedMemcpy = 0 // counter number of new memcpy/memcpy_zext/memcpy_trunc
     for (b in cfg.getMutableBlocks().values) {
+        val rewrites = mutableListOf<MemTransferRewrite>()
 
-        // load and stores access **different** number of bytes
-        findWideningAndNarrowingStores(b, types, useDynFrames).let { rewrites->
-            applyRewrites(b, rewrites)
-            numOfInsertedMemcpy += rewrites.size
-        }
+        // (A) load and stores access **different** number of bytes
+        rewrites.addAll(findWideningAndNarrowingStores(b, types, useDynFrames))
+        // (B) load and stores access **same** number of bytes
+        rewrites.addAll(findMemcpyPatterns(b, types, useDynFrames))
 
-        // load and stores access **same** number of bytes
-        findMemcpyPatterns(b, types, useDynFrames).let { rewrites ->
-            applyRewrites(b, rewrites)
-            narrowLoadsFromMemcpy(b, cfg) // remove some loads
-            numOfInsertedMemcpy += rewrites.size
-        }
+        // Note that we can collect first all the rewrites of type (A) and (B) and then
+        // change the basic block because (A) and (B) do not share instructions
+        // After here we shouldn't use `types` to answer queries about this block b.
+        // But next iterations of this loop can still use `types`
+        applyRewrites(cfg, rewrites)
 
-        if (aggressivePromotion) {
+        // (C) if we haven't changed the basic block (types is still valid) yet, we try next transformation.
+        //
+        // Note that since we run several times this function, eventually we won't be able to
+        // apply (A) and (B) so this code will be executable.
+        if (rewrites.isEmpty() && aggressivePromotion) {
             /*
             * Since we promote `memcpy` instructions in a greedy manner we might lose some simple promotions.
             * For instance, with this code:
@@ -87,23 +116,35 @@ fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteStoresToMemcpy(
             *    r1 := *(u64 *) (r10 + -520):sp(40440)
             *    *(u64 *) (r10 + -384):sp(40576) := r1
             * ```
-            * we fail to promote the two loads and stores to a memcpy of 16 bytes because of the "ordering". That is,
+            * we fail to promote the two loads and stores to a `memcpy` of 16 bytes because of the "ordering". That is,
             * the content of 40432 (low) is written to 40584 (high) and the content of 40440 (high) to 40576 (low).
             *
             * However, we can promote the two pairs of load-store to two separate `memcpy` of 8 bytes each one.
             * To do that, we do another round where we search for single pairs of load-store.
             */
-            findMemcpyPatterns(b, types, useDynFrames, maxNumOfPairs = 1).let { rewrites ->
-                applyRewrites(b, rewrites)
-                narrowLoadsFromMemcpy(b, cfg) // remove some loads
-                numOfInsertedMemcpy += rewrites.size
-            }
+            applyRewrites(
+                cfg,
+                findMemcpyPatterns(b, types, useDynFrames, maxNumOfPairs = 1)
+            )
         }
-    }
 
-    info{
-        "Number of memcpy/memcpy_zext/memcpy_trunc instructions inserted: $numOfInsertedMemcpy"
+        // Transforms some load instructions (by narrowing them) that were not involved
+        // in any of the memcpy promotions from before
+        narrowLoadsFromMemcpy(b, cfg) // remove some loads
     }
+}
+
+/**
+ *  Replace a single load-store pair with a `memcpy` instruction.
+ *
+ *  The transformation is inter-block.
+ */
+private fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteInterBlockLoadStoreToMemcpy(
+    cfg: MutableSbfCFG,
+    scalarAnalysis: IAnalysis<ScalarRegisterStackEqualityDomain<TNum, TOffset>>
+) {
+    val rewrites = findInterBlockLoadAndStorePairs(cfg, scalarAnalysis)
+    applyRewrites(cfg, rewrites)
 }
 
 /**
@@ -577,9 +618,224 @@ where TNum: INumValue<TNum>,
     return rewrites
 }
 
+private fun SbfInstruction.isMemcpyPromoted(): Boolean =
+        this.metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null ||
+        this.metaData.getVal(SbfMeta.MEMCPY_TRUNC_PROMOTION) != null ||
+        this.metaData.getVal(SbfMeta.MEMCPY_ZEXT_PROMOTION) != null
+
+private fun emitMemcpyVariant(
+    srcWidth: ULong,
+    dstWidth: ULong,
+    srcMemAccess: MemAccess,
+    dstMemAccess: MemAccess,
+    metaData: MetaData
+): List<SbfInstruction>? = when {
+    srcWidth == dstWidth ->
+        emitMemcpy(srcMemAccess.reg, srcMemAccess.offset, dstMemAccess.reg, dstMemAccess.offset, srcWidth, metaData)
+    srcWidth == 8UL && dstWidth < 8UL ->
+        emitMemcpyTrunc(srcMemAccess.reg, srcMemAccess.offset, dstMemAccess.reg, dstMemAccess.offset, dstWidth, metaData)
+    dstWidth == 8UL && srcWidth < 8UL ->
+        emitMemcpyZExt(srcMemAccess.reg, srcMemAccess.offset, dstMemAccess.reg, dstMemAccess.offset, srcWidth, metaData)
+    else -> null
+}
+
 
 /**
- * Represents a recognized memory transfer pattern (e.g. memcpy).
+ * Identify a single load-store pair across different blocks that can be replaced with `memcpy` and
+ * return the SBF code (rewrite) that will be used to replace the load-store pair.
+ *
+ * Unlike [findMemcpyPatterns] which can discover a new `memcpy` instruction from multiple load-store pairs
+ * within a single block, this finds a single load-store pair where:
+ *
+ * - The load and store can be in different basic blocks
+ * - The loaded value flows directly to the store
+ * - No dependencies exist that precludes to move the store up next to the load.
+ */
+fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> findInterBlockLoadAndStorePairs(
+    cfg: SbfCFG,
+    scalarAnalysis: IAnalysis<ScalarRegisterStackEqualityDomain<TNum, TOffset>>
+):  List<MemTransferRewrite>  {
+
+    data class MemAccessTransfer(
+        val srcLocInst: LocatedSbfInstruction, val srcAccess: MemAccess,
+        val dstLocInst: LocatedSbfInstruction, val dstAccess: MemAccess
+    )
+
+    // Type analysis information
+    val types = AnalysisRegisterTypes(scalarAnalysis)
+    // post-dominance queries
+    val postDom = PostDominatorAnalysis(cfg)
+    // Global state needed by mod-ref analysis
+    val globalState = GlobalState(scalarAnalysis.getGlobalVariableMap(), scalarAnalysis.getMemorySummaries())
+    // List of load-store pairs with extra information
+    val loadStorePairs = mutableListOf<MemAccessTransfer>()
+    // Options for the mod/ref analysis
+    val modRefOpts = ModRefAnalysisOptions(
+        maxRegionSize = 8UL,
+        assumeTopPointersAreNonStack = SolanaConfig.optimisticMemcpyPromotion()
+    )
+
+    /**
+     * We need to ask [ScalarRegisterStackEqualityDomain] information at every instruction
+     * For that we create an [InstructionListener] and pass it to [analyzeBlock]
+     **/
+    val processor = object : InstructionListener<ScalarRegisterStackEqualityDomain<TNum, TOffset>> {
+
+        override fun instructionEventBefore(
+            locInst: LocatedSbfInstruction,
+            pre: ScalarRegisterStackEqualityDomain<TNum, TOffset>
+        ) {
+
+            // If the instruction is not a store then skip
+            val inst = locInst.inst
+            if (inst !is SbfInstruction.Mem || inst.isLoad) {
+                return
+            }
+
+            val reg = inst.value as? Value.Reg
+                ?: return
+
+            // Find the load instruction whose loaded value is the store's value
+            val stackLoad = pre.getRegisterStackEqualityDomain().getRegister(reg)
+                ?: return
+
+
+            // Skip if the load instruction is already part of another promotion
+            val loadLocInst = stackLoad.locInst
+            if (loadLocInst.inst.isMemcpyPromoted()) {
+                return
+            }
+
+            info { "findInterBlockLoadAndStorePairs -- STORE:$inst  LOAD:${loadLocInst.inst}" }
+
+            val loadBlockId = loadLocInst.label
+            val storeBlockId = locInst.label
+
+            // Skip if load and store are in the same block
+            if (loadBlockId == storeBlockId) {
+                info {"\tSkip because load and store are in the same basic block"}
+                return
+            }
+
+            // Skip if the store does not post-dominates the load instruction
+            if (!postDom.postDominates(storeBlockId, loadBlockId)) {
+                info {"\tSkip because store does not post-dominates the load"}
+                return
+            }
+
+            // Skip if load and store are not in the same function
+            // We check this but checking the value of r10 (stack top)
+            val r10 = SbfRegister.R10_STACK_POINTER
+            val stackTopAtLoad = types.typeAtInstruction(loadLocInst, r10)
+            val stackTopAtStore= types.typeAtInstruction(locInst, r10)
+            if (stackTopAtLoad != stackTopAtStore) {
+                info { "\tSkip because load and stores are not in the same function"}
+                return
+            }
+
+            // Skip if both load and store do not access to the stack
+            val loadMemAccess = normalizeLoadOrStore(loadLocInst, types)
+            val storeMemAccess = normalizeLoadOrStore(locInst, types)
+            if (loadMemAccess.region != MemAccessRegion.STACK ||
+                storeMemAccess.region != MemAccessRegion.STACK
+            ) {
+                info {
+                    "\tSkip because either load or store is not on the stack. " +
+                    "load=$loadMemAccess store=$storeMemAccess"
+                }
+                return
+            }
+
+            // Skip if load and store overlap
+            if (loadMemAccess.overlap(storeMemAccess)) {
+                info { "\tSkip because load and store overlap" }
+                return
+            }
+
+            // Finally, check for memory dependencies between the load and store:
+            //   - WAR (Write-After-Read): write to load's location
+            //   - RAW (Read-After-Write): read from store's location
+            //   - WAW (Write-After-Write): write to store's location
+            //
+            // If WAR, RAW, WAW cannot happen then it is sound to move up the store instruction
+            // next to the load instruction.
+
+            // A load instruction can never be a terminator so adding one is okay
+            val start = loadLocInst.copy(pos = loadLocInst.pos + 1)
+            // A store could be the first instruction of the block
+            if (locInst.pos == 0) {
+                return
+            }
+            val end = locInst.copy(pos = locInst.pos - 1)
+
+            val modRefAnalysis = ModRefAnalysis(cfg, start, end, types, globalState, modRefOpts)
+            val war = modRefAnalysis.mayAccess(loadLocInst, AccessType.WRITE)
+            val raw = modRefAnalysis.mayAccess(locInst, AccessType.READ)
+            val waw = modRefAnalysis.mayAccess(locInst, AccessType.WRITE)
+
+            info { "\tWAR: $war" }
+            info { "\tRAW: $raw" }
+            info { "\tWAW: $waw" }
+
+            if (!war && !raw && !waw) {
+                loadStorePairs.add(MemAccessTransfer(loadLocInst, loadMemAccess, locInst, storeMemAccess))
+            }
+        }
+
+        override fun instructionEventAfter(
+            locInst: LocatedSbfInstruction,
+            post: ScalarRegisterStackEqualityDomain<TNum, TOffset>
+        ) {}
+
+        override fun instructionEvent(
+            locInst: LocatedSbfInstruction,
+            pre: ScalarRegisterStackEqualityDomain<TNum, TOffset>,
+            post: ScalarRegisterStackEqualityDomain<TNum, TOffset>
+        ) {}
+    }
+
+
+    for (b in cfg.getBlocks().values) {
+        val state = scalarAnalysis.getPre(b.getLabel()) ?: continue
+        if (state.isBottom()) {
+            continue
+        }
+        // Replay the abstract states at each instruction while applying processor
+        analyzeBlock(
+            domainName = "ScalarDomain x RegisterStackEqualityDomain",
+            b,
+            state,
+            ScalarRegisterStackEqualityDomain<TNum, TOffset>::analyze,
+            processor
+        )
+    }
+
+    return loadStorePairs.mapNotNull { (srcLocInst, srcMemAccess, dstLocInst, dstMemAccess) ->
+        val srcWidth = srcMemAccess.width.toULong()
+        val dstWidth = dstMemAccess.width.toULong()
+        val rewrite = emitMemcpyVariant(
+            srcWidth,
+            dstWidth,
+            srcMemAccess,
+            dstMemAccess,
+            srcLocInst.inst.metaData
+        )?.let { newInsts ->
+            MemTransferRewrite(
+                listOf(srcLocInst),
+                listOf(dstLocInst),
+                newInsts
+            )
+        }
+        rewrite
+    }
+}
+
+/**
+ * Represents a recognized memory transfer pattern (e.g. `memcpy`)
+ *
+ * All loads must be in the same basic block.
+ * All stores must be in the same basic block.
+ * (Loads and stores may be in different blocks from each other.)
  *
  * The `loads` and `stores` together describe a semantically equivalent
  * operation that can be replaced by `replacement`.
@@ -588,66 +844,94 @@ data class MemTransferRewrite(
     val loads: List<LocatedSbfInstruction>,
     val stores: List<LocatedSbfInstruction>,
     val replacement: List<SbfInstruction>
-)
+) {
+    init {
+        check(loads.isNotEmpty())
+        check(stores.isNotEmpty())
+        check(loads.size == stores.size)
+        // All loads must be in the same block
+        check(loads.map { it.label }.distinct().size == 1) {
+            "All loads must be in the same basic block"
+        }
+        // All stores must be in the same block
+        check(stores.map { it.label }.distinct().size == 1) {
+            "All stores must be in the same basic block"
+        }
+    }
+}
 
 /**
- *  Apply each rewrite from [rewrites] in [bb].
+ *  Apply each rewrite from [rewrites].
  *
  *  Stores are removed but loads are left intact because they can be used by other instructions.
  *  Subsequent optimizations will remove the load instructions if they are dead.
+ *
+ *  Recall that all loads (stores) must be in the same basic block, **but** loads and stores
+ *  can be in different blocks.
  **/
-private fun applyRewrites(bb: MutableSbfBasicBlock, rewrites: List<MemTransferRewrite>) {
-    // Important to sort first rewrites: required for soundness of the transformation.
+private fun applyRewrites(cfg: MutableSbfCFG, rewrites: List<MemTransferRewrite>) {
     val sortedRewrites = sortRewrites(rewrites)
 
     if (sortedRewrites.isEmpty()) {
         return
     }
 
-    // Add metadata to all load and store instructions to be promoted.
-    // This is done **without** inserting or removing any instruction so all indexes in memcpyInfo are still valid.
-    //
-    // This metadata is needed to mark this instructions for the next loop.
-    // Eventually, only load instructions that used by other instructions will maintain that metadata.
-    // In that case, it's only used for debugging purposes.
+    // Add metadata to all load and store instructions
     for (rewrite in sortedRewrites) {
+        val loadBlock = checkNotNull(cfg.getMutableBlock(rewrite.loads.first().label))
         for (loadLocInst in rewrite.loads) {
-            addMemcpyPromotionAnnotation(bb, loadLocInst)
+            addMemcpyPromotionAnnotation(loadBlock, loadLocInst)
         }
+
+        val storeBlock = checkNotNull(cfg.getMutableBlock(rewrite.stores.first().label))
         for (storeLocInst in rewrite.stores) {
-            addMemcpyPromotionAnnotation(bb, storeLocInst)
+            addMemcpyPromotionAnnotation(storeBlock, storeLocInst)
         }
     }
 
-    //  Add the memcpy instructions.
-    //  We need to add the memcpy instructions before the first load.
-    //  For an explanation, see test13 in PromoteStoresToMemcpyTest.kt
-    var numAdded = 0   // used to adjust the insertion points after each memcmpy is inserted
-    for (rewrite in sortedRewrites) {
-        val loads = rewrite.loads.sortedBy { it.pos}
-        val firstLoad = loads.firstOrNull()
-        check(firstLoad != null) {"memcpyInfo should not be empty"}
-        val insertPoint = firstLoad.pos + numAdded
-        numAdded += rewrite.replacement.size
-        bb.addAll(insertPoint, rewrite.replacement)
-    }
+    // Group rewrites by the block containing their loads
+    val rewritesByBlock = sortedRewrites.groupBy { it.loads.first().label }
 
-    // Finally, we remove the store instructions marked before with `MEMCPY_PROMOTION` metadata
-    val toRemove = ArrayList<LocatedSbfInstruction>()
-    for (locInst in bb.getLocatedInstructions()) {
-        val inst = locInst.inst
-        if (inst is SbfInstruction.Mem && !inst.isLoad && inst.metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null) {
-            toRemove.add(locInst)
+    // Add memcpy instructions block by block
+    // We need to add the memcpy instructions before the first load.
+    // For an explanation, see test13 in PromoteStoresToMemcpyTest.kt
+    for ((label, blockRewrites) in rewritesByBlock) {
+        val block = checkNotNull(cfg.getMutableBlock(label))
+        var numAdded = 0
+        for (rewrite in blockRewrites) {
+            val loads = rewrite.loads.sortedBy { it.pos }
+            val firstLoad = loads.first()
+            val insertPoint = firstLoad.pos + numAdded
+            numAdded += rewrite.replacement.size
+            block.addAll(insertPoint, rewrite.replacement)
         }
     }
-    for ((numRemoved, locInst) in toRemove.withIndex()) {
-        val adjPos = locInst.pos - (numRemoved)
-        val inst = bb.getInstruction(adjPos)
-        check(inst is SbfInstruction.Mem && !inst.isLoad) {
-            "applyRewrites expects a store instruction"
+
+
+    // Collect block labels that contain stores
+    val storeBlockLabels = sortedRewrites.map { it.stores.first().label }.toSet()
+
+    // Finally, remove the store instructions marked with `MEMCPY_PROMOTION` metadata
+    // We scan all blocks to find annotated stores
+    for (label in storeBlockLabels) {
+        val toRemove = ArrayList<LocatedSbfInstruction>()
+        val block = checkNotNull(cfg.getMutableBlock(label))
+        for (locInst in block.getLocatedInstructions()) {
+            val inst = locInst.inst
+            if (inst is SbfInstruction.Mem && !inst.isLoad &&
+                inst.metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null) {
+                toRemove.add(locInst)
+            }
         }
 
-        bb.removeAt(adjPos)
+        for ((numRemoved, locInst) in toRemove.withIndex()) {
+            val adjPos = locInst.pos - numRemoved
+            val inst = block.getInstruction(adjPos)
+            check(inst is SbfInstruction.Mem && !inst.isLoad) {
+                "applyRewrites expects a store instruction"
+            }
+            block.removeAt(adjPos)
+        }
     }
 }
 
@@ -657,19 +941,27 @@ private fun applyRewrites(bb: MutableSbfBasicBlock, rewrites: List<MemTransferRe
  * This simplifies adjusting insertion points as we insert the emitted code.
  * Without sorting, tracking insertion point adjustments would be unnecessarily complicated.
  */
-private fun sortRewrites(rewrites: List<MemTransferRewrite>): List<MemTransferRewrite> =
-    rewrites.sortedBy { rewrite ->
-        // Return the position of the first load of `it` within the block to be promoted
-        val loads = rewrite.loads
-        check(loads.isNotEmpty()) {"$rewrite should have non-empty load instructions"}
-        loads.minByOrNull { locInst -> locInst.pos }!!.pos
+private fun sortRewrites(rewrites: List<MemTransferRewrite>): List<MemTransferRewrite> {
+    // Group rewrites by the block containing their loads
+    val rewritesByBlock = rewrites.groupBy { it.loads.first().label }
+
+    // Sort rewrites within each block by position of first load
+    val sortedRewrites = mutableListOf<MemTransferRewrite>()
+
+    for ((_, blockRewrites) in rewritesByBlock) {
+        val sorted = blockRewrites.sortedBy { rewrite ->
+            rewrite.loads.minOf { it.pos }
+        }
+        sortedRewrites.addAll(sorted)
     }
 
+    return sortedRewrites
+}
 
 private fun addMemcpyPromotionAnnotation(bb: MutableSbfBasicBlock, locInst: LocatedSbfInstruction) {
     val inst = locInst.inst
     if (inst is SbfInstruction.Mem) {
-        val newMetaData = inst.metaData.plus(SbfMeta.MEMCPY_PROMOTION())
+        val newMetaData = inst.metaData + SbfMeta.MEMCPY_PROMOTION()
         val newInst = inst.copy(metaData = newMetaData)
         bb.replaceInstruction(locInst.pos, newInst)
     }

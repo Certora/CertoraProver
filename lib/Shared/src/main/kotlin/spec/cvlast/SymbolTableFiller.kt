@@ -26,6 +26,7 @@ import spec.CVLKeywords
 import spec.CVLWarningLogger
 import spec.cvlast.typechecker.CVLError
 import spec.cvlast.typedescriptors.FromVMContext
+import spec.genericrulegenerators.InstrumentingBuiltInRuleGenerator
 import spec.rules.*
 import utils.CollectingResult
 import utils.CollectingResult.Companion.bind
@@ -314,18 +315,27 @@ class SymbolTableFiller(
         return collisionResult.flattenToVoid().bind { symbolTable.register(inv, ast.scope) }
     }
 
+    private enum class MethodParamSource { Function, Rule }
+
     /**
      * Returns a [CVLError] if a method parameter has the same name as a function of one of the contracts in the scene.
      */
-    private fun verifyMethodParamIsNotContractFunction(param: CVLParam, range: Range, source: String): VoidResult<CVLError> = collectingErrors {
+    private fun verifyMethodParamIsNotContractFunction(param: CVLParam, range: Range, source: MethodParamSource): VoidResult<CVLError> = collectingErrors {
         if (param.type != EVMBuiltinTypes.method) { return@collectingErrors }
+        val id = param.id
         contractToItsFunctionsFromSpecAndContract.forEach { (contract, functions) ->
             functions.forEach {
-                if (it.methodSignature.functionName == param.id) {
-                    returnError(CVLError.General(
-                        range,
-                        "The $source parameter name `${param.id}` coincides with a method name in contract `${contract.name}`"
-                    ))
+                if (it.methodSignature.functionName == id) {
+                    val message = buildString {
+                        val kind = source.name.lowercase()
+                        append("The $kind parameter name `$id` coincides with a method name in contract `${contract.name}.`")
+
+                        if (source == MethodParamSource.Rule && param.id == InstrumentingBuiltInRuleGenerator.ParamNames.symbolicFunction) {
+                            append("Hint: ${param.id} is the name of a rule parameter in builtin rules.")
+                            append(" You can rename the contract function to avoid this")
+                        }
+                    }
+                    returnError(CVLError.General(range, message))
                 }
             }
         }
@@ -334,7 +344,7 @@ class SymbolTableFiller(
     private fun traverseCVLFunction(sub: CVLFunction): VoidResult<CVLError> {
         return sub.params.map { param ->
             logger.info { "Registering subroutine param $param in ${sub.scope}" }
-            verifyMethodParamIsNotContractFunction(param, sub.range, "function").bind {
+            verifyMethodParamIsNotContractFunction(param, sub.range, MethodParamSource.Function).bind {
                 symbolTable.registerParam(param, sub.scope, sub.range)
             }
         }.flattenToVoid().bind {
@@ -395,7 +405,7 @@ class SymbolTableFiller(
     ): VoidResult<CVLError> {
             val paramsToIdCollisions = rule.params.map { param ->
                 logger.info { "Registering rule param $param in ${rule.scope}" }
-                verifyMethodParamIsNotContractFunction(param, rule.range, "rule").bind {
+                verifyMethodParamIsNotContractFunction(param, rule.range, MethodParamSource.Rule).bind {
                     symbolTable.registerParam(
                         param,
                         rule.scope,

@@ -136,6 +136,9 @@ def get_local_run_cmd(context: CertoraContext) -> List[str]:
         # For local runs, we want path to be relative to cwd instead of zip root.
         move_rel_path = os.path.relpath(Path(context.move_path), os.getcwd())
         run_args.extend(['-movePath', move_rel_path])
+        if context.sui_package_summary_path:
+            spec_package_summary_rel_path = os.path.relpath(Path(context.sui_package_summary_path), os.getcwd())
+            run_args.extend(['-suiPackageSummaryPath', spec_package_summary_rel_path])
     elif is_rust_app_class(context):
         # For local runs, we want path to be relative to cwd instead of zip root.
         rust_rel_path = os.path.relpath(Path(context.files[0]), os.getcwd())

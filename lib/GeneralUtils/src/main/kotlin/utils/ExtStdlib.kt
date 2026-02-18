@@ -1312,6 +1312,8 @@ fun ClosedRange<BigInteger>.stepBy(step: BigInteger) = sequence<BigInteger> {
     }
 }
 
+fun UInt.checkedMinus(other: UInt): UInt? = if (this >= other) { this - other } else { null }
+
 /**
     Runs the given [block] returns its result wrapped in a [Result].  Any exceptions other than [CancellationException]
     are caught and returned as a failure result.  If a [CancellationException] is thrown, it is rethrown, allowing this

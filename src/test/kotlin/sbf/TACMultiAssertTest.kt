@@ -17,7 +17,6 @@
 
 package sbf
 
-import CompiledGenericRule
 import analysis.maybeNarrow
 import config.Config
 import config.ConfigScope
@@ -29,6 +28,7 @@ import spec.rules.EcosystemAgnosticRule
 import spec.cvlast.SpecType
 import vc.data.CoreTACProgram
 import vc.data.TACCmd
+import verifier.VerificationFlow
 
 
 class TACMultiAssertTest {
@@ -69,8 +69,8 @@ class TACMultiAssertTest {
         println("=== Original TAC ===\n${dumpTAC(tacProg)}")
 
         ConfigScope(Config.MultiAssertCheck, true).use {
-            val rules = splitAsserts(
-                CompiledGenericRule.Compiled(
+            val rules = VerificationFlow.splitAsserts(
+                SolanaEncodedRule(
                     rule = EcosystemAgnosticRule(
                         ruleIdentifier = RuleIdentifier.freshIdentifier(tacProg.name),
                         ruleType = SpecType.Single.FromUser.SpecFile,

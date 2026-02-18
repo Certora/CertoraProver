@@ -969,7 +969,21 @@ object Config {
     val MoveModulePath =
         object : ConfigType.StringCmdLine(
             null,
-            Option("movePath", true, "Directory to search for Move modules")
+            Option(
+                "movePath",
+                true,
+                "Directory to search for Move modules.  Ordinarily derived from the spec package path."
+            )
+        ) {}
+
+    val SuiPackageSummaryPath =
+        object : ConfigType.StringCmdLine(
+            null,
+            Option(
+                "suiPackageSummaryPath",
+                true,
+                "Directory with Sui package summary info.  Ordinarily derived from the spec package path."
+            )
         ) {}
 
     val MovePublicSanityCheck = object : ConfigType.BooleanCmdLine(

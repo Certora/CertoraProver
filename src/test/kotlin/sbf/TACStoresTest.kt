@@ -25,7 +25,10 @@ import sbf.disassembler.Label
 import sbf.support.UnknownStackContentError
 import sbf.tac.TACTranslationError
 import org.junit.jupiter.api.*
+import sbf.tac.levelZeroOptimizations
 import sbf.tac.optimize
+import sbf.tac.runDSAandUnrollLoops
+import sbf.tac.solanaOptimize
 import sbf.testing.SbfTestDSL
 
 class TACStoresTest {
@@ -298,12 +301,10 @@ class TACStoresTest {
         ConfigScope(SolanaConfig.OptimisticPTAOverlaps, true).use {
             val tacProg = toTAC(cfg)
             println("Before loop unrolling\n" + dumpTAC(tacProg))
-            ConfigScope(SolanaConfig.TACOptLevel, 0).use {
-                ConfigScope(Config.LoopUnrollConstant, 5).use {
-                    val loopFreeTacProg = optimize(tacProg, false)
-                    println("After loop unrolling\n" + dumpTAC(loopFreeTacProg))
-                    Assertions.assertEquals(true, verify(loopFreeTacProg))
-                }
+            ConfigScope(Config.LoopUnrollConstant, 5).use {
+                val loopFreeTacProg = levelZeroOptimizations(tacProg, false)
+                println("After loop unrolling\n" + dumpTAC(loopFreeTacProg))
+                Assertions.assertEquals(true, verify(loopFreeTacProg))
             }
         }
     }

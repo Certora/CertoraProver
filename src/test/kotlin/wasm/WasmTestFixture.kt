@@ -87,7 +87,7 @@ abstract class WasmTestFixture {
             val program = WasmEntryPoint
                 .wasmToTAC(wasmFile.toFile(), setOf(entry), host, optimize)
                 .single()
-                .let { it as CompiledGenericRule.Compiled }
+                .let { it.getOrNull() ?: error("wasmToTAC did not produce a rule as expected") }
                 .code
 
             if (!allowUnresolvedCalls) {

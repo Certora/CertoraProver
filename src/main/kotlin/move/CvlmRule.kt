@@ -18,7 +18,12 @@
 package move
 
 import config.*
+import datastructures.*
 import datastructures.stdcollections.*
+import spec.cvlast.RuleIdentifier
+import spec.cvlast.SpecType
+import spec.genericrulegenerators.BuiltInRuleId
+import spec.rules.EcosystemAgnosticRule
 import tac.generation.TrapMode
 import utils.*
 
@@ -27,6 +32,8 @@ sealed class CvlmRule {
     abstract val ruleInstanceName: String
     abstract val parametricTargetNames: Set<String>
     abstract val trapMode: TrapMode
+
+    abstract fun toEcosystemAgnosticRule(isSatisfy: Boolean): EcosystemAgnosticRule
 
     /** An instantiation of a (possibly parametric) user rule */
     class UserRule(
@@ -38,24 +45,57 @@ sealed class CvlmRule {
         override val ruleInstanceName get() =
             (listOf(ruleName) + parametricTargets.values.map { it.name }).joinToString("-")
         override val parametricTargetNames get() = parametricTargets.values.mapToSet { it.name.toString() }
+
+        override fun toEcosystemAgnosticRule(isSatisfy: Boolean): EcosystemAgnosticRule {
+            val baseRule = EcosystemAgnosticRule(
+                ruleIdentifier = ruleIdentifiers(null, ruleName),
+                ruleType = SpecType.Single.FromUser.SpecFile,
+                isSatisfyRule = isSatisfy
+            )
+            return parametricTargets.entries.fold(baseRule) { parent, (_, target) ->
+                EcosystemAgnosticRule(
+                    ruleIdentifier = ruleIdentifiers(parent.ruleIdentifier, target.name.toString()),
+                    ruleType = SpecType.Single.GeneratedFromBasicRule.ParametricRuleInstantiation(parent),
+                    isSatisfyRule = isSatisfy
+                )
+            }
+        }
     }
 
     /** Target sanity rules */
     sealed class TargetSanity : CvlmRule() {
         abstract val target: MoveFunction
+        abstract val identifierSuffix: String
         override val ruleName get() = target.name.toString()
+        override val ruleInstanceName get() = "$ruleName-$identifierSuffix"
         override val parametricTargetNames get() = setOf<String>()
         override val trapMode get() = TrapMode.DEFAULT
 
         class AssertTrue(override val target: MoveFunction) : TargetSanity() {
-            override val ruleInstanceName get() = "$ruleName-Assertions"
+            override val identifierSuffix get() = "Assertions"
         }
         class SatisfyTrue(override val target: MoveFunction) : TargetSanity() {
-            override val ruleInstanceName get() = "$ruleName-Reached end of function"
+            override val identifierSuffix get() = "Reached end of function"
+        }
+
+        override fun toEcosystemAgnosticRule(isSatisfy: Boolean): EcosystemAgnosticRule {
+            return EcosystemAgnosticRule(
+                ruleIdentifier = ruleIdentifiers(null, ruleInstanceName),
+                ruleType = SpecType.Single.BuiltIn(BuiltInRuleId.sanity),
+                isSatisfyRule = isSatisfy
+            )
         }
     }
 
     companion object {
+        private val ruleIdentifiers = memoized { parent: RuleIdentifier?, name: String ->
+            if (parent == null) {
+                RuleIdentifier.freshIdentifier(name)
+            } else {
+                parent.freshDerivedIdentifier(name)
+            }
+        }
+
         context(MoveScene)
         fun loadAll(): List<CvlmRule> = allRules().flatMap { (ruleFuncName, manifestRuleType) ->
             with (Instantiator()) {
