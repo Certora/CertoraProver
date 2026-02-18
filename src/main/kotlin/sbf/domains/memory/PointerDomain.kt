@@ -2856,12 +2856,10 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             doPointerAssign(dst, op1)
         } else {
             val c = getRegCell(op1)
-                ?: if (enableDefensiveChecks) {
-                    throw PointerDomainError("cannot find cell for $op1 in $this")
-                } else {
-                    forget(dst)
-                    return
-                }
+            if (c == null){
+                forget(dst)
+                return
+            }
 
             val n = c.getNode()
             val o = c.getOffset()
@@ -2899,12 +2897,11 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             doPointerAssign(dst, op1)
         } else {
             val c1 = getRegCell(op1)
-                    ?: if (enableDefensiveChecks) {
-                        throw PointerDomainError("cannot find cell for $op1 in $this")
-                    } else {
-                        forget(dst)
-                        return
-                    }
+            if (c1 == null) {
+                forget(dst)
+                return
+            }
+
             if (o != null && (op == BinOp.ADD || op == BinOp.SUB)) {
                 val c2 = getRegCell(op2)
                 if (c1.getNode() == getStack() || c2 == null) {
@@ -3003,9 +3000,6 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 doConstantPointerArithmetic(locInst, op, dst, op2, op1, op1Type)
             } else {
                 if (!doGeneralCasePointerArithmetic(locInst, op, dst, op1, op2)) {
-                    if (enableDefensiveChecks) {
-                        throw PointerDomainError("TODO(1): $dst:= $op1 $op $op2 when $op1 is $op1Type")
-                    }
                     forget(dst)
                 }
             }
@@ -3025,9 +3019,6 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 } else if (c2 != null) {
                     doUnknownPointerArithmetic(dst, c2.getNode())
                 } else {
-                    if (enableDefensiveChecks) {
-                        throw PointerDomainError("TODO(3) cannot find a cell for $op1 and $op2 in $this")
-                    }
                     forget(dst)
                 }
             }

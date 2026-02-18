@@ -66,9 +66,6 @@ import sbf.callgraph.SolanaFunction
 private val logger = Logger(LoggerTypes.SBF_MEMORY_ANALYSIS)
 private fun dbg(msg: () -> Any) { logger.info(msg)}
 
-
-const val enableDefensiveChecks = false
-
 class MemoryDomainError(msg: String): SolanaInternalError("MemoryDomain error: $msg")
 
 private typealias TScalarDomain<TNum, TOffset> = ScalarStackStridePredicateDomain<TNum, TOffset>

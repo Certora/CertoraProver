@@ -441,19 +441,15 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         val inst = locInst.inst
         when (operandType) {
             // ptr(o) +/- num ~> ptr(o +/- num)
-            // ptr(o) op num  ~> ptr(top)  (error if enableDefensiveChecks)
+            // ptr(o) op num  ~> ptr(top)
             is SbfType.NumType -> {
                 val dstPtrType = when (op) {
                     BinOp.ADD  ->
                         ptrType.withOffset(ptrType.offset.add(sbfTypeFac.numToOffset(operandType.value)))
                     BinOp.SUB  ->
                         ptrType.withOffset(ptrType.offset.sub(sbfTypeFac.numToOffset(operandType.value)))
-                    else -> {
-                        if (enableDefensiveChecks) {
-                            throw ScalarDomainError("Unexpected pointer arithmetic in $inst")
-                        }
+                    else ->
                         ptrType.withTopOffset(sbfTypeFac)
-                    }
                 }
                 checkStackInBounds(getRegister(dst).type(), dstPtrType, locInst)
                 setRegister(dst, ScalarValue(dstPtrType))
@@ -1324,29 +1320,49 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         when (baseType) {
             is SbfType.Bottom -> {}
             is SbfType.Top -> {
-                // We know that baseReg is an arbitrary pointer, but we don't have such a notion
-                // in our type lattice
                 if (isLoad) {
                     forgetOrNum(value as Value.Reg, loadedAsNumForPTA)
+                } else {
+                    if (!SolanaConfig.optimisticScalarAnalysis()) {
+                        throw UnknownPointerDerefError(
+                            DevErrorInfo(
+                                locInst,
+                                PtrExprErrReg(baseReg),
+                                "store: $stmt to unknown pointer"
+                            )
+                        )
+                    } else {
+                        // We optimistically assume that this store cannot overwrite stack locations
+                        // that will be later read
+                    }
                 }
             }
             is SbfType.NumType -> {
-                /** There is nothing wrong to access memory directly via an integer, but
-                 *  then it will be harder for the type analysis to type memory accesses.
-                 *  We stop the analysis to make sure we don't miss the implicit cast. For instance,
-                 *  - if the address is 0x200000000 then we know that the instruction is accessing to the stack,
-                 *  - if the address is 0x400000000 then we know that the instruction is accessing to the inputs,
-                 *  - and so on.
-                 *  It's also possible that using constants might not be strong enough to prove that
-                 *  the content of a register is between [SBF_HEAP_START, SBF_HEAP_END)
-                 **/
-                if (enableDefensiveChecks) {
-                    throw ScalarDomainError("TODO unsupported memory operation $stmt in ScalarDomain " +
-                        "because base is a number in $this")
-                }
-
                 if (isLoad) {
                     forgetOrNum(value as Value.Reg, loadedAsNumForPTA)
+                } else {
+                    if (baseType.value.isTop()) {
+                        throw DerefOfAbsoluteAddressError(
+                            DevErrorInfo(
+                                locInst,
+                                PtrExprErrReg(baseReg),
+                                "Memory access using an absolute address that is statically unknown at $stmt"
+                            )
+                        )
+                    }
+                    val absAddresses = baseType.value.toLongList()
+                    if (absAddresses.any { a -> a in SBF_STACK_START until SBF_HEAP_START }) {
+                        throw DerefOfAbsoluteAddressError(
+                            DevErrorInfo(
+                                locInst,
+                                PtrExprErrReg(baseReg),
+                                "Stack access using absolute address $absAddresses at $stmt is not supported"
+                            )
+                        )
+                    } else {
+                        // We know statically all possible absolute addresses, and they do not belong to the stack.
+                        // Thus, we can safely ignore this store.
+                    }
                 }
             }
             is SbfType.PointerType -> {
@@ -1422,7 +1438,8 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                             }
                         }
                     }
-                    else -> {
+                    is SbfType.PointerType.Heap,
+                    is SbfType.PointerType.Input -> {
                         if (isLoad) {
                             forgetOrNum(value as Value.Reg, loadedAsNumForPTA)
                         }
