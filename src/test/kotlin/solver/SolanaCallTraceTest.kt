@@ -20,7 +20,6 @@ package solver
 
 import datastructures.stdcollections.*
 import event.RuleEvent
-import handleSolanaFlow
 import infra.CertoraBuildKind
 import infra.CertoraBuild
 import kotlinx.coroutines.runBlocking
@@ -34,6 +33,7 @@ import report.calltrace.CallInstance
 import report.calltrace.CallTrace
 import report.calltrace.formatter.AlternativeRepresentations
 import rules.RuleCheckResult
+import sbf.SolanaVerificationFlow
 import utils.Range
 import utils.*
 import java.math.BigInteger
@@ -61,7 +61,11 @@ object SolanaFlowTest {
                     // If this is removed, the tests can incur in a [IllegalStateException].
                     withContext(Dispatchers.Default) {
                         // get the results
-                        handleSolanaFlow(elfFilePath.toString())
+                        val flow = SolanaVerificationFlow(elfFilePath.toString())
+                        val results = flow.use {
+                            it.solve()
+                        }
+                        flow.getTreeViewReporterForTest() to results
                     }
                 }
                 retVal

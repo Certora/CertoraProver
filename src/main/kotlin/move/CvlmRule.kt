@@ -19,6 +19,10 @@ package move
 
 import config.*
 import datastructures.stdcollections.*
+import spec.cvlast.RuleIdentifier
+import spec.cvlast.SpecType
+import spec.genericrulegenerators.BuiltInRuleId
+import spec.rules.EcosystemAgnosticRule
 import tac.generation.TrapMode
 import utils.*
 
@@ -151,5 +155,16 @@ sealed class CvlmRule {
                 }
             }
         }
+    }
+
+    fun toEcosystemAgnosticRule(isSatisfy: Boolean): EcosystemAgnosticRule {
+        return EcosystemAgnosticRule(
+            ruleIdentifier = RuleIdentifier.freshIdentifier(ruleInstanceName),
+            ruleType = when (this) {
+                is UserRule -> SpecType.Single.FromUser.SpecFile
+                is TargetSanity -> SpecType.Single.BuiltIn(BuiltInRuleId.sanity)
+            },
+            isSatisfyRule = isSatisfy
+        )
     }
 }

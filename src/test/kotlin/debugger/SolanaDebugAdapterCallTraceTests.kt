@@ -420,13 +420,14 @@ class SolanaDebugAdapterCallTraceTests {
         }
 
 
-        @OptIn(PollutesGlobalState::class)
+        @OptIn(PollutesGlobalState::class, Config.DestructiveOptimizationsOption::class)
         @JvmStatic
         @BeforeAll
         fun beforeAll() {
             ConfigScope(Config.CallTraceDebugAdapterProtocol, DebugAdapterProtocolMode.VARIABLES)
                 .extend(Config.CallTraceHardFail, HardFailMode.ON)
                 .extend(Config.DoSanityChecksForRules, SanityValues.NONE)
+                .extend(Config.DestructiveOptimizationsMode, DestructiveOptimizationsModeEnum.TWOSTAGE)
                 .letIf(DEBUG_MODE) {
                     CommandLineParser.setExecNameAndDirectory()
                     ConfigType.WithArtifacts.set(log.ArtifactManagerFactory.WithArtifactMode.WithArtifacts)

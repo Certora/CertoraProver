@@ -17,7 +17,6 @@
 
 package sbf.tac
 
-import CompiledGenericRule
 import analysis.LTACCmdView
 import analysis.maybeNarrow
 import utils.*
@@ -29,7 +28,9 @@ import event.RuleEvent
 import spec.cvlast.RuleIdentifier
 import utils.Range
 import spec.cvlast.SpecType
+import spec.rules.EcosystemAgnosticRule
 import vc.data.find
+import verifier.EncodedRule
 import sbf.SolanaConfig
 import cli.AssertFilterEntry
 
@@ -78,16 +79,20 @@ object TACMultiAssert {
         return this.freshDerivedIdentifier(suffix)
     }
 
-    fun canSplit(baseRule: CompiledGenericRule) =
-            !baseRule.rule.isSatisfyRule &&
-            baseRule.rule.ruleType !is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck
+    fun canSplit(baseRule: EncodedRule<EcosystemAgnosticRule>) =
+        !baseRule.rule.isSatisfyRule && !baseRule.rule.isGenerated
 
-    fun transformSingle(compiledRule: CompiledGenericRule.Compiled): CompiledGenericRule.Compiled {
+    fun transformSingle(compiledRule: EncodedRule<EcosystemAgnosticRule>): EncodedRule<EcosystemAgnosticRule> {
         val singleAssert = compiledRule.rule.copy(
             ruleIdentifier = compiledRule.rule.ruleIdentifier.freshDerivedIdentifier(RuleEvent.ASSERTS_NODE_TITLE),
             ruleType = SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.AssertsOnly(compiledRule.rule),
         )
-        return compiledRule.copy(rule = singleAssert)
+        return object : EncodedRule<EcosystemAgnosticRule> {
+            override val rule: EcosystemAgnosticRule
+                get() = singleAssert
+            override val code: CoreTACProgram
+                get() = compiledRule.code
+        }
     }
 
     /**
@@ -120,7 +125,7 @@ object TACMultiAssert {
      * If [SolanaConfig.AssertFilter] is set, only asserts matching the filter are included.
      * The filter supports both 1-based indices and file:line locations.
      **/
-    fun transformMulti(compiledRule: CompiledGenericRule.Compiled): List<CompiledGenericRule.Compiled> {
+    fun transformMulti(compiledRule: EncodedRule<EcosystemAgnosticRule>): List<EncodedRule<EcosystemAgnosticRule>> {
         val idToPtr = assertIdToAssertPtr(compiledRule.code)
         val assertFilter = getAssertFilter()
 
@@ -162,8 +167,12 @@ object TACMultiAssert {
                 assertId,
                 idToPtr
             ).copy(name = newIdentifier.toString())
-
-            compiledRule.copy(code = newBaseRuleTac, rule = newRule)
+            object : EncodedRule<EcosystemAgnosticRule> {
+                override val rule: EcosystemAgnosticRule
+                    get() = newRule
+                override val code: CoreTACProgram
+                    get() = newBaseRuleTac
+            }
         }
     }
 }

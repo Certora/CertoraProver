@@ -110,7 +110,6 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
         fun optimize(code: CoreTACProgram) =
             CoreTACProgram.Linear(code)
-            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.SNIPPET_REMOVAL, SnippetRemover::rewrite))
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantPropagator::propagateConstants))
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantComputationInliner::rewriteConstantCalculations))
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })

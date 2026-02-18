@@ -22,14 +22,7 @@ import analysis.maybeNarrow
 import cli.SanityValues
 import config.Config.DoSanityChecksForRules
 import datastructures.stdcollections.*
-import parallel.coroutines.parallelMapOrdered
-import report.ConsoleReporter
-import report.StatusReporter
-import report.TreeViewReporter
-import rules.CompiledRule
-import rules.IsFromCache
-import rules.VerifyTime
-import scene.IScene
+import rules.RuleCheckResult
 import solver.SolverResult
 import spec.cvlast.*
 import spec.rules.IRule
@@ -39,8 +32,10 @@ import vc.data.CoreTACProgram
 import vc.data.TACCmd
 import vc.data.TACMeta
 import vc.data.TACSymbol
-import verifier.TACVerifier
-import verifier.Verifier
+import verifier.EncodedRule
+import verifier.RuleEncodingException
+import kotlin.Result.Companion.failure
+import kotlin.Result.Companion.success
 
 /**
  * This class holds a set of sanity checks that are executed on the TAC level.
@@ -51,9 +46,13 @@ class TACSanityChecks(vacuityCheckLevel: SanityValues) {
 
     private val registeredChecks = listOf(VacuityCheck(vacuityCheckLevel))
 
-    suspend fun analyse(scene: IScene, baseRule: EcosystemAgnosticRule, baseRuleTac: CoreTACProgram, baseRuleResult: Verifier.VerifierResult, treeViewReporter: TreeViewReporter) {
-        registeredChecks.filter { DoSanityChecksForRules.get() >= it.sanityLevel }.parallelMapOrdered { _, sanityCheck ->
-            sanityCheck.analyse(scene, baseRule, baseRuleTac, baseRuleResult, treeViewReporter)
+    fun generateRules(
+        baseRule: EcosystemAgnosticRule,
+        baseRuleTac: CoreTACProgram,
+        baseRuleResult: RuleCheckResult.Leaf
+    ): List<Result<EncodedRule<EcosystemAgnosticRule>>> {
+        return registeredChecks.filter { DoSanityChecksForRules.get() >= it.sanityLevel }.mapNotNull { sanityCheck ->
+            sanityCheck.generateRule(baseRule, baseRuleTac, baseRuleResult)
         }
     }
 
@@ -86,56 +85,50 @@ class TACSanityChecks(vacuityCheckLevel: SanityValues) {
         abstract fun deriveRule(baseRule: EcosystemAgnosticRule): IRule
 
         /**
-         * A pre-condition if this sanity check should actually be executed or not.
+         * A pre-condition if this sanity check should actually be generated or not.
          *
          * @param baseRule The original base rule that was proven.
          * @param baseRuleResult the verification result of the base rule. The sanity check may
          * be executed or not based on the verification result of the base rule. For instance,
          * the vacuity check is only execute if the original base rule has been proven.
          */
-        abstract fun shouldExecute(baseRule: EcosystemAgnosticRule, baseRuleResult: Verifier.VerifierResult): Boolean
+        abstract fun shouldGenerate(baseRule: EcosystemAgnosticRule, baseRuleResult: RuleCheckResult.Leaf): Boolean
 
         /**
          * This method registers the rule in our different reporters, computes the TAC for the sanity check by
          * calling [transformTac] and submits the resulting TAC to SMT via [TACVerifier.verify].
          *
-         * @param scene The scene of the entire analysis
          * @param baseRule The original base rule that was proven
          * @param baseRuleTac The TAC that was proven for the original base rule
          * @param baseRuleResult The prover result of the base rule
-         * @param treeViewReporter The tree view reporter instance which is required to create new children in the reporting tree.
          *
          *
          * Once this process has been completed, all reporters are updated.
          */
-        suspend fun analyse(scene: IScene, baseRule: EcosystemAgnosticRule, baseRuleTac: CoreTACProgram, baseRuleResult: Verifier.VerifierResult, treeViewReporter: TreeViewReporter) {
-            if (!shouldExecute(baseRule, baseRuleResult)) {
-                return
+        fun generateRule(
+            baseRule: EcosystemAgnosticRule,
+            baseRuleTac: CoreTACProgram,
+            baseRuleResult: RuleCheckResult.Leaf
+        ): Result<EncodedRule<EcosystemAgnosticRule>>? {
+            if (!shouldGenerate(baseRule, baseRuleResult)) {
+                return null
             }
             val sanityRule = deriveRule(baseRule)
             check(baseRule.ruleIdentifier != sanityRule.ruleIdentifier) { "It's required that the derived rule receives a new ruleIdentifier as the sanity rule will be resubmitted to the solver." }
 
-            treeViewReporter.registerSubruleOf(sanityRule, baseRule)
-            treeViewReporter.signalStart(sanityRule)
+            return try {
+                val transformedTac = transformTac(baseRuleTac, baseRule)
 
-            val transformedTac = transformTac(baseRuleTac, baseRule)
-            val startTime = System.currentTimeMillis()
-            val res = TACVerifier.verify(scene, transformedTac, treeViewReporter.liveStatsReporter, sanityRule)
-            val endTime = System.currentTimeMillis()
+                success(object : EncodedRule<EcosystemAgnosticRule> {
+                    override val rule: EcosystemAgnosticRule
+                        get() = sanityRule as EcosystemAgnosticRule
+                    override val code: CoreTACProgram
+                        get() = transformedTac
 
-            val ruleCheckResult = CompiledRule.generateSingleResult(
-                scene = scene,
-                rule = sanityRule,
-                vResult = Verifier.JoinedResult(res),
-                verifyTime = VerifyTime.WithInterval(startTime, endTime),
-                isOptimizedRuleFromCache = IsFromCache.INAPPLICABLE,
-                isSolverResultFromCache = IsFromCache.INAPPLICABLE,
-                ruleAlerts = emptyList(),
-            )
-
-            treeViewReporter.signalEnd(sanityRule, ruleCheckResult)
-            ConsoleReporter.addResults(ruleCheckResult)
-            StatusReporter.addResults(ruleCheckResult)
+                })
+            } catch (e: CertoraException) {
+                failure(RuleEncodingException(sanityRule, e))
+            }
         }
 
     }
@@ -161,8 +154,13 @@ class TACSanityChecks(vacuityCheckLevel: SanityValues) {
         /**
          * The sanity rules will only be executed if the original results of the base rule did not find a counter example.
          */
-        override fun shouldExecute(baseRule: EcosystemAgnosticRule, baseRuleResult: Verifier.VerifierResult) =
-            baseRuleResult.finalResult == SolverResult.UNSAT
+        override fun shouldGenerate(baseRule: EcosystemAgnosticRule, baseRuleResult: RuleCheckResult.Leaf): Boolean {
+            return when (baseRuleResult) {
+                is RuleCheckResult.Error -> false
+                is RuleCheckResult.Single -> baseRuleResult.result == SolverResult.UNSAT
+                is RuleCheckResult.Skipped -> false
+            }
+        }
 
         override fun transformTac(baseRuleTac: CoreTACProgram, baseRule: EcosystemAgnosticRule): CoreTACProgram {
             return baseRuleTac.patching { p ->
@@ -187,7 +185,8 @@ class TACSanityChecks(vacuityCheckLevel: SanityValues) {
                             "sanity check for rule ${baseRule.declarationId} succeeded",
                         )
                     )
-                ))
+                )
+            )
         }
 
         override fun deriveRule(baseRule: EcosystemAgnosticRule) =

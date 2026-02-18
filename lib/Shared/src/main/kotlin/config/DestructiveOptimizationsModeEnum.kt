@@ -19,6 +19,7 @@ package config
 
 import cli.ConversionException
 import cli.Converter
+import datastructures.stdcollections.*
 
 enum class DestructiveOptimizationsModeEnum {
     /** Disable destructive optimizations */
@@ -40,5 +41,14 @@ val DestructiveOptimizationsModeConverter = Converter {
         "enable", "true", "yes"
             -> DestructiveOptimizationsModeEnum.ENABLE
         else -> throw ConversionException(it, DestructiveOptimizationsModeEnum::class.java)
+    }
+}
+
+fun DestructiveOptimizationsModeEnum.isTwoStageMode(): Boolean {
+    return when(this) {
+        DestructiveOptimizationsModeEnum.TWOSTAGE,
+        DestructiveOptimizationsModeEnum.TWOSTAGE_CHECKED -> true
+        DestructiveOptimizationsModeEnum.DISABLE,
+        DestructiveOptimizationsModeEnum.ENABLE -> false
     }
 }

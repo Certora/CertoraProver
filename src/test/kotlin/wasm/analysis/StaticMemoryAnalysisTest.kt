@@ -19,6 +19,7 @@ package wasm.analysis
 
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import verifier.EncodedRule
 import wasm.WasmEntryPoint
 import wasm.WasmTestFixture
 import wasm.analysis.memory.StaticMemoryAnalysis
@@ -38,7 +39,7 @@ class StaticMemoryAnalysisTest: WasmTestFixture() {
         val tac = WasmEntryPoint
             .wasmToTAC(wasmFile.toFile(), setOf(entry), NullHost, optimize = false)
             .single()
-            .let { it as CompiledGenericRule.Compiled }
+            .let { it.getOrNull() ?: error("wasmToTAC did not produce a rule as expected") }
             .code
         return tac.analysisCache[StaticMemoryAnalysis]
     }

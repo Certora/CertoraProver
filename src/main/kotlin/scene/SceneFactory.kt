@@ -24,6 +24,7 @@ import cache.CachePolicy
 import cache.VerifyingCacheManager
 import config.Config
 import scene.loader.StandardProverContractLoader
+import scene.source.DegenerateContractSource
 import scene.source.IContractSourceFull
 import scene.source.withCache
 import spec.CVL
@@ -68,6 +69,9 @@ object SceneFactory: ISceneFactory {
             override fun getContracts(): List<ICVLContractClass> = contracts
         }
     }
+
+    // used for Solana, Soroban and Move flow
+    val EMPTY_SCENE = SceneFactory.getScene(DegenerateContractSource("empty scene"))
 }
 
 private fun IContractSource.withQuery(cvl: CVL?): IContractSource {

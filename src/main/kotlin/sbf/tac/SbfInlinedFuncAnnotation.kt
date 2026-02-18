@@ -141,16 +141,10 @@ data class SbfInlinedFuncEndAnnotation (
  */
 @KSerializable
 @Treapable
-object SbfInlinedFuncNopAnnotation : HasKSerializable, AmbiSerializable,
-    TransformableVarEntityWithSupport<SbfInlinedFuncNopAnnotation> {
+object SbfInlinedFuncNopAnnotation : HasKSerializable, AmbiSerializable{
     override fun hashCode() = treapHashObject(this)
 
     private fun readResolve(): Any = SbfInlinedFuncNopAnnotation
 
-    override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): SbfInlinedFuncNopAnnotation {
-        return this
-    }
-
-    override val support: Set<TACSymbol.Var>
-        get() = setOf()
 }
+

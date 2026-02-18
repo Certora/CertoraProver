@@ -35,7 +35,8 @@ import report.callresolution.GlobalCallResolutionReportView
 import rules.RuleCheckResult
 import rules.VerifyTime
 import scene.IContractWithSource
-import scene.IScene
+import scene.ISceneIdentifiers
+import scene.SceneFactory
 import solver.SolverResult
 import spec.cvlast.*
 import spec.rules.*
@@ -158,7 +159,7 @@ enum class NodeType {
 class TreeViewReporter(
     contractName: String?,
     specFile: String,
-    scene: IScene,
+    scene: ISceneIdentifiers = SceneFactory.EMPTY_SCENE
 ) : Closeable {
     // XXX: this path used to configurable, but I believe it's now hardcoded in some of our infrastructure.
     private val versionedFile get() = VersionedFile("treeViewStatus.json")
@@ -295,7 +296,7 @@ class TreeViewReporter(
     /**
      * Available contracts table. This table lists all the contract available in [scene].
      */
-    class ContractsTable(val scene: IScene) : TreeViewReportable {
+    class ContractsTable(val scene: ISceneIdentifiers) : TreeViewReportable {
         /**
          * Represents a row (or an entry) in the Available Contracts table.
          */
