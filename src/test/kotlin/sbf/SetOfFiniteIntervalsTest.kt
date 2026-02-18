@@ -21,6 +21,14 @@ import sbf.domains.*
 import org.junit.jupiter.api.*
 
 class SetOfFiniteIntervalsTest {
+    fun setOf(vararg intervals: FiniteInterval): SetOfFiniteIntervals {
+        var result = SetOfFiniteIntervals.new()
+        for (interval in intervals) {
+            result = result.add(interval)
+        }
+        return result
+    }
+
     @Test
     fun test01() {
         val i1 = SetOfFiniteIntervals.new().add(FiniteInterval(4,8)).add(FiniteInterval(12,20))
@@ -30,42 +38,35 @@ class SetOfFiniteIntervalsTest {
         println("Add $x1 in $i1 is $i2")
 
         // [[2,8], [12,20]]
-        Assertions.assertEquals(true, i2.size() == 2)
-        Assertions.assertEquals(true, i2.contains(FiniteInterval(2,8)))
-        Assertions.assertEquals(true, i2.contains(FiniteInterval(12,20)))
+        Assertions.assertEquals(i2, setOf(FiniteInterval(2,8), FiniteInterval(12,20)))
 
         val x2 = FiniteInterval(6,9)
         val i3 = i1.add(x2)
         println("Add $x2 in $i1 is $i3")
 
         // [[4,9], [12,20]]
-        Assertions.assertEquals(true, i3.size() == 2)
-        Assertions.assertEquals(true, i3.contains(FiniteInterval(4,9)))
-        Assertions.assertEquals(true, i3.contains(FiniteInterval(12,20)))
+        Assertions.assertEquals(i3, setOf(FiniteInterval(4,9), FiniteInterval(12,20)))
 
         val x3 = FiniteInterval(2,14)
         val i4 = i1.add(x3)
         println("Add $x3 in $i1 is $i4")
 
         // [[2,20]]
-        Assertions.assertEquals(true, i4.size() == 1)
-        Assertions.assertEquals(true, i4.contains(FiniteInterval(2,20)))
+        Assertions.assertEquals(i4, setOf(FiniteInterval(2,20)))
 
         val x4 = FiniteInterval(9,22)
         val i5 = i1.add(x4)
         println("Add $x4 in $i1 is $i5")
 
         // [[4,22]]
-        Assertions.assertEquals(true, i5.size() == 1)
-        Assertions.assertEquals(true, i5.contains(FiniteInterval(4,22)))
+        Assertions.assertEquals(i5, setOf(FiniteInterval(4,22)))
 
         val x5 = FiniteInterval(2,22)
         val i6 = i1.add(x5)
         println("Add $x5 in $i1 is $i6")
 
         // [[2,22]]
-        Assertions.assertEquals(true, i6.size() == 1)
-        Assertions.assertEquals(true, i6.contains(FiniteInterval(2,22)))
+        Assertions.assertEquals(i6, setOf(FiniteInterval(2,22)))
 
     }
 
@@ -85,9 +86,7 @@ class SetOfFiniteIntervalsTest {
         val i3 = i1.intersection(i2)
         println("i3=intersection(i1,i2)=$i3")
 
-        Assertions.assertEquals(true, i3.size() == 2)
-        Assertions.assertEquals(true, i3.contains(FiniteInterval(10,12)))
-        Assertions.assertEquals(true, i3.contains(FiniteInterval(20,25)))
+        Assertions.assertEquals(i3, setOf(FiniteInterval(10,12), FiniteInterval(20,25)))
     }
 
     @Test
@@ -105,11 +104,14 @@ class SetOfFiniteIntervalsTest {
         println("i1=$i1 i2=$i2")
         val i3 = i1.intersection(i2)
         println("i3=intersection(i1,i2)=$i3")
-        Assertions.assertEquals(true, i3.size() == 3)
-        Assertions.assertEquals(true, i3.contains(FiniteInterval(12,14)))
-        Assertions.assertEquals(true, i3.contains(FiniteInterval(32,40)))
-        Assertions.assertEquals(true, i3.contains(FiniteInterval(45,50)))
 
+        Assertions.assertEquals(i3,
+            setOf(
+                FiniteInterval(12,14),
+                FiniteInterval(32,40),
+                FiniteInterval(45,50)
+            )
+        )
     }
 
     @Test
@@ -127,11 +129,15 @@ class SetOfFiniteIntervalsTest {
         println("i1=$i1 i2=$i2")
         val i3 = i1.intersection(i2)
         println("i3=intersection(i1,i2)=$i3")
-        Assertions.assertEquals(true, i3.size() == 4)
-        Assertions.assertEquals(true, i3.contains(FiniteInterval(14,14)))
-        Assertions.assertEquals(true, i3.contains(FiniteInterval(16,16)))
-        Assertions.assertEquals(true, i3.contains(FiniteInterval(18,18)))
-        Assertions.assertEquals(true, i3.contains(FiniteInterval(20,20)))
+
+        Assertions.assertEquals(i3,
+            setOf(
+                FiniteInterval(14,14),
+                FiniteInterval(16,16),
+                FiniteInterval(18,18),
+                FiniteInterval(20,20)
+            )
+        )
     }
 
     @Test
@@ -189,4 +195,21 @@ class SetOfFiniteIntervalsTest {
         Assertions.assertEquals(expected, a.difference(b))
     }
 
+    @Test
+    fun `add duplicate no last`() {
+        val a = SetOfFiniteIntervals(listOf(FiniteInterval(1, 15), FiniteInterval(20,25)))
+        val b = FiniteInterval(1, 15)
+        val res = a.add(b)
+        println("Add $b in $a -> $res")
+        Assertions.assertEquals(a, res)
+    }
+
+    @Test
+    fun `add duplicate last`() {
+        val a = SetOfFiniteIntervals(listOf(FiniteInterval(1, 15), FiniteInterval(20,25)))
+        val b = FiniteInterval(20, 25)
+        val res = a.add(b)
+        println("Add $b in $a -> $res")
+        Assertions.assertEquals(a, res)
+    }
 }

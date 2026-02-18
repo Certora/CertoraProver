@@ -17,7 +17,6 @@
 
 package sbf.domains
 
-import org.jetbrains.annotations.TestOnly
 import datastructures.stdcollections.*
 
 /**
@@ -31,6 +30,8 @@ data class FiniteInterval(val l: Long, val u: Long) {
     companion object {
         fun mkInterval(l: Long, size: Long) = FiniteInterval(l, l+size-1)
     }
+
+    override fun toString(): String = "[$l,$u]"
 
     fun size(): ULong {
         check(u >= l) {"FiniteInterval is not supposed to wrap around"}
@@ -161,7 +162,10 @@ data class SetOfFiniteIntervals(private val intervals: List<FiniteInterval>) {
             } else if (x.l > cur.u) {
                 out.add(cur)
             } else if (x == cur) {
+                // Note that x = intervals[i]. Thus, this will add x and the rest of intervals[i+1,...]
+                out.addAll(intervals.subList(i, intervals.size))
                 alreadyInserted = true
+                break
             } else { // overlap cases
                 if (x.includes(cur)) {
                     continue
@@ -200,10 +204,5 @@ data class SetOfFiniteIntervals(private val intervals: List<FiniteInterval>) {
 
     fun intersects(x: FiniteInterval): Boolean {
         return intervals.any{i -> i.intersection(x) != null}
-    }
-
-    @TestOnly
-    fun contains(x: FiniteInterval): Boolean {
-        return intervals.contains(x)
     }
 }
