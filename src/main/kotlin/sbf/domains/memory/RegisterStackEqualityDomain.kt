@@ -105,6 +105,18 @@ class RegisterStackEqualityDomain(
         return result
     }
 
+    private fun <A> PersistentList<A>.mapToPersistent(
+        transform: (A) -> A
+    ): PersistentList<A> {
+        val size = this.size
+        var result = this
+        for (i in 0 until size) {
+            result = result.set(i, transform(this[i]))
+        }
+        return result
+    }
+
+
     fun join(other: RegisterStackEqualityDomain): RegisterStackEqualityDomain {
         return when {
             isTop() ->
@@ -395,7 +407,13 @@ class RegisterStackEqualityDomain(
                 val stackSlot = it.value
                 mayOverlap(stackSlot, offsets, size)
             },
-            scratchRegisters,
+            scratchRegisters.mapToPersistent { stackSlot ->
+                if (stackSlot == null || mayOverlap(stackSlot, offsets, size)) {
+                    null
+                } else {
+                    stackSlot
+                }
+            },
             globalState
         )
     }
