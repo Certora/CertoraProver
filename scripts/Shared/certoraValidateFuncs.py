@@ -874,6 +874,12 @@ def validate_evm_rule_name(rule_str: str) -> str:
     else:
         return __validate_solidity_id(rule_str, "rule")
 
+def validate_move_rule_pattern_string(rule_str: str) -> str:
+    if not re.match(r"^([a-zA-Z0-9_$*]|::)+$", rule_str):
+        raise Util.CertoraUserInputError(f"invalid rule pattern \"{rule_str}\": rule patterns must contain only "
+                                         "letters, digits, dollar signs, underscores, asterisks, or double colons")
+    return rule_str
+
 def validate_move_function_name(name: str) -> str:
     if not re.match(r"^(0x[0-9a-fA-F]+|([a-zA-Z_][a-zA-Z0-9_]*))::[a-zA-Z_][a-zA-Z0-9_]*::[a-zA-Z_][a-zA-Z0-9_]*$", name):
         raise Util.CertoraUserInputError(f"invalid Move function name \"{name}\": must be a fully-qualified Move "
@@ -882,7 +888,7 @@ def validate_move_function_name(name: str) -> str:
 
 def validate_move_rule_name(rule_str: str) -> str:
     if ("*" in rule_str):
-        return validate_rule_pattern_string(rule_str)
+        return validate_move_rule_pattern_string(rule_str)
     else:
         return validate_move_function_name(rule_str)
 

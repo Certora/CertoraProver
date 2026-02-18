@@ -269,6 +269,22 @@ class DeprecatedAttributes(AttrUtil.Attributes):
             main_section=MainSection.SOLIDITY_COMPILER
         )
     )
+    MOVE_PATH = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_dir,
+        arg_type=AttrUtil.AttrArgType.STRING,
+        help_msg="path to a directory which includes all binary .mv files for the Prover",
+        deprecation_msg="`move_path` is deprecated and will be removed in a future release. "
+                        "Please use `spec_package_path` instead.",
+        default_desc="",
+        argparse_args={
+            'action': AttrUtil.UniqueStore
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.NEW_SECTION
+        )
+    )
 
 
 class EvmAttributes(AttrUtil.Attributes):
@@ -1874,29 +1890,12 @@ class SorobanProverAttributes(CommonAttributes, InternalUseAttributes, BackendAt
     )
 
 
-class SuiProverAttributes(CommonAttributes, InternalUseAttributes, BackendAttributes):
+class SuiProverAttributes(CommonAttributes, InternalUseAttributes, BackendAttributes, DeprecatedAttributes):
     FILES = AttrUtil.AttributeDefinition(
         attr_validation_func=Vf.validate_dir,
         arg_type=AttrUtil.AttrArgType.LIST,
         argparse_args={
             'nargs': AttrUtil.MULTIPLE_OCCURRENCES
-        },
-        affects_build_cache_key=True,
-        disables_build_cache=False,
-        config_data=AttributeJobConfigData(
-            main_section=MainSection.NEW_SECTION
-        )
-    )
-
-    MOVE_PATH = AttrUtil.AttributeDefinition(
-        attr_validation_func=Vf.validate_dir,
-        arg_type=AttrUtil.AttrArgType.STRING,
-        help_msg="path to a directory which includes all binary .mv files for the Prover",
-        deprecation_msg="`move_path` is deprecated and will be removed in a future release. "
-                        "Please use `spec_package_path` instead.",
-        default_desc="",
-        argparse_args={
-            'action': AttrUtil.UniqueStore
         },
         affects_build_cache_key=True,
         disables_build_cache=False,
