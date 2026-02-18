@@ -17,6 +17,8 @@
 
 package sbf.cfg
 
+import sbf.disassembler.Label
+
 /**
  * We search for code patterns that correspond, for instance, to Rust `checked_add` or `saturating_add`:
  *  ```
@@ -35,22 +37,29 @@ package sbf.cfg
  * The metadata is only used during TAC encoding.
  */
 fun detectOverflowPatterns(cfg: MutableSbfCFG) {
-    // normalize select to make simpler overflow detection
+    // First, normalize Select instructions to make simpler overflow detection
     cfg.getMutableBlocks().values.forEach { bb ->
         bb.getLocatedInstructions().forEach { locInst ->
             normalizeSelect(bb, locInst)
         }
     }
 
-    cfg.getMutableBlocks().values.forEach { bb ->
+    // Collect all overflow patterns from the cfg
+    val overflowPatterns = mutableListOf<OverflowPattern>()
+    cfg.getBlocks().values.forEach { bb ->
         bb.getLocatedInstructions().forEach { locInst ->
-            detectAddU64OverflowPattern(cfg, locInst)?.let {
-                annotateOverflowPattern(it)
+            detectAddU64OverflowPattern(locInst, bb)?.let {
+                overflowPatterns.add(it)
             }
-            detectAddU128ByOneOverflowPattern(cfg, locInst)?.let {
-                annotateOverflowPattern(it)
+            detectAddU128ByOneOverflowPattern(locInst, bb)?.let {
+                overflowPatterns.add(it)
             }
         }
+    }
+
+    // Finally, the transformation
+    overflowPatterns.forEach {
+       annotateOverflowPattern(cfg, it)
     }
 }
 
@@ -58,7 +67,7 @@ private data class OverflowPattern(
     /**
      * Basic block where the overflow pattern is found.
      */
-    val basicBlock: MutableSbfBasicBlock,
+    val blockId: Label,
     /**
      * Instructions to be annotated with [SbfMeta.SAFE_MATH]
      **/
@@ -74,9 +83,10 @@ private data class OverflowPattern(
     val overflowCheckVar: Value.Reg
 ) {
     init {
-        check(safeMathInsts.all { it.label == basicBlock.getLabel()})
-        check(overflowCheckInst.label == basicBlock.getLabel())
-        check(overflowCheckInst.inst is SbfInstruction.Select || overflowCheckInst.inst is SbfInstruction.Jump.ConditionalJump)
+        check(safeMathInsts.all { it.label == blockId})
+        check(overflowCheckInst.label == blockId)
+        check(overflowCheckInst.inst is SbfInstruction.Select ||
+              overflowCheckInst.inst is SbfInstruction.Jump.ConditionalJump)
     }
 }
 
@@ -99,17 +109,18 @@ private data class OverflowPattern(
  *
  *  For simplicity, all instructions must be in the same block.
  */
-private fun detectAddU64OverflowPattern(cfg: MutableSbfCFG, locInst: LocatedSbfInstruction): OverflowPattern? {
+private fun detectAddU64OverflowPattern(
+    locInst: LocatedSbfInstruction,
+    bb: SbfBasicBlock
+): OverflowPattern? {
+
+    check(locInst.label == bb.getLabel())
 
     // 1. We start from the instruction r3 = r3 + r2 in the above example
     val addInst = locInst.inst
     if (addInst !is SbfInstruction.Bin || addInst.op != BinOp.ADD) {
         return null
     }
-
-    val label = locInst.label
-    val bb = cfg.getMutableBlock(label)
-    check(bb != null)
 
     // We try to match assignment (r3 = r4 in the above example)
     val assignLocInst = findDefinitionIntraBlock(bb, addInst.dst, locInst.pos) ?: return null
@@ -150,7 +161,7 @@ private fun detectAddU64OverflowPattern(cfg: MutableSbfCFG, locInst: LocatedSbfI
             is SbfInstruction.Select -> {
                 if (isAddOverflowCondition(selectOrJumpInst.cond, overflowVar, op1, op2,
                         bb, assignLocInst.pos, pos, selectOrJumpLocInst.pos)) {
-                    OverflowPattern(bb, safeMathInst, selectOrJumpLocInst, overflowVar)
+                    OverflowPattern(bb.getLabel(), safeMathInst, selectOrJumpLocInst, overflowVar)
                 } else {
                     null
                 }
@@ -158,7 +169,7 @@ private fun detectAddU64OverflowPattern(cfg: MutableSbfCFG, locInst: LocatedSbfI
             is  SbfInstruction.Jump.ConditionalJump -> {
                 if (isAddOverflowCondition(selectOrJumpInst.cond, overflowVar, op1, op2,
                         bb, assignLocInst.pos, pos, selectOrJumpLocInst.pos)) {
-                    OverflowPattern(bb, safeMathInst, selectOrJumpLocInst, overflowVar)
+                    OverflowPattern(bb.getLabel(), safeMathInst, selectOrJumpLocInst, overflowVar)
                 } else {
                     null
                 }
@@ -188,32 +199,31 @@ private fun detectAddU64OverflowPattern(cfg: MutableSbfCFG, locInst: LocatedSbfI
  *
  * Again, all instructions must be in the same block.
  */
-private fun detectAddU128ByOneOverflowPattern(cfg: MutableSbfCFG, locInst: LocatedSbfInstruction): OverflowPattern? {
+private fun detectAddU128ByOneOverflowPattern(
+    locInst: LocatedSbfInstruction,
+    bb: SbfBasicBlock
+): OverflowPattern? {
+    check(locInst.label == bb.getLabel())
+
     // 1. We start from the instruction r6 = r6 + 1 in the above example
     val addOneInst = locInst.inst
     if (addOneInst !is SbfInstruction.Bin || addOneInst.op != BinOp.ADD || !isOne(addOneInst.v)) {
         return null
     }
 
-    val label = locInst.label
-    val bb = cfg.getMutableBlock(label)
-    check(bb != null)
-
     val safeMathInst = mutableListOf(locInst)
     val (overflowVar, pos) = addOneInst.dst to locInst.pos
 
     // 2. We try to match the `select` in the above example
-    var nextLocInst = findNextUseIntraBlock(bb, overflowVar, pos+1)
-    if (nextLocInst == null) {
-        return null
-    }
+    var nextLocInst = findNextUseIntraBlock(bb, overflowVar, pos+1) ?: return null
 
     val selectLocInst = nextLocInst
     val overflowPattern = when (val selectInst = selectLocInst.inst) {
         is SbfInstruction.Select -> {
             if (isEqualZeroCondition(selectInst.cond, overflowVar)) {
                 nextLocInst = findNextUseIntraBlock(bb, selectInst.dst, selectLocInst.pos+1)
-                OverflowPattern(bb, safeMathInst, selectLocInst, overflowVar)
+                    ?: return null
+                OverflowPattern(bb.getLabel(), safeMathInst, selectLocInst, overflowVar)
             } else {
                 null
             }
@@ -231,9 +241,9 @@ private fun detectAddU128ByOneOverflowPattern(cfg: MutableSbfCFG, locInst: Locat
     }
 }
 
-private fun annotateOverflowPattern(overflowPattern: OverflowPattern) {
+private fun annotateOverflowPattern(cfg: MutableSbfCFG, overflowPattern: OverflowPattern) {
     val safeMathInsts = overflowPattern.safeMathInsts
-    val bb = overflowPattern.basicBlock
+    val bb = checkNotNull(cfg.getMutableBlock(overflowPattern.blockId))
     val overflowInst = overflowPattern.overflowCheckInst
     val overflowVar = overflowPattern.overflowCheckVar
 
