@@ -22,10 +22,13 @@ import analysis.icfg.Inliner
 import analysis.icfg.SummaryStack
 import analysis.ip.INTERNAL_FUNC_EXIT
 import analysis.ip.INTERNAL_FUNC_START
+import analysis.ip.InternalFunctionHint
 import analysis.ip.SafeCastingAnnotator
 import analysis.ip.UncheckedOverflowAnnotator
+import analysis.pta.ITERATION_VARIABLE_BOUND
 import analysis.pta.abi.ABIAnnotator
 import analysis.pta.abi.ABIDecodeComplete
+import analysis.pta.abi.ABIEncodeComplete
 import datastructures.stdcollections.*
 import sbf.tac.DEBUG_EXTERNAL_CALL
 import sbf.tac.DEBUG_INLINED_FUNC_END
@@ -84,6 +87,7 @@ object AnnotationRemovers {
         INTERNAL_FUNC_START,
         TraceMeta.ExternalArg.META_KEY,
         INTERNAL_FUNC_EXIT,
+        InternalFunctionHint.META_KEY,
         SummaryStack.START_EXTERNAL_SUMMARY,
         Inliner.CallStack.STACK_PUSH,
         LoopEquivalence.KeepAliveInt.META_KEY,
@@ -91,11 +95,13 @@ object AnnotationRemovers {
         BufferTraceInstrumentation.TraceIndexMarker.META_KEY,
         BufferTraceInstrumentation.CallEvent.META_KEY,
         ConstantReturnBufferAllocComplete.META_KEY,
+        ITERATION_VARIABLE_BOUND,
         SBF_INLINED_FUNCTION_START,
         SBF_INLINED_FUNCTION_END,
         SummaryStack.END_EXTERNAL_SUMMARY,
         SummaryStack.END_INTERNAL_SUMMARY,
         ABIDecodeComplete.META_KEY,
+        ABIEncodeComplete.META_KEY,
         ABIAnnotator.REGION_START,
         ABIAnnotator.REGION_END,
         AbstractRuleGeneration.EnvironmentRecord.META_KEY,
@@ -151,3 +157,4 @@ object AnnotationRemovers {
         }
     }
 }
+
