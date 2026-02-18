@@ -42,6 +42,7 @@ import log.*
 import move.analysis.*
 import optimizer.*
 import org.jetbrains.annotations.TestOnly
+import sbf.tac.RESERVED_NUM_OF_ASSERTS
 import tac.*
 import tac.generation.*
 import utils.*
@@ -191,8 +192,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         private fun assignAssertIds(c: MoveTACProgram): MoveTACProgram {
             val patch = c.toPatchingProgram()
 
-            var nextAssert = 0
-            var nextSatisfy = 0
+            var nextAssert = RESERVED_NUM_OF_ASSERTS
+            var nextSatisfy = RESERVED_NUM_OF_ASSERTS
 
             // Visit every block in program order (ignoring backwards jumps).
             val visited = mutableSetOf<NBId>()

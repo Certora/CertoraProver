@@ -95,7 +95,9 @@ sealed class RuleEvent : EventBase<EventTopic.Rule>() {
                     }
                 }"
             }
-
+            is SpecType.Single.GeneratedFromBasicRule.ParametricRuleInstantiation -> {
+                "ParametricRuleInstantiation"
+            }
             is SpecType.Single.SkippedMissingOptionalMethod -> "Skipped"
             is SpecType.Group.ContractRuleType -> "Contract"
 
