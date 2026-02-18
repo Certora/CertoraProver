@@ -18,7 +18,7 @@
 package dwarf
 
 import datastructures.stdcollections.*
-import kotlinx.serialization.SerialName
+import kotlinx.serialization.Contextual
 import log.*
 import report.CVTAlertReporter
 import report.CVTAlertSeverity
@@ -26,6 +26,9 @@ import report.CVTAlertType
 import utils.Range
 import utils.*
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNamingStrategy
+import java.io.Closeable
+import java.util.concurrent.ConcurrentHashMap
 
 private val debugSymbolsLogger = Logger(LoggerTypes.DEBUG_SYMBOLS)
 
@@ -36,11 +39,12 @@ private val debugSymbolsLogger = Logger(LoggerTypes.DEBUG_SYMBOLS)
  * - Retrieving inlined call stack information for a list of bytecode addresses.
  * - Locating the source range of a function based on its mangled name.
  */
-object DebugInfoReader {
+object DebugInfoReader: Closeable {
     /**
      * Path to the ELF file that has the debug information.
      */
     private var elfFile: String? = null
+    private var llvmSymbolizer: LlvmSymbolizer? = null
 
     /**
      * Sets the ELF file to which the subsequent queries will refer to.
@@ -48,6 +52,7 @@ object DebugInfoReader {
     fun init(elfFile: String) {
         debugSymbolsLogger.info { "Inlined frames information extractor initialized." }
         this.elfFile = elfFile
+        this.llvmSymbolizer = LlvmSymbolizer(elfFile)
     }
 
     /**
@@ -57,7 +62,7 @@ object DebugInfoReader {
      */
     @Suppress("ForbiddenMethodCall")
     fun findFunctionRangeInSourcesDir(mangledName: String): Range.Range? {
-        assert(elfFile != null) { "called findFunctionLocation before initializing the ELF file path" }
+        val elfFile = requireNotNull(this.elfFile) { "DebugInfoReader uninitialized" }
 
         // Prepare the command.
         val cmd = mutableListOf(
@@ -145,7 +150,6 @@ object DebugInfoReader {
     /**
      * Returns the inlined frames for each address, but only the ones that exist in the sources directory.
      */
-    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     fun getInlinedFramesInSourcesDir(addresses: List<ULong>): Map<ULong, List<Range.Range>> {
         return getInlinedFrames(addresses).mapValues { (_, inlinedFrames) ->
             inlinedFrames.filter { it.fileExistsInSourcesDir() }
@@ -155,159 +159,132 @@ object DebugInfoReader {
     /**
      * For each input address, returns the list of inlined frames associated with that address.
      * If an address is not present in the result map, then there is no available debug information for that address.
-     * If an address is present in the result map, its associated list of inlined frames is non-empty.
+     *
+     * N.B.: the associated list of inlined frames for an address may be empty.
+     *
      * The frames are represented as a list of ranges.
      * The frames are ordered: the first one corresponds to the innermost frame (i.e., the actual call site in the
      * source code where the bytecode address maps to), and subsequent frames represent the inner frames (i.e., the
      * chain of inlined calls leading to the innermost call site). The last frame is the outermost frame.
      * Requires that the [init] method has been called on this object, otherwise throws an exception.
      */
-    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     fun getInlinedFrames(addresses: List<ULong>): Map<ULong, List<Range.Range>> {
-        assert(elfFile != null, { "called getInlinedFrames before initializing the ELF file path" })
+        val llvmSymbolizer = requireNotNull(this.llvmSymbolizer) { "DebugInfoReader uninitialized" }
 
-        // Prepare the command.
-        val cmd = mutableListOf(
-            "llvm-symbolizer",
-            "--output-style",
-            "JSON",
-            "--exe",
-            elfFile,
-            "--inlines" // Print all the inlined callstack
-        )
-        // Add all the addresses one at the time. Concatenating it into a string does not work in Kotlin to prevent shell injection attacks.
-        val hexAddresses = addresses.map { addr -> "0x" + addr.toString(radix = 16).lowercase() }
-        hexAddresses.forEach { address -> cmd.add(address) }
-        val hexAddressesString = hexAddresses.joinToString(separator = " ")
-        debugSymbolsLogger.info {
-            "Running command to get addresses $hexAddressesString info: ${cmd.joinToString(" ")}"
-        }
-
-        // Execute the command.
-        val pb = ProcessBuilder(cmd)
-        val llvmSymbolizerProcess = pb.start()
-        val llvmSymbolizerProcessStdout = llvmSymbolizerProcess.inputStream.bufferedReader().use { it.readText() }
-        debugSymbolsLogger.info {
-            "llvm-symbolizer process stdout: $llvmSymbolizerProcessStdout"
-        }
-        if (llvmSymbolizerProcess.waitFor() != 0) {
-            val errorText = String(llvmSymbolizerProcess.errorStream.use { it.readAllBytes() })
-            CVTAlertReporter.reportAlert(
-                type = CVTAlertType.DIAGNOSABILITY,
-                severity = CVTAlertSeverity.WARNING,
-                jumpToDefinition = null,
-                message = "Failed to generate inlined frames for bytecode addresses $hexAddressesString - proceeding without debug information.",
-                hint = null
-            )
-            debugSymbolsLogger.warn { "Failed to generate inlined frames for bytecode address $hexAddressesString - proceeding without debug information, reason $errorText" }
-            return mapOf()
-        }
-
-        // Parse the output.
-        val llvmSymbolizerOutputList =
-            Json { ignoreUnknownKeys = true }.decodeFromString<List<LlvmSymbolizerOutput>>(
-                llvmSymbolizerProcessStdout
-            )
-
-        // Extract the inlined frames from the output.
-        val inlinedFrames: MutableMap<ULong, List<Range.Range>> = mutableMapOf()
-        llvmSymbolizerOutputList.forEach { llvmSymbolizerOutput ->
-            val resultEntry = llvmSymbolizerOutputToRange(llvmSymbolizerOutput)
-            if (resultEntry != null) {
-                inlinedFrames[resultEntry.first] = resultEntry.second
-            }
-        }
-        debugSymbolsLogger.info { "Generated inlined frames: $inlinedFrames" }
-        return inlinedFrames
+        return addresses.associateWith(llvmSymbolizer::translate)
     }
 
     /**
-     * Maps the output to a pair (address, range), if the output represents a valid range.
+     * Converts an SBF address from the metadata of the given TAC command to a range.
+     * Returns null if the SBF metadata is not present or if it is not possible to resolve the range information.
+     * Tries to resolve the inlined frames associated also to previous SBF addresses until [address - windowSize].
      */
-    @Suppress("ForbiddenMethodCall")
-    private fun llvmSymbolizerOutputToRange(llvmSymbolizerOutput: LlvmSymbolizerOutput): Pair<ULong, List<Range.Range>>? {
-        if (llvmSymbolizerOutput.address == null || llvmSymbolizerOutput.symbol == null) {
-            // llvm-symbolizer does not have inlined frames information.
-            return null
-        } else if (!llvmSymbolizerOutput.address.startsWith("0x")) {
-            // This should be unreachable, since llvm-symbolizer returns addresses that start with '0x'.
-            // This check is here in case the API changes.
-            debugSymbolsLogger.warn { "address '${llvmSymbolizerOutput.address}' does not start with '0x'" }
-            return null
-        } else {
-            val uLongAddress =
-                llvmSymbolizerOutput.address.substring(2) // Remove the initial 0x, since [toULongOrNull] assumes 0x is not present
-                    .toULongOrNull(radix = 16)
-            if (uLongAddress == null) {
-                return null
-            } else {
-                val inlinedFrames = llvmSymbolizerOutput.symbol.mapNotNull { symbol -> symbolToRange(symbol) }
-                return if (inlinedFrames.isEmpty()) {
-                    // It is possible that no symbol can be converted to a CVL range: in this case we did not resolve
-                    // the inlined frames information for the address.
-                    null
-                } else {
-                    Pair(uLongAddress, inlinedFrames)
+    fun sbfAddressToRangeWithHeuristic(
+        sbfAddress: ULong,
+    ): Range.Range? {
+        val windowSize = 80U
+        // Consider address, address - 8, address - 16, ..., address - (windowSize + 8)
+        val addresses: MutableList<ULong> = mutableListOf()
+        var nextAddress = sbfAddress
+        // The first condition is to check the absence of underflows.
+        while (sbfAddress <= nextAddress && sbfAddress - nextAddress <= windowSize) {
+            addresses.add(nextAddress)
+            nextAddress -= 8U
+        }
+        val rangesMap = this.getInlinedFrames(addresses)
+        // Iterate over the addresses: address, address - 8, address - 16, ...
+        // The first address that is associated with non-null range information will be the returned address.
+        for (addr in addresses) {
+            rangesMap[addr]?.let { ranges ->
+                ranges.firstOrNull { range ->
+                    return range
                 }
             }
         }
+        return null
     }
 
-    /**
-     * Return the corresponding [Range.Range].
-     * [Symbol] can represent an unknown location in case the line or the column are zero.
-     * In case the symbol is an unknown location, returns [null].
-     */
-    private fun symbolToRange(symbol: Symbol): Range.Range? {
-        if (symbol.line == 0.toUInt() || symbol.column == 0.toUInt()) {
-            return null
-        } else {
-            val rangeLineNumber = symbol.line - 1.toUInt()
-            val rangeColNumber = symbol.column - 1.toUInt()
-            val sourcePositionStart = SourcePosition(rangeLineNumber, rangeColNumber)
-            // Since llvm-symbolizer does not have the end information, we assume that the end is the first character in
-            // the next line.
-            val sourcePositionEnd = SourcePosition(rangeLineNumber + 1.toUInt(), 0.toUInt())
-            return Range.Range(symbol.fileName, sourcePositionStart, sourcePositionEnd)
-        }
+    override fun close() {
+        this.llvmSymbolizer?.close()
     }
-
-
 }
 
-/**
- * Represents an entry in the output of `llvm-symbolizer`.
- * The JSON output of the command can be directly parsed into a list of [LlvmSymbolizerOutput].
- * If the address is null, then the entry is not valid.
- * If a symbol inside the list of symbols has a line or column number equal to 0, then the tool could not resolve the
- * information about the symbol.
- */
+/** the output of `llvm-symbolizer` in JSON mode, simplified to only the data we care about */
 @KSerializable
 data class LlvmSymbolizerOutput(
-    @SerialName("Address")
-    val address: String? = null,
-    @SerialName("ModuleName")
-    val moduleName: String,
-    @SerialName("Symbol")
-    val symbol: List<Symbol>? = null,
+    @Contextual
+    val symbol: List<Symbol> = emptyList(),
 )
 
 @KSerializable
 data class Symbol(
-    @SerialName("Column")
     val column: UInt,
-    @SerialName("Discriminator")
     val discriminator: UInt,
-    @SerialName("FileName")
     val fileName: String,
-    @SerialName("FunctionName")
     val functionName: String,
-    @SerialName("Line")
     val line: UInt,
-    @SerialName("StartAddress")
     val startAddress: String,
-    @SerialName("StartFileName")
     val startFileName: String,
-    @SerialName("StartLine")
     val startLine: UInt
-)
+) {
+    /**
+     * [Symbol] can represent an unknown location in case the line or the column are zero.
+     * In case the symbol is an unknown location, returns null.
+     */
+    fun toRange(): Range.Range? {
+        val rangeLineNumber = this.line.checkedMinus(1U) ?: return null
+        val rangeColNumber = this.column.checkedMinus(1U) ?: return null
+        val sourcePositionStart = SourcePosition(rangeLineNumber, rangeColNumber)
+        // Since llvm-symbolizer does not have the end information, we assume that the end is the first character in
+        // the next line.
+        val sourcePositionEnd = SourcePosition(rangeLineNumber + 1U, 0U)
+        return Range.Range(this.fileName, sourcePositionStart, sourcePositionEnd)
+    }
+}
+
+/** runs `llvm-symbolizer` in interactive mode and communicates with it via pipes */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+private class LlvmSymbolizer(elfFile: String): Closeable {
+    private val process: Process
+
+    private val deserializer = Json {
+        ignoreUnknownKeys = true
+
+        /** rename to titlecase for serialization, since that's what `llvm-symbolizer` uses */
+        namingStrategy = JsonNamingStrategy { _, _, serialName ->
+            serialName.replaceFirstChar(Char::uppercaseChar)
+        }
+    }
+
+    private val cache: ConcurrentHashMap<ULong, List<Range.Range>> = ConcurrentHashMap()
+
+    init {
+        val cmd = listOf("llvm-symbolizer", "--output-style", "JSON", "--exe", elfFile, "--inlines")
+        this.process = ProcessBuilder(cmd).start()
+    }
+
+    private fun fetchOutput(addr: ULong): String {
+        // from docs: calling these on the same process reuses the reader and writer.
+        // thus we don't store them
+        val writer = this.process.outputWriter()
+        val reader = this.process.inputReader()
+
+        writer.appendLine(addr.toString())
+        writer.flush()
+        return reader.readLine()
+    }
+
+    fun translate(addr: ULong): List<Range.Range> {
+        return this.cache.getOrPut(addr) {
+            val output = this.fetchOutput(addr)
+            val deserialized: LlvmSymbolizerOutput = this.deserializer.decodeFromString(output)
+
+            deserialized.symbol.mapNotNull(Symbol::toRange)
+        }
+    }
+
+    /** needed because an interactive process would not close itself */
+    override fun close() {
+        this.process.destroy() // I believe this should also close the reader and writer
+    }
+}

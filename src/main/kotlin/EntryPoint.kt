@@ -31,6 +31,7 @@ import config.Config.getSourcesSubdirInInternal
 import config.component.EventConfig
 import dependencyinjection.setupDependencyInjection
 import diagnostics.JavaFlightRecorder
+import dwarf.DebugInfoReader
 import event.CacheEvent
 import event.CvtEvent
 import event.RunMetadata
@@ -341,6 +342,7 @@ fun main(args: Array<String>) {
         timePing.interruptThread()
         timeChecker?.interruptThread()
         CVTAlertReporter().close()
+        DebugInfoReader.close()
         // always output stats, even if erroneous
         RunIDFactory.runId().reportRunEnd()
         // collect run id for stats

@@ -29,6 +29,7 @@ import sbf.domains.MemorySummaries
 import sbf.tac.Calltrace.getFilepathAndLineNumber
 import utils.Range
 import utils.SourcePosition
+import utils.checkedMinus
 
 fun inlineAttachedLocations(
     prog: SbfCallGraph,
@@ -124,12 +125,6 @@ private class AttachedLocationInliner<TNum : INumValue<TNum>, TOffset : IOffset<
                 || this.isNondet()
                 || this.isCore(CVTCore.NONDET_SOLANA_ACCOUNT_SPACE)
                 || this.isCore(CVTCore.ALLOC_SLICE)
-    }
-
-    private fun UInt.checkedMinus(other: UInt): UInt? = if (this >= other) {
-        this - other
-    } else {
-        null
     }
 }
 
