@@ -76,6 +76,18 @@ class ScalarBaseDomain<ScalarValue>(
         fun <ScalarValue: StackEnvironmentValue<ScalarValue>> makeTop(sFac: ScalarValueFactory<ScalarValue>): ScalarBaseDomain<ScalarValue> {
             return ScalarBaseDomain(sFac)
         }
+
+        /**
+         *  Return if a stack [offset] is dead.
+         *
+         *  [topOfStack] is the value of `r10`.
+         **/
+        fun isDeadOffset(offset: Long, topOfStack: Long, useDynFrames: Boolean) =
+            if (useDynFrames) {
+                offset < topOfStack
+            } else {
+                offset > topOfStack
+            }
     }
 
     fun deepCopy(): ScalarBaseDomain<ScalarValue> {
@@ -228,13 +240,6 @@ class ScalarBaseDomain<ScalarValue>(
         }
         return scratchRegisters.removeLast()
     }
-
-    private fun isDeadOffset(offset: Long, topOfStack: Long, useDynFrames: Boolean) =
-        if (useDynFrames) {
-            offset < topOfStack
-        } else {
-            offset > topOfStack
-        }
 
     private fun removeDeadStackFields(topStack: Long, useDynFrames: Boolean) {
         val deadFields = ArrayList<ByteRange>()

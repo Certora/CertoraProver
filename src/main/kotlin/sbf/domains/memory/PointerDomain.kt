@@ -2215,12 +2215,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         return JoinStackEffects(onlyLeft, onlyRight, unifications, topFields, nonTopFields)
     }
 
-    private fun getType(scalar: ScalarValue<TNum, TOffset>): SbfType<TNum, TOffset>? =
-        if (scalar.isTop() || scalar.isBottom()) { null } else { scalar.type() }
 
-    /** This is just a heuristic to identify dangling pointers **/
-    private fun isNullOrDanglingPtr(scalar: SbfType<TNum, TOffset>): Boolean =
-        (scalar as? SbfType.NumType)?.value?.toLongOrNull()?.let { isZeroOrSmallPowerOfTwo(it) } ?: false
 
     /**
      * If a register points to a cell but the same register in the other operand is null
@@ -2314,27 +2309,25 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
 
                 if (ptrC != null) {
                     val scalarVal = danglingScalars!!.getAsScalarValue(Value.Reg(reg))
-                    val scalarType = getType(scalarVal)
-                    if (scalarType != null) {
-                        if (isNullOrDanglingPtr(scalarType)) {
-                            warn {
-                                "The pointer domain performed optimistic join: " +
-                                    "$reg looks a dangling pointer on one branch so we keep $reg to $ptrC"
-                            }
-                            return ptrC
-                        } else if (scalarType is SbfType.NumType) {
-                            warn {
-                                "The pointer domain performed optimistic join: " +
-                                    "$reg is a pointer on one branch and an integer on the other so we keep $reg to $ptrC"
-                            }
-                            return ptrC
-                        } else if (scalarType is SbfType.PointerType.Global) {
-                            warn {
-                                "The pointer domain performed optimistic join: " +
-                                    "$reg is a pointer on one branch and a global (perhaps string?) on the other so we keep $reg to $ptrC"
-                            }
-                            return ptrC
+                    val scalarType = scalarVal.type()
+                    if (scalarType.isNullOrDanglingPtr()) {
+                        warn {
+                            "The pointer domain performed optimistic join: " +
+                                "$reg looks a dangling pointer on one branch so we keep $reg to $ptrC"
                         }
+                        return ptrC
+                    } else if (scalarType is SbfType.NumType) {
+                        warn {
+                            "The pointer domain performed optimistic join: " +
+                                "$reg is a pointer on one branch and an integer on the other so we keep $reg to $ptrC"
+                        }
+                        return ptrC
+                    } else if (scalarType is SbfType.PointerType.Global) {
+                        warn {
+                            "The pointer domain performed optimistic join: " +
+                                "$reg is a pointer on one branch and a global (perhaps string?) on the other so we keep $reg to $ptrC"
+                        }
+                        return ptrC
                     }
                 }
             }
@@ -3373,8 +3366,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 )
         // sanity check
         val isStack = baseSc.getNode() == getStack()
-        check(!isStack || (baseType.isTop() || baseType is SbfType.PointerType.Stack)){
-            "Scalar and pointer domain disagree on the stack in $inst"
+        check(!isStack || baseType.canBeStack()){
+            "Scalar and pointer domain disagree on the stack in $inst -- type($base)=$baseType"
         }
 
         // Get symbolic de-referenced cell
@@ -3796,7 +3789,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             )
         // sanity check
         val isStack = baseSc.getNode() == getStack()
-        check(!isStack || (baseType.isTop() || baseType is SbfType.PointerType.Stack)){ "Scalar and pointer domain disagree on the stack in $inst" }
+        check(!isStack || baseType.canBeStack()){ "Scalar and pointer domain disagree on the stack in $inst" }
 
         // Get symbolic de-referenced cell
         val newOffset = updateOffset(BinOp.ADD, baseSc.getNode(), baseSc.getOffset(), inst.access.offset.toLong())

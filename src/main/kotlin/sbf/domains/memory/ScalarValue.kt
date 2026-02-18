@@ -63,6 +63,8 @@ sealed class SbfType<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
         fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> top(): SbfType<TNum, TOffset> = Top as SbfType<TNum, TOffset>
         @Suppress("UNCHECKED_CAST")
         fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> bottom(): SbfType<TNum, TOffset> = Bottom as SbfType<TNum, TOffset>
+        @Suppress("UNCHECKED_CAST")
+        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> nonStack(): SbfType<TNum, TOffset> = NonStack as SbfType<TNum, TOffset>
     }
 
     fun isTop() = this === Top
@@ -155,7 +157,12 @@ sealed class SbfType<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
         }
     }
 
-    fun join(other: SbfType<TNum, TOffset>): SbfType<TNum, TOffset> {
+    object NonStack : SbfType<Nothing, Nothing>() {
+        override fun toString(): String = "nonStack"
+    }
+
+
+    /*fun join(other: SbfType<TNum, TOffset>): SbfType<TNum, TOffset> {
         if (this is Bottom) {
             return other
         } else if (other is Bottom) {
@@ -179,8 +186,65 @@ sealed class SbfType<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
                 } else {
                     null
                 })
+        } else if (this is PointerType.Stack || other is PointerType.Stack) {
+            numJoinStack++
+            top()
         } else {
             top()
+        }
+    }*/
+
+    private fun joinDifferentTypes(other: SbfType<TNum, TOffset>): SbfType<TNum, TOffset> {
+        check(this::class != other::class)
+
+        // Helper to check if type is a non-stack pointer
+        fun isNonStackPtr(t: SbfType<TNum, TOffset>) =
+            t is PointerType.Input || t is PointerType.Global || t is PointerType.Heap
+
+        return when {
+            // Num with any non-stack pointer -> NonStack
+            (this is NumType && isNonStackPtr(other)) || (other is NumType && isNonStackPtr(this)) -> nonStack()
+
+            // Two different non-stack pointers -> NonStack
+            isNonStackPtr(this) && isNonStackPtr(other) -> nonStack()
+
+            // Num with NonStack -> NonStack
+            (this is NumType && other is NonStack) || (other is NumType && this is NonStack) -> nonStack()
+
+            // Non-stack pointer with NonStack -> NonStack
+            (isNonStackPtr(this) && other is NonStack) || (isNonStackPtr(other) && this is NonStack) -> nonStack()
+
+            // Everything else (involves Stack) -> Top
+            else -> top()
+        }
+    }
+
+    fun join(other: SbfType<TNum, TOffset>): SbfType<TNum, TOffset> {
+        if (this is Bottom) {
+            return other
+        } else if (other is Bottom) {
+            return this
+        } else if (this is Top || other is Top) {
+            return top()
+        }
+
+
+        // both operands have same type
+        return if (this::class == other::class) {
+            when (this) {
+                is NumType -> NumType(value.join((other as NumType).value))
+                is PointerType.Stack -> PointerType.Stack(offset.join((other as PointerType.Stack).offset))
+                is PointerType.Input -> PointerType.Input(offset.join((other as PointerType.Input).offset))
+                is PointerType.Heap -> PointerType.Heap(offset.join((other as PointerType.Heap).offset))
+                is PointerType.Global -> PointerType.Global(
+                    offset.join((other as PointerType.Global).offset),
+                    if (global == other.global) { global } else { null }
+                )
+                is NonStack -> this
+                else -> top()
+            }
+        } else {
+            joinDifferentTypes(other)
         }
     }
 
@@ -193,23 +257,21 @@ sealed class SbfType<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
             return top()
         }
 
-        return if (this is NumType && other is NumType) {
-            NumType(value.widen(other.value))
-        } else if (this is PointerType.Stack && other is PointerType.Stack) {
-            PointerType.Stack(offset.widen(other.offset))
-        } else if (this is PointerType.Input && other is PointerType.Input) {
-            PointerType.Input(offset.widen(other.offset))
-        } else if (this is PointerType.Heap && other is PointerType.Heap) {
-            PointerType.Heap(offset.widen(other.offset))
-        } else if (this is PointerType.Global && other is PointerType.Global) {
-            PointerType.Global(offset.widen(other.offset),
-                if (global == other.global) {
-                    global
-                } else {
-                    null
-                })
+        return if (this::class == other::class) {
+            when (this) {
+                is NumType -> NumType(value.widen((other as NumType).value))
+                is PointerType.Stack -> PointerType.Stack(offset.widen((other as PointerType.Stack).offset))
+                is PointerType.Input -> PointerType.Input(offset.widen((other as PointerType.Input).offset))
+                is PointerType.Heap -> PointerType.Heap(offset.widen((other as PointerType.Heap).offset))
+                is PointerType.Global -> PointerType.Global(
+                    offset.widen((other as PointerType.Global).offset),
+                    if (global == other.global) { global } else { null }
+                )
+                is NonStack -> this
+                else -> top()
+            }
         } else {
-            top()
+            joinDifferentTypes(other)
         }
     }
 
@@ -220,19 +282,28 @@ sealed class SbfType<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
             return false
         }
 
-        return if (this is NumType && other is NumType) {
-            value.lessOrEqual(other.value)
-        } else if (this is PointerType.Stack && other is PointerType.Stack) {
-            offset.lessOrEqual(other.offset)
-        } else if (this is PointerType.Input && other is PointerType.Input) {
-            offset.lessOrEqual(other.offset)
-        } else if (this is PointerType.Heap && other is PointerType.Heap) {
-            offset.lessOrEqual(other.offset)
-        } else if (this is PointerType.Global && other is PointerType.Global) {
-            offset.lessOrEqual(other.offset)
-        } else {
-            false
+        // Same type - check values/offsets
+        if (this::class == other::class) {
+            return when (this) {
+                is NumType -> value.lessOrEqual((other as NumType).value)
+                is PointerType.Stack -> offset.lessOrEqual((other as PointerType.Stack).offset)
+                is PointerType.Input -> offset.lessOrEqual((other as PointerType.Input).offset)
+                is PointerType.Heap -> offset.lessOrEqual((other as PointerType.Heap).offset)
+                is PointerType.Global -> offset.lessOrEqual((other as PointerType.Global).offset)
+                is NonStack -> true
+                else -> false
+            }
         }
+
+        if (other is NonStack) {
+            return this is NumType ||
+                this is PointerType.Input ||
+                this is PointerType.Global ||
+                this is PointerType.Heap
+        }
+
+        // Different concrete types are incomparable
+        return false
     }
 
     fun concretize(): SbfRegisterType? {
@@ -246,7 +317,8 @@ sealed class SbfType<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
         }
 
         return when (this) {
-            is Top, is Bottom -> null
+            is Top,
+            is Bottom -> null
             is NumType -> this.value.toLongList().let { SbfRegisterType.NumType(toConstantSet(it)) }
             is PointerType -> {
                 when (this) {
@@ -256,6 +328,7 @@ sealed class SbfType<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
                     is PointerType.Global -> this.offset.toLongList().let { SbfRegisterType.PointerType.Global(toConstantSet(it), this.global) }
                 }
             }
+            is NonStack -> null
         }
     }
 }

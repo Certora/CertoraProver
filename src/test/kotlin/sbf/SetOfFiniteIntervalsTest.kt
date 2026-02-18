@@ -30,7 +30,7 @@ class SetOfFiniteIntervalsTest {
     }
 
     @Test
-    fun test01() {
+    fun add() {
         val i1 = SetOfFiniteIntervals.new().add(FiniteInterval(4,8)).add(FiniteInterval(12,20))
 
         val x1 = FiniteInterval(2,6)
@@ -71,7 +71,7 @@ class SetOfFiniteIntervalsTest {
     }
 
     @Test
-    fun test02() {
+    fun `intersection 1`() {
         val i1 = SetOfFiniteIntervals.new()
             .add(FiniteInterval(10,14))
             .add(FiniteInterval(18,19))
@@ -90,7 +90,7 @@ class SetOfFiniteIntervalsTest {
     }
 
     @Test
-    fun test03() {
+    fun `intersection 2`() {
         val i1 = SetOfFiniteIntervals.new()
             .add(FiniteInterval(10,14))
             .add(FiniteInterval(30,50))
@@ -115,7 +115,7 @@ class SetOfFiniteIntervalsTest {
     }
 
     @Test
-    fun test04() {
+    fun `intersection 3`() {
         val i1 = SetOfFiniteIntervals.new()
             .add(FiniteInterval(14,16))
             .add(FiniteInterval(18,20))
@@ -211,5 +211,96 @@ class SetOfFiniteIntervalsTest {
         val res = a.add(b)
         println("Add $b in $a -> $res")
         Assertions.assertEquals(a, res)
+    }
+
+    @Test
+    fun remove() {
+        run {
+            val a = SetOfFiniteIntervals(listOf(FiniteInterval(1, 15)))
+            val b = FiniteInterval(5, 10) //
+            val expected = SetOfFiniteIntervals(listOf(FiniteInterval(1, 4), FiniteInterval(11,15)))
+            Assertions.assertEquals(expected, a.remove(b))
+        }
+        run {
+            val a = SetOfFiniteIntervals(listOf(FiniteInterval(1, 7)))
+            val b = FiniteInterval(5, 10) //
+            val expected = SetOfFiniteIntervals(listOf(FiniteInterval(1, 4)))
+            Assertions.assertEquals(expected, a.remove(b))
+        }
+        run {
+            val a = SetOfFiniteIntervals(listOf(FiniteInterval(8, 15)))
+            val b = FiniteInterval(5, 10) //
+            val expected = SetOfFiniteIntervals(listOf( FiniteInterval(11,15)))
+            Assertions.assertEquals(expected, a.remove(b))
+        }
+        run {
+            val a = SetOfFiniteIntervals(listOf(FiniteInterval(6, 8)))
+            val b = FiniteInterval(5, 10) //
+            val expected = SetOfFiniteIntervals(listOf())
+            Assertions.assertEquals(expected, a.remove(b))
+        }
+        run {
+            val a = SetOfFiniteIntervals(listOf(FiniteInterval(1, 3), FiniteInterval(12,15)))
+            val b = FiniteInterval(5, 10) //
+            val expected = SetOfFiniteIntervals(listOf(FiniteInterval(1, 3), FiniteInterval(12,15)))
+            Assertions.assertEquals(expected, a.remove(b))
+        }
+    }
+
+    @Test
+    fun included() {
+
+        run {
+            val a = SetOfFiniteIntervals(listOf(FiniteInterval(1, 5), FiniteInterval(10,15)))
+            val b = SetOfFiniteIntervals(listOf(FiniteInterval(1, 5), FiniteInterval(10,15)))
+            Assertions.assertEquals(true, a.included(b))
+        }
+        run {
+            val a = SetOfFiniteIntervals(listOf(FiniteInterval(1, 5), FiniteInterval(10,15)))
+            val b = SetOfFiniteIntervals(listOf(FiniteInterval(0, 20)))
+            Assertions.assertEquals(true, a.included(b))
+        }
+        run {
+            val a = SetOfFiniteIntervals(listOf(FiniteInterval(1, 5), FiniteInterval(10,15)))
+            val b = SetOfFiniteIntervals(listOf(FiniteInterval(1, 3), FiniteInterval(10,12)))
+            Assertions.assertEquals(false, a.included(b))
+        }
+        run {
+            val a = SetOfFiniteIntervals(listOf())
+            val b = SetOfFiniteIntervals(listOf(FiniteInterval(1, 5), FiniteInterval(10,15)))
+            Assertions.assertEquals(true, a.included(b))
+        }
+        run {
+            val a = SetOfFiniteIntervals(listOf(FiniteInterval(1, 5)))
+            val b = SetOfFiniteIntervals(listOf())
+            Assertions.assertEquals(false, a.included(b))
+        }
+        run {
+            val a = SetOfFiniteIntervals(listOf(FiniteInterval(1, 5)))
+            val b = SetOfFiniteIntervals(listOf(FiniteInterval(10,20)))
+            Assertions.assertEquals(false, a.included(b))
+        }
+    }
+
+    @Test
+    fun filterIntersecting() {
+
+        run {
+            val a = SetOfFiniteIntervals(listOf(FiniteInterval(1, 5), FiniteInterval(10,15), FiniteInterval(20,25)))
+            val b = SetOfFiniteIntervals(listOf(FiniteInterval(3, 7), FiniteInterval(18,22)))
+            Assertions.assertEquals(
+                SetOfFiniteIntervals(listOf(FiniteInterval(1, 5), FiniteInterval(20,25))),
+                a.filterIntersecting(b)
+            )
+        }
+
+        run {
+            val a = SetOfFiniteIntervals(listOf(FiniteInterval(1, 5), FiniteInterval(10,15)))
+            val b = SetOfFiniteIntervals(listOf(FiniteInterval(6, 9)))
+            Assertions.assertEquals(
+                SetOfFiniteIntervals(listOf()),
+                a.filterIntersecting(b)
+            )
+        }
     }
 }
