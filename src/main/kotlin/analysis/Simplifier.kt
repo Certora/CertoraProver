@@ -167,6 +167,10 @@ object EthereumVariables {
             )
         )
 
+    fun simplifyClz(c: TACCmd.EVM.AssignClzCmd): CommandWithRequiredDecls<TACCmd.Simple> {
+        return BitCounts.countLeadingZeros(c.lhs, c.op1.asSym(), 256, c.meta)
+    }
+
     fun simplifyAddress(c: TACCmd.EVM.AssignAddressCmd) =
         CommandWithRequiredDecls(
             listOf(TACCmd.Simple.AssigningCmd.AssignExpCmd(c.lhs, address, c.meta)),
@@ -1461,6 +1465,7 @@ object EthereumVariables {
 
             TACCmd.EVM.StopCmd -> simplifyStop()
             is TACCmd.EVM.AssignIszeroCmd -> simplifyIsZero(c)
+            is TACCmd.EVM.AssignClzCmd -> simplifyClz(c)
 
             is TACCmd.EVM.AssignAddressCmd -> simplifyAddress(c)
             is TACCmd.EVM.AssignBalanceCmd -> simplifyBalance(c)
