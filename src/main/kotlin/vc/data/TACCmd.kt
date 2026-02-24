@@ -2199,6 +2199,12 @@ sealed class TACCmd : Serializable, ITACCmd {
             override fun toString(): String = super.toString() // opt out of generated toString
         }
 
+        data class AssignClzCmd(val lhs: TACSymbol.Var, val op1: TACSymbol, override val meta: MetaMap = MetaMap()) :
+            EVM() {
+            override fun argString(): String = "$lhs $op1"
+            override fun toString(): String = super.toString() // opt out of generated toString
+        }
+
         // BLOCKCHAIN
         @HookableOpcode("ADDRESS", "Address")
         data class AssignAddressCmd(@OpcodeOutput val lhs: TACSymbol.Var, override val meta: MetaMap = MetaMap()) : EVM() {
@@ -2720,6 +2726,7 @@ sealed class TACCmd : Serializable, ITACCmd {
             is EVM -> when (this) {
                 is EVM.AssigningCmd -> this.lhs
                 is EVM.AssignIszeroCmd -> this.lhs
+                is EVM.AssignClzCmd -> this.lhs
                 is EVM.AssignAddressCmd -> this.lhs
                 is EVM.AssignBalanceCmd -> this.lhs
                 is EVM.AssignOriginCmd -> this.lhs
@@ -2853,6 +2860,7 @@ sealed class TACCmd : Serializable, ITACCmd {
             is EVM.EVMRevertCmd -> treapSetOf(this.o1, this.o2)
             is EVM.EVMReturnCmd -> treapSetOf(this.o1, this.o2)
             is EVM.AssignIszeroCmd -> treapSetOf(this.op1)
+            is EVM.AssignClzCmd -> treapSetOf(this.op1)
             is EVM.AssignAddressCmd -> treapSetOf()
             is EVM.AssignBalanceCmd -> treapSetOf(this.op1)
             is EVM.AssignOriginCmd -> treapSetOf()
@@ -3010,6 +3018,7 @@ sealed class TACCmd : Serializable, ITACCmd {
             is EVM.EVMRevertCmd -> treapSetOf(this.o1, this.o2)
             is EVM.EVMReturnCmd -> treapSetOf(this.o1, this.o2)
             is EVM.AssignIszeroCmd -> treapSetOf(this.op1)
+            is EVM.AssignClzCmd -> treapSetOf(this.op1)
             is EVM.AssignAddressCmd -> treapSetOf()
             is EVM.AssignBalanceCmd -> treapSetOf(this.op1)
             is EVM.AssignOriginCmd -> treapSetOf()

@@ -23,6 +23,8 @@ import net.jqwik.api.constraints.IntRange
 import net.jqwik.kotlin.api.*
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.params.*
+import org.junit.jupiter.params.provider.*
 import wasm.host.NullHost
 import wasm.wat.*
 
@@ -563,43 +565,123 @@ class IntTest : WasmTestFixture() {
         })
     }
 
-    @Test
-    fun `i32 ctz range`() {
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `i32 ctz range`(bitVectorMode: Boolean) {
         val fake = WatImport("fake", "fake", result = i32)
-        assertTrue(verifyWasm(allowUnresolvedCalls = true) {
+        assertTrue(verifyWasm(allowUnresolvedCalls = true, bitVectorMode = bitVectorMode) {
             certoraAssert(
                 fake().ctz() le i32(32)
             )
         })
     }
 
-    @Test
-    fun `i64 ctz range`() {
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `i32 ctz cases`(bitVectorMode: Boolean) {
+        assertTrue(verifyWasm(bitVectorMode = bitVectorMode) {
+            certoraAssert(u32(0b0000_0000_0000_0000_0000_0000_0000_0000u).ctz() eq u32(32u))
+            certoraAssert(u32(0b1000_0000_0000_0000_0000_0000_0000_0000u).ctz() eq u32(31u))
+            certoraAssert(u32(0b0100_0000_0000_0000_0000_0000_0000_0000u).ctz() eq u32(30u))
+            certoraAssert(u32(0b1100_0000_0000_0000_0000_0000_0000_0000u).ctz() eq u32(30u))
+            certoraAssert(u32(0b0010_0000_0000_0000_0000_0000_0000_0000u).ctz() eq u32(29u))
+            certoraAssert(u32(0b0110_0000_0000_0000_0000_0000_0000_0000u).ctz() eq u32(29u))
+            certoraAssert(u32(0b0000_0000_0000_0000_0000_0000_0000_0001u).ctz() eq u32(0u))
+            certoraAssert(u32(0b0000_0000_0000_0000_0000_0000_0000_0010u).ctz() eq u32(1u))
+            certoraAssert(u32(0b0000_0000_0000_0000_0000_0000_0000_0011u).ctz() eq u32(0u))
+            certoraAssert(u32(0b0000_0000_0000_0000_0000_0000_0000_0100u).ctz() eq u32(2u))
+            certoraAssert(u32(0b0000_0000_0000_0000_0000_0000_0000_0101u).ctz() eq u32(0u))
+            certoraAssert(u32(0b0000_0000_0000_0000_0000_0000_0000_0110u).ctz() eq u32(1u))
+        })
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `i64 ctz range`(bitVectorMode: Boolean) {
         val fake = WatImport("fake", "fake", result = i64)
-        assertTrue(verifyWasm(allowUnresolvedCalls = true) {
+        assertTrue(verifyWasm(allowUnresolvedCalls = true, bitVectorMode = bitVectorMode) {
             certoraAssert(
                 fake().ctz() le i64(64)
             )
         })
     }
 
-    @Test
-    fun `i32 clz range`() {
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `i64 ctz cases`(bitVectorMode: Boolean) {
+        assertTrue(verifyWasm(bitVectorMode = bitVectorMode) {
+            certoraAssert(u64(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000u).ctz() eq u64(64u))
+            certoraAssert(u64(0b1000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000u).ctz() eq u64(63u))
+            certoraAssert(u64(0b0100_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000u).ctz() eq u64(62u))
+            certoraAssert(u64(0b1100_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000u).ctz() eq u64(62u))
+            certoraAssert(u64(0b0010_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000u).ctz() eq u64(61u))
+            certoraAssert(u64(0b0110_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000u).ctz() eq u64(61u))
+            certoraAssert(u64(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0001u).ctz() eq u64(0u))
+            certoraAssert(u64(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0010u).ctz() eq u64(1u))
+            certoraAssert(u64(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0011u).ctz() eq u64(0u))
+            certoraAssert(u64(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0100u).ctz() eq u64(2u))
+            certoraAssert(u64(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0101u).ctz() eq u64(0u))
+            certoraAssert(u64(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0110u).ctz() eq u64(1u))
+        })
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `i32 clz range`(bitVectorMode: Boolean) {
         val fake = WatImport("fake", "fake", result = i32)
-        assertTrue(verifyWasm(allowUnresolvedCalls = true) {
+        assertTrue(verifyWasm(allowUnresolvedCalls = true, bitVectorMode = bitVectorMode) {
             certoraAssert(
                 fake().clz() le i32(32)
             )
         })
     }
 
-    @Test
-    fun `i64 clz range`() {
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `i32 clz cases`(bitVectorMode: Boolean) {
+        assertTrue(verifyWasm(bitVectorMode = bitVectorMode) {
+            certoraAssert(u32(0b0000_0000_0000_0000_0000_0000_0000_0000u).clz() eq u32(32u))
+            certoraAssert(u32(0b1000_0000_0000_0000_0000_0000_0000_0000u).clz() eq u32(0u))
+            certoraAssert(u32(0b0100_0000_0000_0000_0000_0000_0000_0000u).clz() eq u32(1u))
+            certoraAssert(u32(0b1100_0000_0000_0000_0000_0000_0000_0000u).clz() eq u32(0u))
+            certoraAssert(u32(0b0010_0000_0000_0000_0000_0000_0000_0000u).clz() eq u32(2u))
+            certoraAssert(u32(0b0110_0000_0000_0000_0000_0000_0000_0000u).clz() eq u32(1u))
+            certoraAssert(u32(0b0000_0000_0000_0000_0000_0000_0000_0001u).clz() eq u32(31u))
+            certoraAssert(u32(0b0000_0000_0000_0000_0000_0000_0000_0010u).clz() eq u32(30u))
+            certoraAssert(u32(0b0000_0000_0000_0000_0000_0000_0000_0011u).clz() eq u32(30u))
+            certoraAssert(u32(0b0000_0000_0000_0000_0000_0000_0000_0100u).clz() eq u32(29u))
+            certoraAssert(u32(0b0000_0000_0000_0000_0000_0000_0000_0101u).clz() eq u32(29u))
+            certoraAssert(u32(0b0000_0000_0000_0000_0000_0000_0000_0110u).clz() eq u32(29u))
+        })
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `i64 clz range`(bitVectorMode: Boolean) {
         val fake = WatImport("fake", "fake", result = i64)
-        assertTrue(verifyWasm(allowUnresolvedCalls = true) {
+        assertTrue(verifyWasm(allowUnresolvedCalls = true, bitVectorMode = bitVectorMode) {
             certoraAssert(
                 fake().clz() le i64(64)
             )
+        })
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `i64 clz cases`(bitVectorMode: Boolean) {
+        assertTrue(verifyWasm(bitVectorMode = bitVectorMode) {
+            certoraAssert(u64(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000u).clz() eq u64(64u))
+            certoraAssert(u64(0b1000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000u).clz() eq u64(0u))
+            certoraAssert(u64(0b0100_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000u).clz() eq u64(1u))
+            certoraAssert(u64(0b1100_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000u).clz() eq u64(0u))
+            certoraAssert(u64(0b0010_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000u).clz() eq u64(2u))
+            certoraAssert(u64(0b0110_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000u).clz() eq u64(1u))
+            certoraAssert(u64(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0001u).clz() eq u64(63u))
+            certoraAssert(u64(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0010u).clz() eq u64(62u))
+            certoraAssert(u64(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0011u).clz() eq u64(62u))
+            certoraAssert(u64(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0100u).clz() eq u64(61u))
+            certoraAssert(u64(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0101u).clz() eq u64(61u))
+            certoraAssert(u64(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0110u).clz() eq u64(61u))
         })
     }
 }
