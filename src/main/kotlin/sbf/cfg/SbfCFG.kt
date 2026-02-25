@@ -17,12 +17,14 @@
 
 package sbf.cfg
 
+import compiler.toHeuristicSourceSegment
 import com.certora.collect.*
 import sbf.SolanaConfig
 import sbf.disassembler.*
 import datastructures.stdcollections.*
 import dwarf.DebugSymbols
 import sbf.dwarf.DWARFEdgeLabelAnnotator
+import vc.data.TACMetaInfo
 import kotlin.collections.removeLast
 
 /**
@@ -1265,10 +1267,26 @@ class MutableSbfCFG(private val name: String): SbfCFG {
     }
 
     fun addDebugInformation(debugInformation: DebugSymbols) {
-        this.getEntry().getInstruction(0).metaData.getVal(SbfMeta.SBF_ADDRESS)?.let {addr ->
+        this.getEntry().getInstruction(0).metaData.getVal(SbfMeta.SBF_ADDRESS)?.let { addr ->
             val debugInfoForMethod = debugInformation.getMethodByNameAndAddress(this.name, addr)
             if(debugInfoForMethod != null) {
                 DWARFEdgeLabelAnnotator(debugInformation, debugInfoForMethod, this, addr).addDebugInformation()
+            }
+        }
+    }
+
+    /**
+     * Adds [TACMetaInfo] to each instruction for which a [SbfMeta.SBF_ADDRESS] is given
+     * and the debug symbols provide [dwarf.LineNumberInfo] for this specific address.
+     */
+    fun addSourceSegments(debugSymbols: DebugSymbols) {
+        this.blocks.forEachEntry { (_, b) ->
+            b.getInstructions().forEachIndexed { index, instruction ->
+                val addr = instruction.metaData.getVal(SbfMeta.SBF_ADDRESS) ?: return@forEachIndexed
+                val lineNumberInfo = debugSymbols.lookUpLineNumberInfo(addr) ?: return@forEachIndexed
+                val sourceSegment = lineNumberInfo.asRange().toHeuristicSourceSegment() ?: return@forEachIndexed
+                val metaData = instruction.metaData
+                b.replaceInstruction(index, instruction.copyInst(metadata = metaData.plus(SbfMeta.SOURCE_SEGMENT to sourceSegment)))
             }
         }
     }

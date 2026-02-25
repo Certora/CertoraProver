@@ -450,7 +450,7 @@ class DWARFEdgeLabelAnnotator(
 
     private fun getExplicitDebugStep(addr: ULong): DWARFCfgEdgeLabel.DebugStep? {
         return debugInformation.lookUpLineNumberInfo(addr)?.let {
-            it.getRange().nonEmpty()?.let { r -> DWARFCfgEdgeLabel.DebugStep(r) }
+            it.asRange()?.let { r -> DWARFCfgEdgeLabel.DebugStep(r) }
         }
     }
 

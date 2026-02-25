@@ -215,6 +215,7 @@ private fun sbfProgramWithMocksToSbfCfgs(
 
 private fun postProcessCFG(cfg: MutableSbfCFG, debugSymbols: DebugSymbols, globals: GlobalVariables) {
     cfg.addDebugInformation(debugSymbols)
+    cfg.addSourceSegments(debugSymbols)
     cfg.verify(false, "[before postProcessCFG]")
     //do not call simplify before calling lowerBranchesIntoAssume
     cfg.lowerBranchesIntoAssume()

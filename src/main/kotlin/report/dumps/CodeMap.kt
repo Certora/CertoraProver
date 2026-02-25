@@ -27,7 +27,6 @@ import analysis.ip.InternalFuncExitAnnotation
 import analysis.ip.InternalFuncStartAnnotation
 import analysis.ip.InternalFunctionFinderReport
 import com.certora.collect.*
-import compiler.SourceIdentifier
 import compiler.SourceSegment
 import config.Config
 import config.Config.IsGenerateGraphs
@@ -122,7 +121,7 @@ data class CodeMap(
     data class ToolTipEntry(val sourceDetails: SourceSegment, val Id: Int)
 
     private val toolTipCache =
-        mutableMapOf<SourceIdentifier, ToolTipEntry>() // file : String?, begin : Int?, len : Int?) : String?
+        mutableMapOf<SourceSegment, ToolTipEntry>() // file : String?, begin : Int?, len : Int?) : String?
 
     fun getToolTipCacheForJS(): String {
         // the outer braces are needed for the JS, we build a json for the tac dumps tooltips here
@@ -420,6 +419,7 @@ data class CodeMap(
                     is MoveCallTrace.FuncStart -> colorText("$rarrow ${metaValue.name.toString().escapeHTML()}", Color.DARKBLUE).withTitle(metaValue.toString())
                     is MoveCallTrace.FuncArgs -> colorText("${metaValue.name.toString().escapeHTML()}(${metaValue.args.joinToString(", ") { getHtmlRep(it) }})", Color.DARKGREY).withTitle(metaValue.toString())
                     is MoveCallTrace.FuncEnd -> colorText("$larrow ${metaValue.name.toString().escapeHTML()}(returns ${metaValue.returns.joinToString(", ") { getHtmlRep(it) }})", Color.DARKBLUE).withTitle(metaValue.toString())
+                    is SnippetCmd.ExplicitDebugStep -> colorText("Source line: ${metaValue.range}", Color.DARKGREY)
                     is Inliner.CallStack.PushRecord -> colorText("$rarrow Solidity call ${metaValue.calleeId}", Color.DARKBLUE).withTitle(metaValue.toString())
                     is Inliner.CallStack.PopRecord -> colorText("$larrow Solidity call ${metaValue.calleeId}", Color.DARKBLUE).withTitle(metaValue.toString())
                     is InternalFunctionFinderReport -> if (metaValue.unresolvedFunctions.isNotEmpty()) {
@@ -1119,8 +1119,8 @@ data class CodeMap(
                 is TACCmd.Simple.AnnotationCmd -> when (it.cmd.annot.v) {
                     is SbfInlinedFuncNopAnnotation -> false
                     is SnippetCmd.SolanaSnippetCmd.Assert -> false
-                    is SnippetCmd.ExplicitDebugStep,
                     is SnippetCmd.SolanaSnippetCmd.VariableBecomingLive,
+                    is SnippetCmd.SolanaSnippetCmd.DirectMemoryAccess,
                     is SnippetCmd.SolanaSnippetCmd.ExplicitDebugPopAction,
                     is SnippetCmd.SolanaSnippetCmd.ExplicitDebugPushAction -> SolanaConfig.DumpDwarfDebugInfoInReports.get()
                     else -> true
@@ -1258,18 +1258,18 @@ data class CodeMap(
                 return "<span class=\"tooltip\">${contents} <span class=\"tooltiptext\" tooltipatt=\"$tooltipTextId\"></span></span>"
             }
 
-            val r = cmd.metaSrcInfo
-                ?.let { meta ->
-                    val identifier = meta.sourceIdentifier()
-                    toolTipCache.getOrElse(identifier) {
-                        meta.getSourceDetails()?.let { sourceDetails ->
-                            val currentId = ++toolTipCacheId
-                            val entry = ToolTipEntry(sourceDetails, currentId)
-                            toolTipCache.put(identifier, entry)
-                            entry
-                        }
-                    }?.Id?.let { toolTipId -> tooltipTemplate(cmdWithPotentialValue.toString(), toolTipId) }
-                } ?: cmdWithPotentialValue
+            val sourceSegment = cmd.metaSrcInfo?.getSourceDetails() ?: cmd.meta[TACMeta.SBF_SOURCE_SEGMENT]
+            val r = sourceSegment?.let { identifier ->
+                toolTipCache.getOrElse(identifier) {
+                    val currentId = ++toolTipCacheId
+                    val entry = ToolTipEntry(identifier, currentId)
+                    toolTipCache[identifier] = entry
+                    entry
+                }.Id.let { toolTipId ->
+                    tooltipTemplate(cmdWithPotentialValue.toString(), toolTipId)
+                }
+            } ?: cmdWithPotentialValue
+
 
             // Format the index of the command, padded with non-breaking spaces to right-justify it.
             val pos = colorText(ltacCmd.ptr.pos.toString().padStart(posWidth).replace(" ", "&nbsp;") + ":&nbsp;", Color.DARKGREY)

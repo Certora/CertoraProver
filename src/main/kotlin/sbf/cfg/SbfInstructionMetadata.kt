@@ -17,6 +17,7 @@
 
 package sbf.cfg
 
+import compiler.SourceSegment
 import utils.*
 import datastructures.stdcollections.*
 import sbf.dwarf.DWARFCfgEdgeLabel
@@ -72,6 +73,8 @@ object SbfMeta {
     val MOCK_FOR = MetaKey<String>("mock_for")
     // for source line information coming from CVLR.
     val CVLR_RANGE = MetaKey<Range.Range>("cvlr.range")
+    // contains source file and range information from debug symbols
+    val SOURCE_SEGMENT = MetaKey<SourceSegment>("src_segment")
 
     // These keys have empty strings as values. The values are irrelevant
     val HINT_OPTIMIZED_WIDE_STORE =  MetaKey<Unit>("hint_optimized_wide_store")

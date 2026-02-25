@@ -1148,6 +1148,11 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
             pairs += Pair(TACMeta.CVL_RANGE, cvlrRange)
         }
 
+        val srcMetaInfo = metaData.getVal(SbfMeta.SOURCE_SEGMENT)
+        if (srcMetaInfo != null) {
+            pairs += Pair(TACMeta.SBF_SOURCE_SEGMENT, srcMetaInfo)
+        }
+
         return cmds.map { it.plusMetaMap(pairs) }
     }
 

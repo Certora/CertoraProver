@@ -27,6 +27,7 @@ import analysis.split.StorageTypeBounder
 import analysis.storage.DisplayPaths
 import analysis.storage.StorageAnalysisResult
 import com.certora.collect.*
+import compiler.SourceSegment
 import instrumentation.StoragePathAnnotation
 import instrumentation.transformers.FoundryCheatcodes
 import report.calltrace.CVLReportLabel
@@ -399,4 +400,6 @@ object TACMeta {
 
     /** address of the SBF instruction, for TAC debugging */
     val SBF_ADDRESS  = MetaKey<Long>("sbf.bytecode.address")
+    /** contains the range and source code contains for Solana */
+    val SBF_SOURCE_SEGMENT  = MetaKey<SourceSegment>("sbf.source.segment")
 }

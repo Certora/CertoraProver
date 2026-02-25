@@ -89,6 +89,14 @@ value class LineStarts private constructor(private val startOffsets: List<Int>) 
         )
     }
 
+    /**
+     * For a given [lineNumber] (0-based), returns the character offset
+     * from the beginning of the file to this [lineNumber].
+     */
+    fun lineNumberStartOffset(lineNumber: Int): Int? {
+        return startOffsets.getOrNull(lineNumber)
+    }
+
     companion object {
         /** constructs a new [LineStarts], if [startOffsets] are valid */
         fun checked(startOffsets: List<Int>): LineStarts {
