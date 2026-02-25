@@ -49,7 +49,8 @@ import wasm.impCfg.WASM_SDK_FUNC_SUMMARY_START
  */
 object AnnotationRemovers {
 
-    private fun eraseInDestructiveMode(cmd: TACCmd.Simple) =
+    /** destructive or not, these go */
+    private fun removeCommand(cmd: TACCmd.Simple) =
         when (cmd) {
             is TACCmd.Simple.JumpdestCmd,
             is TACCmd.Simple.LogCmd,
@@ -136,7 +137,7 @@ object AnnotationRemovers {
             val unknownMetas = mutableSetOf<MetaKey<*>>()
             ctp.ltacStream()
                 .filter { (_, cmd) ->
-                    if (ctp.destructiveOptimizations && eraseInDestructiveMode(cmd)) {
+                    if (removeCommand(cmd)) {
                         return@filter true
                     }
                     if (cmd !is TACCmd.Simple.AnnotationCmd) {
