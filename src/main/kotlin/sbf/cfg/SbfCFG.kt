@@ -901,22 +901,23 @@ class MutableSbfCFG(private val name: String): SbfCFG {
         }
     }
 
-    // Remove empty blocks that only one successor
-    fun removeUselessBlocks() {
-        val worklist = ArrayList<Label>(blocks.size)
-        blocks.forEachEntry { worklist.add(it.key) }
+    // Remove empty blocks (only jump instruction) with only one successor
+    fun removeEmptyBlocks() {
+        val worklist = ArrayList<MutableSbfBasicBlock>(blocks.size)
+        worklist.addAll(blocks.values)
         while (worklist.isNotEmpty()) {
-            val curL = worklist.removeLast()
-            val curB = blocks[curL]
-            check(curB != null) { "cannot find block associated to $curL in removeUselessBlocks" }
+            val curB = worklist.removeLast()
+
+            // The block has only one terminator instruction
             if (!(curB.getSuccs().size == 1 && curB.numOfInstructions() == 1)) {
                 continue
             }
-            // The basic block has only an unconditional jump to its only successor
-            val succB = curB.getMutableSuccs().first()
 
-            if (curB == succB) {
-                // This is an empty loop: we don't touch it.
+            // The `curB` has only an unconditional jump to its only successor
+            val onlySuccB = curB.getMutableSuccs().single()
+
+            // This is an empty loop: we don't touch it.
+            if (curB == onlySuccB) {
                 continue
             }
 
@@ -926,26 +927,28 @@ class MutableSbfCFG(private val name: String): SbfCFG {
             // Redirect each predB predecessor to succB
             for (predB in predecessors) {
                 val predTermInst = predB.getTerminator()
-                check(predTermInst is SbfInstruction.Jump) {"$predTermInst should be a jump instruction in removeUselessBlocks"}
+                check(predTermInst is SbfInstruction.Jump) {
+                    "$predTermInst should be a jump instruction in removeEmptyBlocks"
+                }
                 when (predTermInst) {
                     is SbfInstruction.Jump.UnconditionalJump -> {
                         predB.replaceInstruction(
                             predB.numOfInstructions() - 1,
-                            predTermInst.copy(target = succB.getLabel())
+                            predTermInst.copy(target = onlySuccB.getLabel())
                         )
                     }
                     is SbfInstruction.Jump.ConditionalJump -> {
                         predB.replaceInstruction(
                             predB.numOfInstructions() - 1,
-                            if (predTermInst.target == succB.getLabel()) {
-                                predTermInst.copy(target = succB.getLabel())
+                            if (predTermInst.target == curB.getLabel()) {
+                                predTermInst.copy(target = onlySuccB.getLabel())
                             } else {
-                                predTermInst.copy(falseTarget = succB.getLabel())
+                                predTermInst.copy(falseTarget = onlySuccB.getLabel())
                             }
                         )
                     }
                 }
-                predB.addSucc(succB)
+                predB.addSucc(onlySuccB)
                 // No need to remove curB as successor of predB because it will be done when calling removeBlock
             }
             curB.clear()
