@@ -48,7 +48,7 @@ class TACMemcpyPromotionTest {
     @Test
     fun `widening + narrowing with memcpy promotion`() {
         val cfg = `widening + narrowing`()
-        promoteStoresToMemcpy(cfg, globals, memSummaries)
+        promoteMemcpy(cfg, globals, memSummaries)
         removeUselessDefinitions(cfg)
         Assertions.assertEquals(true, cfg.hasMemcpyZExt())
         Assertions.assertEquals(true, cfg.hasMemcpyTrunc())
@@ -111,7 +111,7 @@ class TACMemcpyPromotionTest {
     @Test
     fun `widening store with memcpy promotion`() {
         val cfg = `widening store`()
-        promoteStoresToMemcpy(cfg, globals, memSummaries)
+        promoteMemcpy(cfg, globals, memSummaries)
         Assertions.assertEquals(true, cfg.hasMemcpyZExt())
         removeUselessDefinitions(cfg)
         println("After memcpy promotion: $cfg")
@@ -165,7 +165,7 @@ class TACMemcpyPromotionTest {
     @Test
     fun `narrowing store with memcpy promotion`() {
         val cfg = `narrowing store`()
-        promoteStoresToMemcpy(cfg, globals, memSummaries)
+        promoteMemcpy(cfg, globals, memSummaries)
         removeUselessDefinitions(cfg)
         Assertions.assertEquals(true, cfg.hasMemcpyTrunc())
         println("After memcpy promotion: $cfg")
@@ -232,7 +232,7 @@ class TACMemcpyPromotionTest {
     @Test
     fun `example from manifest with memcpy promotion`() {
         val cfg = `example from manifest`()
-        promoteStoresToMemcpy(cfg, globals, memSummaries)
+        promoteMemcpy(cfg, globals, memSummaries)
         removeUselessDefinitions(cfg)
         Assertions.assertEquals(true, cfg.hasMemcpyZExt())
         println("After memcpy promotion: $cfg")

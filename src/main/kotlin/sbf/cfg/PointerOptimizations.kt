@@ -58,7 +58,7 @@ fun runSimplePTAOptimizations(cfg: MutableSbfCFG, globals: GlobalVariables) {
 fun runPTAOptimizations(prog: SbfCallGraph, memSummaries: MemorySummaries): SbfCallGraph {
     return prog.transformSingleEntry { entryCFG ->
         val optEntryCFG = entryCFG.clone(entryCFG.getName())
-        promoteStoresToMemcpy(optEntryCFG, prog.getGlobals(), memSummaries)
+        promoteMemcpy(optEntryCFG, prog.getGlobals(), memSummaries)
         removeUselessDefinitions(optEntryCFG)
         promoteMemset(optEntryCFG, prog.getGlobals(), memSummaries)
         markLoadedAsNumForPTA(optEntryCFG)
