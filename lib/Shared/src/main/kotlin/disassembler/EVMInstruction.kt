@@ -73,6 +73,7 @@ enum class EVMInstruction(
     SHL(0x1bu, 2, 1),
     SHR(0x1cu, 2, 1),
     SAR(0x1du, 2, 1),
+    CLZ(0x1eu, 1, 1),
     KECCAK256(0x20u, 2, 1),
     ADDRESS(0x30u, 0, 1),
     BALANCE(0x31u, 1, 1),

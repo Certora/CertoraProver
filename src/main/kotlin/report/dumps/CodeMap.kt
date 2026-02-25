@@ -583,6 +583,7 @@ data class CodeMap(
                         )
                     }".asRaw()
                     is TACCmd.EVM.AssignIszeroCmd -> "${getHtmlRep(c.lhs)} = ${getHtmlRep(c.op1)} == 0".asRaw()
+                    is TACCmd.EVM.AssignClzCmd -> "${getHtmlRep(c.lhs)} = clz(${getHtmlRep(c.op1)})".asRaw()
                     is TACCmd.EVM.AssigningCmd.WithExprBuilder.AssigningBinaryOpCmd.AssignAndCmd -> "${getHtmlRep(c.lhs)} = ${
                         getHtmlRep(
                             c.op1

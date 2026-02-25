@@ -74,7 +74,8 @@ abstract class WasmTestFixture {
         allowUnresolvedCalls: Boolean = false,
         recursionLimit: Int = 3,
         recursionLimitIsError: Boolean = false,
-        optimize: Boolean = true
+        optimize: Boolean = true,
+        bitVectorMode: Boolean = false
     ): Boolean {
         val report = maybeEnableReportGeneration()
         var res = false
@@ -82,6 +83,7 @@ abstract class WasmTestFixture {
         .extend(Config.QuietMode, true)
         .extend(Config.RecursionErrorAsAssertInAllCases, recursionLimitIsError)
         .extend(Config.RecursionEntryLimit, recursionLimit)
+        .extend(Config.Smt.UseBV, bitVectorMode)
         .use {
             val wasmFile = watToWasm(wat)
             val program = WasmEntryPoint
@@ -117,12 +119,13 @@ abstract class WasmTestFixture {
         return res
     }
 
-    fun verifyWasm(assumeNoTraps: Boolean = false, allowUnresolvedCalls: Boolean = false, buildFunc: WatFuncBuilder.() -> Unit): Boolean {
+    fun verifyWasm(assumeNoTraps: Boolean = false, allowUnresolvedCalls: Boolean = false, bitVectorMode: Boolean = false, buildFunc: WatFuncBuilder.() -> Unit): Boolean {
         return verifyWasm(
             watFunc("entry", buildFunc),
             "entry",
             assumeNoTraps = assumeNoTraps,
-            allowUnresolvedCalls = allowUnresolvedCalls
+            allowUnresolvedCalls = allowUnresolvedCalls,
+            bitVectorMode = bitVectorMode
         )
     }
 
