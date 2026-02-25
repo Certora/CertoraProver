@@ -20,29 +20,18 @@ package instrumentation.transformers
 import analysis.alloc.ReturnBufferAnalysis.ConstantReturnBufferAllocComplete
 import analysis.icfg.Inliner
 import analysis.icfg.SummaryStack
-import analysis.ip.INTERNAL_FUNC_EXIT
-import analysis.ip.INTERNAL_FUNC_START
-import analysis.ip.InternalFunctionHint
-import analysis.ip.SafeCastingAnnotator
-import analysis.ip.UncheckedOverflowAnnotator
+import analysis.ip.*
 import analysis.pta.ITERATION_VARIABLE_BOUND
 import analysis.pta.abi.ABIAnnotator
 import analysis.pta.abi.ABIDecodeComplete
 import analysis.pta.abi.ABIEncodeComplete
+import config.Config
 import datastructures.stdcollections.*
-import sbf.tac.DEBUG_EXTERNAL_CALL
-import sbf.tac.DEBUG_INLINED_FUNC_END
-import sbf.tac.DEBUG_INLINED_FUNC_END_FROM_ANNOT
-import sbf.tac.DEBUG_INLINED_FUNC_START
-import sbf.tac.DEBUG_INLINED_FUNC_START_FROM_ANNOT
-import sbf.tac.DEBUG_PTA_SPLIT_OR_MERGE
-import sbf.tac.DEBUG_UNREACHABLE_CODE
-import sbf.tac.SBF_INLINED_FUNCTION_END
-import sbf.tac.SBF_INLINED_FUNCTION_START
+import instrumentation.transformers.AnnotationRemovers.eraseInDestructiveModeAnnotations
+import sbf.tac.*
 import spec.CVLCompiler.Companion.TraceMeta
 import tac.MetaKey
 import vc.data.*
-import vc.data.TACCmd
 import verifier.equivalence.AbstractRuleGeneration
 import verifier.equivalence.LoopEquivalence
 import verifier.equivalence.tracing.BufferTraceInstrumentation
@@ -80,7 +69,8 @@ object AnnotationRemovers {
         DYNSET_DESTRUCTIVEOPTIMIZATIONS,
     )
 
-    private val eraseInDestructiveModeAnnotations = setOf(
+    /** For destructiveOptimizations mode. Note that this is not taken as is, see [eraseInDestructiveModeAnnotations] */
+    private val eraseableAnnotations = setOf(
         TACMeta.SNIPPET,
         TraceMeta.VariableDeclaration.META_KEY,
         TraceMeta.ValueTraversal.META_KEY,
@@ -112,11 +102,33 @@ object AnnotationRemovers {
         DEBUG_UNREACHABLE_CODE,
         DEBUG_EXTERNAL_CALL,
         DEBUG_PTA_SPLIT_OR_MERGE,
-        sbf.tac.UNSUPPORTED,
+        UNSUPPORTED,
         WASM_INLINED_FUNC_START,
         WASM_SDK_FUNC_SUMMARY_START,
         WASM_HOST_FUNC_SUMMARY_START,
     )
+
+    /**
+     * The complexity here is because equiv checking uses [analysis.icfg.InlinedMethodCallStack] which has to
+     * keep some specific annotations.
+     */
+    private fun eraseInDestructiveModeAnnotations(annot: TACCmd.Simple.AnnotationCmd.Annotation<*>): Boolean {
+        val (k, v) = annot
+        return if (Config.EquivalenceCheck.get()) {
+            when (k) {
+                Inliner.CallStack.STACK_PUSH ->
+                    false
+
+                TACMeta.SNIPPET ->
+                    !(v is SnippetCmd.CVLSnippetCmd.CVLFunctionStart || v is SnippetCmd.CVLSnippetCmd.CVLFunctionEnd)
+
+                else ->
+                    k in eraseableAnnotations
+            }
+        } else {
+            annot.k in eraseableAnnotations
+        }
+    }
 
 
     fun rewrite(ctp: CoreTACProgram): CoreTACProgram {
@@ -135,7 +147,7 @@ object AnnotationRemovers {
                         key in alwaysEraseAnnotations -> true
                         !ctp.destructiveOptimizations -> false
                         key in neverEraseAnnotations -> false
-                        key in eraseInDestructiveModeAnnotations -> true
+                        eraseInDestructiveModeAnnotations(cmd.annot) -> true
                         else -> {
                             if (cmd.mentionedVariables.isNotEmpty()) {
                                 unknownMetas += key
