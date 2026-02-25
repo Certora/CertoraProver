@@ -173,7 +173,7 @@ commands:
 jobs:
   build:
     docker:
-      - image: &img public.ecr.aws/certora/cvt-image:2025.05.12-4993-b9e8bfc
+      - image: &img public.ecr.aws/certora/cvt-image:2026.02.23-5696-87a3342
     working_directory: ~/repo
     environment:
       # configure sccache usage
