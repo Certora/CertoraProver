@@ -312,7 +312,7 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
         analysis.toDot(printInvariants = true)
     }
     val blocksToDump = SolanaConfig.DumpPTAGraphsToDot.getOrNull()
-    if (blocksToDump != null && blocksToDump.isNotEmpty()) {
+    if (!blocksToDump.isNullOrEmpty()) {
         analysis.dumpPTAGraphsSelectively(ArtifactManagerFactory().outputDir, target) { b ->
             blocksToDump.contains(b.getLabel().toString())
         }

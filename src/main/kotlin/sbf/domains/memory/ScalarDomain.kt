@@ -279,6 +279,20 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         }
     }
 
+    private fun checkOffsetInBoundsWithStaticFrames(
+        baseOffset: Long,
+        newOffset: Long,
+        locInst: LocatedSbfInstruction
+    ) {
+        if (newOffset < baseOffset) {
+            val diff = baseOffset - newOffset
+            val frameSize = SolanaConfig.StackFrameSize.get()
+            if (diff > frameSize) {
+                throw SmashedStack(locInst, (diff - frameSize).toInt())
+            }
+        }
+    }
+
     /**
      * Check that stack is not being smashed after pointer arithmetic [locInst]
      * @param [oldType] is the type of destination before executing the instruction.
@@ -310,15 +324,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
 
         val oldOffset = (oldType as? SbfType.PointerType.Stack<TNum, TOffset>)?.offset?.toLongOrNull() ?: return
         val newOffset = (newType as? SbfType.PointerType.Stack<TNum, TOffset>)?.offset?.toLongOrNull() ?: return
-        val isDecreasing = newOffset < oldOffset
-        if (isDecreasing) {
-            val diff = oldOffset - newOffset
-            val frameSize = SolanaConfig.StackFrameSize.get()
-            if (diff > frameSize) {
-                val extraSpace = diff - frameSize
-                throw SmashedStack(locInst, extraSpace.toInt())
-            }
-        }
+        checkOffsetInBoundsWithStaticFrames(oldOffset, newOffset, locInst)
     }
 
     /**
@@ -334,16 +340,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         check(inst is SbfInstruction.Mem)
 
         val baseOffset = (baseType as? SbfType.PointerType.Stack<TNum, TOffset>)?.offset?.toLongOrNull() ?: return
-        val derefOffset = baseOffset + inst.access.offset
-        val isDecreasing = derefOffset < baseOffset
-        if (isDecreasing) {
-            val diff = baseOffset - derefOffset
-            val frameSize = SolanaConfig.StackFrameSize.get()
-            if (diff > frameSize) {
-                val extraSpace = diff - frameSize
-                throw SmashedStack(locInst, extraSpace.toInt())
-            }
-        }
+        checkOffsetInBoundsWithStaticFrames(baseOffset, baseOffset + inst.access.offset, locInst)
     }
 
 

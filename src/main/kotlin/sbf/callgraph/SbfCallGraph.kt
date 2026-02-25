@@ -279,8 +279,6 @@ class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
 
     override fun getCFGs(): List<SbfCFG>  = cfgs
 
-    fun getMutableCFGs(): List<MutableSbfCFG> = cfgs
-
     override fun getCallGraphRoots(): List<SbfCFG> {
        return getMutableCallGraphRoots()
     }

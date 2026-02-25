@@ -239,7 +239,7 @@ private class GlobalInferenceAnalysis<D, TNum: INumValue<TNum>, TOffset: IOffset
                     if (gv != null) {
                         addAnnotation(i)
                     }
-                    return gv
+                    gv
                 }
                 BinOp.ADD, BinOp.SUB -> {
                     if (!SolanaConfig.AggressiveGlobalDetection.get()) {

@@ -108,13 +108,6 @@ class MutableSbfBasicBlock(private val label: Label): SbfBasicBlock {
         succs.clear()
     }
 
-    fun removePred() {
-        // notify predecessors of bb
-        for (pred in preds) {
-            pred.succs.removeIf { it.label == label }
-        }
-    }
-
     fun removeSuccs() {
         for (succ in succs) {
             succ.preds.removeIf {it.label == label }
@@ -645,6 +638,7 @@ class MutableSbfCFG(private val name: String): SbfCFG {
 
     /**
      * Transform
+     * ```
      *  bb:
      *     0
      *     ..
@@ -652,9 +646,9 @@ class MutableSbfCFG(private val name: String): SbfCFG {
      *     i+1
      *     ...
      *     goto Cont
-     *
+     * ```
      *  into
-     *
+     * ```
      *   bb:
      *     0
      *     ..
@@ -664,8 +658,8 @@ class MutableSbfCFG(private val name: String): SbfCFG {
      *    i+1
      *    ...
      *    goto Cont
-     *
-     * and return bb'
+     * ```
+     * and return `bb'`
      */
     fun splitBlock(label: Label, index: Int): MutableSbfBasicBlock {
         val b = getMutableBlock(label)

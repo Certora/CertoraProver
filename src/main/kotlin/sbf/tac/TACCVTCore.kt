@@ -29,7 +29,7 @@ import vc.data.TACExpr
 
 /** Emit TAC code for pushing scratch registers **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> translateSaveScratchRegisters(
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> translateSaveScratchRegisters(
     locInst: LocatedSbfInstruction
 ): List<TACCmd.Simple> {
     val inst = locInst.inst
@@ -75,7 +75,7 @@ fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TF
 }
 
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> SbfInstruction.Call.toStartInlinedAnnotation(
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> SbfInstruction.Call.toStartInlinedAnnotation(
     locInst: LocatedSbfInstruction
 ): SbfInlinedFuncStartAnnotation? {
     if (!isSaveScratchRegisters()) {
@@ -116,7 +116,7 @@ fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TF
 
 /** Emit TAC code for popping scratch registers **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> translateRestoreScratchRegisters(
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> translateRestoreScratchRegisters(
     inst: SbfInstruction.Call
 ): List<TACCmd.Simple> {
     if (scratchRegVars.size < 4) {
@@ -150,7 +150,7 @@ fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TF
 }
 
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
 SbfInstruction.Call.toEndInlineAnnotation(): SbfInlinedFuncEndAnnotation? {
     if (CVTFunction.from(name) != CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS)) {
         return null
@@ -178,7 +178,7 @@ SbfInstruction.Call.toEndInlineAnnotation(): SbfInlinedFuncEndAnnotation? {
  *  **IMPORTANT**: we cannot check the preconditions at the TAC level so they must be ensured when calling CVT_alloc_slice
  **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeAllocSlice(
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeAllocSlice(
     locInst: LocatedSbfInstruction
 ): List<TACCmd.Simple> {
     val inst = locInst.inst
@@ -217,7 +217,7 @@ fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TF
 
 /** Emit TAC code for special intrinsics that masks `r1` with `0xFFFF_FFFF` and store the result in `r0` **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> translateMask64(): List<TACCmd.Simple> {
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> translateMask64(): List<TACCmd.Simple> {
     val v0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
     val v1 = exprBuilder.mkVar(SbfRegister.R1_ARG)
     return listOf(assign(v0, exprBuilder.mask64(v1.asSym())))

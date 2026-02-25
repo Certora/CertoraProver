@@ -17,7 +17,6 @@
 
 package sbf.domains
 
-import com.certora.collect.*
 import sbf.SolanaConfig
 import sbf.cfg.*
 import sbf.disassembler.*

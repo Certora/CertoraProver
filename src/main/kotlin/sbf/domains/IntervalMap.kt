@@ -81,7 +81,7 @@ class IntervalMap<V> (
         val firstKey = map.firstKey()
         check(firstKey != null)
 
-        for ((s, endAndV) in map.retainAllKeys { it >= firstKey && it <= end }) {
+        for ((s, endAndV) in map.retainAllKeys { it in firstKey..end }) {
             val (e, v) = endAndV
             if (e < start) { // completely before
                 continue

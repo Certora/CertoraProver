@@ -138,7 +138,7 @@ private class FunctionArgumentAnalysis(graph: SbfCFG) :
  * To manage nested calls, we track an active live set of registers, remembering
  * the visited uses, plus a set of "pushed" live sets. We push a set when we
  * encounter a nested call. E.g. (recall this is a backwards analysis):
- *
+ * ```
  * {{ live = R, pushed = {} }} // Restore the pushed set
  * pushRegisters() // Remember that R was the live set at this location for foo
  * {{ live = R_foo, pushed = {R} }}
@@ -146,7 +146,7 @@ private class FunctionArgumentAnalysis(graph: SbfCFG) :
  * {{ live = {}, pushed = {R} }} // push the live set
  * popRegisters()
  * {{ live = R, pushed = {}}}  // <- input flow fact
- *
+ * ```
  *
  * @property uses the live argument registers in the current function
  * @property scopes live argument registers for outer calls we are in the middle of analyzing

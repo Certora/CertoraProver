@@ -34,7 +34,7 @@ import vc.data.TACExprFactUntyped as txf
  * Precondition: UseTACMathInt is enabled
  **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeI128(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeI128(
     locInst: LocatedSbfInstruction
 ): List<TACCmd.Simple> {
     val inst = locInst.inst
@@ -47,7 +47,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
 }
 
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeI128Nondet(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeI128Nondet(
     locInst: LocatedSbfInstruction
 ): List<TACCmd.Simple> {
     val inst = locInst.inst

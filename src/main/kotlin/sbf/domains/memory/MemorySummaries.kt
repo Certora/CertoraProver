@@ -59,7 +59,7 @@ enum class MemSummaryArgumentType {
     PTR_EXTERNAL;
     companion object {
         fun from(input: String): MemSummaryArgumentType? {
-            return values().firstOrNull { it.name.equals(input, true) }
+            return MemSummaryArgumentType.entries.firstOrNull { it.name.equals(input, true) }
         }
     }
 }

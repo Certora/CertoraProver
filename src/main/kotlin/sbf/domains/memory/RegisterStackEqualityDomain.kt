@@ -24,7 +24,6 @@ import sbf.cfg.*
 import datastructures.stdcollections.*
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
-import log.*
 import sbf.callgraph.SolanaFunction
 
 fun StackLocation.toInterval() = FiniteInterval.mkInterval(offset, width.toLong())

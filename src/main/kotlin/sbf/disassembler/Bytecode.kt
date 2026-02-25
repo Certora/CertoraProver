@@ -80,7 +80,7 @@ enum class SbfRegister(val value: Byte) {
 
     companion object {
         fun getByValue(value: Byte): SbfRegister {
-            val r = values().firstOrNull { it.value == value }
+            val r = SbfRegister.entries.firstOrNull { it.value == value }
             check(r != null) {"$value cannot be converted to SbfRegister"}
             return r
         }

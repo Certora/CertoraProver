@@ -138,9 +138,6 @@ data class ExpressionNum(val n: BigInteger) {
     fun isPositive(): Boolean {
         return n > BigInteger.ZERO
     }
-    fun isNegative(): Boolean {
-        return n < BigInteger.ZERO
-    }
     fun isZero(): Boolean {
         return n == BigInteger.ZERO
     }

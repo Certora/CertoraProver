@@ -27,7 +27,7 @@ import java.math.BigInteger
 
 /** Emit TAC code for nondet functions **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeNondet(
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeNondet(
     nondetFn: CVTNondet, inst: SbfInstruction.Call
 ): List<TACCmd.Simple> {
     when (nondetFn) {

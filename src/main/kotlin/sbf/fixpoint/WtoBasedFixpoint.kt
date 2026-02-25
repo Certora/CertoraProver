@@ -272,7 +272,7 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
         }
 
         val deadMap = if (liveMapAtExit != null) {
-            val allRegs = SbfRegister.values().filter {it != SbfRegister.R10_STACK_POINTER}.map{ Value.Reg(it)}.toSet()
+            val allRegs = SbfRegister.entries.filter {it != SbfRegister.R10_STACK_POINTER}.map{ Value.Reg(it)}.toSet()
             val deadMap = mutableMapOf<Label, LiveRegisters>()
             for ((b,live) in liveMapAtExit) {
                 deadMap[b] = allRegs - live

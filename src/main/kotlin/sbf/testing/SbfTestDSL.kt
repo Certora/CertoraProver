@@ -76,7 +76,7 @@ object SbfTestDSL {
 
             val entryBlock = entry?.let {
                 cfg.getMutableBlock(Label.Address(it))
-                    ?: throw IllegalArgumentException("Entry label ${it} does not exist in constructed CFG")
+                    ?: throw IllegalArgumentException("Entry label $it does not exist in constructed CFG")
             } ?: cfg.getMutableBlock(Label.Address(blocks.first().first))!!
 
             cfg.setEntry(entryBlock)

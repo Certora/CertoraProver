@@ -55,7 +55,7 @@ class ScalarBaseDomain<ScalarValue>(
             StackEnvironment.makeTop(),
             ArrayList(NUM_OF_SBF_REGISTERS),
             arrayListOf()) {
-        for (i in 0 until NUM_OF_SBF_REGISTERS) {
+        repeat(NUM_OF_SBF_REGISTERS) {
             registers.add(sFac.mkTop())
         }
     }

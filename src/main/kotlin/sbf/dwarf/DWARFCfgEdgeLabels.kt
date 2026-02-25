@@ -300,11 +300,11 @@ fun List<DWARFOperation>.toExpression(translateRegisterAccess: (RegisterAccess, 
             Minus,
             Or,
             Plus -> {
-                check(stack.size >= 2) { "Expected to have at least two elements on the stack, got number of elements:  ${stack.size}, ${this}" }
-                val left = stack[stack.lastIndex];
-                stack.removeAt(stack.lastIndex);
-                val right = stack[stack.lastIndex];
-                stack.removeAt(stack.lastIndex);
+                check(stack.size >= 2) { "Expected to have at least two elements on the stack, got number of elements:  ${stack.size}, $this" }
+                val left = stack[stack.lastIndex]
+                stack.removeAt(stack.lastIndex)
+                val right = stack[stack.lastIndex]
+                stack.removeAt(stack.lastIndex)
                 stack.add(DWARFExpression.BinaryExpr(operation, left, right))
             }
 

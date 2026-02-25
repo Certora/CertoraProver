@@ -33,7 +33,7 @@ import sbf.domains.*
 open class SummarizeIntegerU128CompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> {
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    open fun summarizeMulti3(args: U128BinaryOperands): List<TACCmd.Simple> {
+    internal open fun summarizeMulti3(args: U128BinaryOperands): List<TACCmd.Simple> {
         val cmds = mutableListOf<TACCmd.Simple>()
         applyU128BinaryOperation(args, cmds) { res, _, x, y ->
             cmds.add(assign(res, TACExpr.Vec.Mul(listOf(x.asSym(), y.asSym()))))
@@ -42,7 +42,7 @@ open class SummarizeIntegerU128CompilerRt<TNum : INumValue<TNum>, TOffset : IOff
     }
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    open fun summarizeUDivti3(args: U128BinaryOperands): List<TACCmd.Simple> {
+    internal open fun summarizeUDivti3(args: U128BinaryOperands): List<TACCmd.Simple> {
         val cmds = mutableListOf<TACCmd.Simple>()
         applyU128BinaryOperation(args, cmds) { res, _, x, y ->
             cmds.add(assign(res, TACExpr.BinOp.Div(x.asSym(), y.asSym())))
@@ -51,7 +51,7 @@ open class SummarizeIntegerU128CompilerRt<TNum : INumValue<TNum>, TOffset : IOff
     }
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    open fun summarizeDivti3(args: U128BinaryOperands): List<TACCmd.Simple> {
+    internal open fun summarizeDivti3(args: U128BinaryOperands): List<TACCmd.Simple> {
         return listOf(
             assign(args.resLow, TACExpr.BinOp.SDiv(args.xLow, args.yLow)),
             TACCmd.Simple.AssigningCmd.AssignHavocCmd(args.resHigh)
@@ -59,7 +59,7 @@ open class SummarizeIntegerU128CompilerRt<TNum : INumValue<TNum>, TOffset : IOff
     }
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    open fun summarizeAshlti3(args: U128ShiftOperands): List<TACCmd.Simple> {
+    internal open fun summarizeAshlti3(args: U128ShiftOperands): List<TACCmd.Simple> {
         val cmds = mutableListOf<TACCmd.Simple>()
         applyU128ShiftOperation(args, cmds) { res, x, shift ->
             cmds.add(assign(res, exprBuilder.mask128(TACExpr.BinOp.ShiftLeft(x.asSym(), shift))))
@@ -68,7 +68,7 @@ open class SummarizeIntegerU128CompilerRt<TNum : INumValue<TNum>, TOffset : IOff
     }
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-        open fun summarizeAshrti3(args: U128ShiftOperands): List<TACCmd.Simple> {
+    internal open fun summarizeAshrti3(args: U128ShiftOperands): List<TACCmd.Simple> {
         val cmds = mutableListOf<TACCmd.Simple>()
         applyU128ShiftOperation(args, cmds) { res, x, shift ->
             cmds.add(assign(res, TACExpr.BinOp.ShiftRightArithmetical(exprBuilder.mask128(x.asSym()), shift)))
@@ -77,7 +77,7 @@ open class SummarizeIntegerU128CompilerRt<TNum : INumValue<TNum>, TOffset : IOff
     }
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun getArgsFromU128BinaryCompilerRt(locInst: LocatedSbfInstruction): U128BinaryOperands? {
+    internal fun getArgsFromU128BinaryCompilerRt(locInst: LocatedSbfInstruction): U128BinaryOperands? {
         val (resLow, resHigh, overflow) = getResFrom128(locInst) ?: return null
         val xLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R2_ARG))
         val xHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R3_ARG))
@@ -87,7 +87,7 @@ open class SummarizeIntegerU128CompilerRt<TNum : INumValue<TNum>, TOffset : IOff
     }
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun getArgsFromU128ShiftCompilerRt(locInst: LocatedSbfInstruction): U128ShiftOperands? {
+    internal fun getArgsFromU128ShiftCompilerRt(locInst: LocatedSbfInstruction): U128ShiftOperands? {
         val (resLow, resHigh, _) = getResFrom128(locInst) ?: return null
         val xLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R2_ARG))
         val xHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R3_ARG))

@@ -21,7 +21,6 @@ import algorithms.UnionFind
 import com.certora.collect.*
 import sbf.disassembler.*
 import sbf.cfg.*
-import log.*
 import datastructures.stdcollections.*
 import sbf.callgraph.CVTCore
 import sbf.callgraph.CVTFunction
@@ -531,7 +530,7 @@ data class SetOfMemEqualityPredicate<Flags: IPTANodeFlags<Flags>>(
             return false
         }
 
-        if (this.isTop && other.isTop) {
+        if (this.isTop) {
             return true
         }
 
@@ -667,8 +666,8 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
     ): MemEqualityPredicateDomain<Flags> {
 
         val out = this.deepCopy()
-        val leftPreds = memcmpSet.filterIsInstance<SymbolicMemEqualityPredicate<Flags>>()
-        val rightPreds  = other.memcmpSet.filterIsInstance<SymbolicMemEqualityPredicate<Flags>>()
+        val leftPreds = memcmpSet.toList().filterIsInstance<SymbolicMemEqualityPredicate<Flags>>()
+        val rightPreds  = other.memcmpSet.toList().filterIsInstance<SymbolicMemEqualityPredicate<Flags>>()
 
         for (leftPred in leftPreds) {
             for (rightPred in rightPreds) {

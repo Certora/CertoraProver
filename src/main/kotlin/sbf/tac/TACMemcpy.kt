@@ -25,7 +25,7 @@ import kotlin.collections.single
 
 /** Emit TAC code for memcpy from non-stack to non-stack **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> memcpyNonStackToNonStack(
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> memcpyNonStackToNonStack(
     info: TACMemSplitter.NonStackMemTransferInfo
 ): List<TACCmd.Simple> {
     val dstReg = exprBuilder.mkVar(SbfRegister.R1_ARG)
@@ -49,7 +49,7 @@ fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TF
 
 /** Emit TAC code for memcpy from stack to stack **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> memcpyStackToStack(
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> memcpyStackToStack(
     info: TACMemSplitter.StackMemTransferInfo
 ): List<TACCmd.Simple> {
     val len = info.length
@@ -102,7 +102,7 @@ fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TF
 
 /** Emit TAC code for memcpy from non-stack to stack **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> memcpyNonStackToStack(
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> memcpyNonStackToStack(
     info: TACMemSplitter.MixedRegionsMemTransferInfo
 ): List<TACCmd.Simple> {
     check(info.isDestStack) {"precondition for memcpyNonStackToStack"}
@@ -144,7 +144,7 @@ fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TF
 
 /** Emit TAC code for memcpy from stack to non-stack **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> memcpyStackToNonStack(
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> memcpyStackToNonStack(
     info: TACMemSplitter.MixedRegionsMemTransferInfo
 ): List<TACCmd.Simple> {
     check(!info.isDestStack) {"precondition for memcpyStackToNonStack"}

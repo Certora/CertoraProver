@@ -198,11 +198,11 @@ enum class SolanaFunction(val syscall: ExternalFunction) {
 
     companion object: ExternalLibrary<SolanaFunction> {
         init {
-            check(values().size < MAX_SYSCALL_FUNCTIONS) {"Exceeded maximum number of Solana syscalls"}
+            check(SolanaFunction.entries.size < MAX_SYSCALL_FUNCTIONS) {"Exceeded maximum number of Solana syscalls"}
         }
 
-        private val nameMap = values().associateBy { it.syscall.name }
-        private val valueMap = values().associateBy { it.ordinal }
+        private val nameMap = SolanaFunction.entries.associateBy { it.syscall.name }
+        private val valueMap = SolanaFunction.entries.associateBy { it.ordinal }
         override fun from(name: String) = nameMap[name]
         fun from(value: Int) = valueMap[value]
 

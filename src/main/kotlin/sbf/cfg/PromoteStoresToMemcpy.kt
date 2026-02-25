@@ -154,11 +154,11 @@ private fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteInterBlock
  * We scan all instructions within [bb]
  * 1. If the instruction is a load then we remember it in `defLoads` map.
  * 2. If the instruction is a store then we try to pair it with a load from `defLoads`.
- *    This is done by [processStoreOfLoad]. This function can return false for several reasons.
+ *    This is done by [processLoadStorePair]. This function can return false for several reasons.
  *    For instance, if the store is far from the load then we need to prove that there is no other stores that might modify
  *    the loaded memory location.
  *    Since we try to find the maximal number of load/store pairs (i.e., the longest memcpy), we require that the accessed memory has no gaps.
- *    If there are some gaps then [processStoreOfLoad] will also return false.
+ *    If there are some gaps then [processLoadStorePair] will also return false.
  * 3. If at any time, [processLoadStorePair] returns false we check how many pairs of load-stores we have. If any then
  *    we replace them with a `memcpy` instruction. When replacing more than one load/store pair some extra conditions must also hold.
  *    This is checked by [canBePromoted].

@@ -33,7 +33,7 @@ import sbf.domains.IPTANodeFlags
  * Precondition: UseTACMathInt is enabled
  **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeU128(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeU128(
     locInst: LocatedSbfInstruction
 ): List<TACCmd.Simple> {
     val inst = locInst.inst
@@ -58,7 +58,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
  * 4. if `high(x) != 0` and `high(y) != 0` then `(high(x) << 64 + low(x)) <= (high(y) << 64 + low(y))`
  **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeU128Leq(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeU128Leq(
     locInst: LocatedSbfInstruction
 ): List<TACCmd.Simple> {
     val inst = locInst.inst
@@ -106,7 +106,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
  *  ```
  */
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeU128Gt0(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeU128Gt0(
     locInst: LocatedSbfInstruction
 ): List<TACCmd.Simple> {
     val inst = locInst.inst
@@ -135,7 +135,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
  * where `x = high(x) << 64 + low(x)` and `y = high(y) << 64 + low(y)`
  */
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeU128CeilDiv(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeU128CeilDiv(
     locInst: LocatedSbfInstruction
 ): List<TACCmd.Simple> {
     val inst = locInst.inst
@@ -173,7 +173,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
  * where `result = high(result) << 64 + low(result)`
  **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeU128Nondet(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeU128Nondet(
     locInst: LocatedSbfInstruction
 ): List<TACCmd.Simple> {
     val inst = locInst.inst

@@ -139,7 +139,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
 
         val scalars = getScalars()
         val ptaGraph = getPTAGraph()
-        for (v in SbfRegister.values()) {
+        for (v in SbfRegister.entries) {
             val reg = Value.Reg(v)
             val type = scalars.getAsScalarValue(reg).type()
             val isStackScalar = type is SbfType.PointerType.Stack<TNum, TOffset>
@@ -362,7 +362,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
         val readRegs = locInst.inst.readRegisters
         readRegs.forEach { reg ->
             val offsets = (scalars.getAsScalarValue(reg).type() as? SbfType.PointerType.Stack<TNum, TOffset>)?.offset?.toLongList()
-            if (offsets != null && offsets.isNotEmpty()) {
+            if (!offsets.isNullOrEmpty()) {
                 // Scalar domain knows that `reg` points to some offset(s) in the stack
                 // but the Pointer domain does not know about `reg` or the stack offset(s)
                 val c = ptaGraph.getRegCell(reg)

@@ -44,7 +44,7 @@ class Rent(mkFreshIntVar: (prefix: String)-> TACSymbol.Var) {
      * 3) `burn_percent >= 0 && burn_percent <= 100`
      **/
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> get(
+    internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> get(
         locInst: LocatedSbfInstruction
     ): List<TACCmd.Simple> {
         val inst = locInst.inst

@@ -33,7 +33,6 @@ import utils.*
 import vc.data.CoreTACProgram
 import vc.data.SnippetCmd
 import vc.data.TACMeta
-import vc.data.tacexprutil.*
 
 val logger = Logger(LoggerTypes.SBF_DEBUG_ANNOTATOR)
 
@@ -660,7 +659,7 @@ data class CallStackLevel private constructor(val scopes: Set<DwarfMethod>, val 
                     val registerAccess = ops.getRegisterAccess(currIns.access.base.r)
                     if (registerAccess != null) {
                         val registerOffset = registerAccess.offset()
-                        val offsetIntoStruct = currIns.access.offset - (frameBasePointer.toLong() + registerOffset)
+                        val offsetIntoStruct = currIns.access.offset - (frameBasePointer + registerOffset)
                         if (offset == Offset(offsetIntoStruct.toULong())) {
                             DWARFCfgEdgeLabel.DirectMemoryAccess(this, sourceVariable, offset, ops, currIns, currIns.value)
                         } else {

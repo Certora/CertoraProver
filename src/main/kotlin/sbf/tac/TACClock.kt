@@ -42,7 +42,7 @@ class Clock(mkFreshIntVar: (prefix: String)-> TACSymbol.Var) {
 
     /** Emit TAC code for `sol_set_clock_sysvar` **/
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> set(
+    internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> set(
         locInst: LocatedSbfInstruction
     ): List<TACCmd.Simple> {
         val inst = locInst.inst
@@ -68,7 +68,7 @@ class Clock(mkFreshIntVar: (prefix: String)-> TACSymbol.Var) {
 
     /** Emit TAC code for `sol_get_clock_sysvar` **/
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> get(
+    internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> get(
         locInst: LocatedSbfInstruction
     ): List<TACCmd.Simple> {
         val inst = locInst.inst
