@@ -49,7 +49,7 @@ fun runSimplePTAOptimizations(cfg: MutableSbfCFG, globals: GlobalVariables) {
 /**
  * CFG optimizations that help the pointer analysis.
  *
- * These optimizations require the scalar analysis, so they should be run after
+ * Some of these optimizations require the scalar analysis, so they should be run after
  * [prog] has been inlined and sliced for better precision.
  *
  * Note that each optimization runs a scalar analysis since the program can change from one optimization
@@ -60,6 +60,7 @@ fun runPTAOptimizations(prog: SbfCallGraph, memSummaries: MemorySummaries): SbfC
         val optEntryCFG = entryCFG.clone(entryCFG.getName())
         promoteStoresToMemcpy(optEntryCFG, prog.getGlobals(), memSummaries)
         removeUselessDefinitions(optEntryCFG)
+        promoteMemset(optEntryCFG, prog.getGlobals(), memSummaries)
         markLoadedAsNumForPTA(optEntryCFG)
         unhoistPromotedMemcpy(optEntryCFG)
         optEntryCFG.simplify(prog.getGlobals())
