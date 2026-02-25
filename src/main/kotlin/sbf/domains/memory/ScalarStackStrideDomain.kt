@@ -172,7 +172,7 @@ data class SetOfStackStridePredicate(private val predicates: StackStridePredicat
 }
 
 /** Required by [StackStridePredicateDomain] to be able to use [ScalarBaseDomain] **/
-object PredicateFactory: ScalarValueFactory<SetOfStackStridePredicate> {
+private object PredicateFactory: IScalarValueFactory<SetOfStackStridePredicate> {
     override fun mkTop() = SetOfStackStridePredicate(StackStridePredicateSetT.mkTop())
 }
 
@@ -230,10 +230,13 @@ class StackStridePredicateDomain(
      * In such cases, it evaluates the predicate using the updated abstract value of [regs].
      * If it produces a more precise scalar value, the result is returned for the caller to apply the update.
      **/
-    fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> reduceRegistersInScalars(
+    fun <TNum, TOffset, TScalarDom> reduceRegistersInScalars(
         regs: Set<Value.Reg>,
-        scalars: ScalarDomain<TNum, TOffset>
-    ): Map<Value.Reg, ScalarValue<TNum, TOffset>> {
+        scalars: TScalarDom
+    ): Map<Value.Reg, ScalarValue<TNum, TOffset>>
+    where TNum : INumValue<TNum>,
+          TOffset : IOffset<TOffset>,
+          TScalarDom: ScalarValueProvider<TNum, TOffset> {
 
         if (!SolanaConfig.UseScalarPredicateDomain.get()) {
             return emptyMap()
@@ -241,7 +244,7 @@ class StackStridePredicateDomain(
 
         // build a map from register to TNum
         val regValMap = regs.mapNotNull { reg ->
-            val regVal = scalars.getValue(reg).type()
+            val regVal = scalars.getAsScalarValue(reg).type()
             if (regVal is SbfType.NumType) { reg to regVal.value } else { null }
         }.toMap()
 
@@ -253,11 +256,11 @@ class StackStridePredicateDomain(
 
         for ((reg, preds) in elements) {
             if (!preds.isTop()) {
-                val oldScalarVal = scalars.getValue(reg)
+                val oldScalarVal = scalars.getAsScalarValue(reg)
                 var refinedScalarVal = oldScalarVal
                 for (pred in preds) {
                     val regVal = regValMap[pred.reg] ?: continue
-                    val offset = scalars.sbfTypeFac.numToOffset(pred.evalS(regVal))
+                    val offset = scalars.getTypeFac().numToOffset(pred.evalS(regVal))
                     val newScalarVal = ScalarValue(SbfType.PointerType.Stack<TNum, TOffset>(offset))
                     if (!refinedScalarVal.lessOrEqual(newScalarVal)) {
                         refinedScalarVal = newScalarVal
@@ -377,15 +380,18 @@ class StackStridePredicateDomain(
      * @param [regSeq] is the range of known values for the register (loop counter) `r1`. This sequence is **ordered**.
      * @return cannot be neither bottom nor top.
      */
-     private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> extrapolate(
+     private fun<TNum, TOffset, TScalarDom> extrapolate(
         reg: Value.Reg,
         stackSeq: Sequence,
         regSeq: Sequence,
-        scalars: ScalarDomain<TNum, TOffset>,
+        scalars: TScalarDom,
         inst: SbfInstruction.Bin,
-     ): SetOfStackStridePredicate {
+     ): SetOfStackStridePredicate
+        where TNum : INumValue<TNum>,
+              TOffset : IOffset<TOffset>,
+              TScalarDom: ScalarValueProvider<TNum, TOffset> {
         val rhs = inst.v
-        val k = (scalars.getValue(rhs).type() as? SbfType.NumType)?.value?.toLongOrNull()
+        val k = (scalars.getAsScalarValue(rhs).type() as? SbfType.NumType)?.value?.toLongOrNull()
             ?: // the implementation only supports for now constant offsets
             return SetOfStackStridePredicate()
 
@@ -466,11 +472,14 @@ class StackStridePredicateDomain(
      * If [reg] is mapped to a stack pointer in [scalars] then it tries to infer a [StackStridePredicate] predicate that
      * can relate a base stack pointer with other registers.
      **/
-    fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> inferPredicate(
+    fun<TNum, TOffset, TScalarDom> inferPredicate(
         reg: Value.Reg,
-        scalars: ScalarDomain<TNum, TOffset>,
+        scalars: TScalarDom,
         inst: SbfInstruction.Bin
-    ): SetOfStackStridePredicate {
+    ): SetOfStackStridePredicate
+        where TNum : INumValue<TNum>,
+              TOffset : IOffset<TOffset>,
+              TScalarDom: ScalarValueProvider<TNum, TOffset> {
 
         fun getStride(ls: List<Long>): Long? {
             val diff = ls[1] -ls[0]
@@ -493,7 +502,7 @@ class StackStridePredicateDomain(
         }
 
         var stackSeq: Sequence?= null
-        val regScalarVal = scalars.getValue(reg).type()
+        val regScalarVal = scalars.getAsScalarValue(reg).type()
         if (regScalarVal is SbfType.PointerType.Stack && !regScalarVal.offset.isTop()) {
             val stackOffsets = regScalarVal.offset.toLongList().sorted()
             if (stackOffsets.size > 1) {
@@ -511,7 +520,7 @@ class StackStridePredicateDomain(
 
         for (i in 0 until NUM_OF_SBF_REGISTERS) {
             val otherReg = Value.Reg(SbfRegister.getByValue(i.toByte()))
-            val otherScalarType = scalars.getValue(otherReg).type()
+            val otherScalarType = scalars.getAsScalarValue(otherReg).type()
 
             if (otherScalarType is SbfType.NumType && !otherScalarType.value.isTop())  {
                 // This is crucial for [ScalarStackStrideDomain] to be useful. It assumes that the scalar analysis
@@ -554,10 +563,12 @@ class StackStridePredicateDomain(
     /**
      * The transfer function on the scalar domain has been already executed when `analyzeBin` is called
      */
-    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeBin(
+    private fun<TNum, TOffset, TScalarDom> analyzeBin(
         locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain<TNum, TOffset>
-    ) {
+        scalars: TScalarDom
+    ) where TNum : INumValue<TNum>,
+            TOffset : IOffset<TOffset>,
+            TScalarDom: ScalarValueProvider<TNum, TOffset> {
         val inst = locInst.inst
         check(inst is SbfInstruction.Bin)
 
@@ -577,8 +588,8 @@ class StackStridePredicateDomain(
                 }
             }
             BinOp.ADD, BinOp.SUB -> {
-                val k = (scalars.getValue(rhs).type() as? SbfType.NumType)?.value?.toLongOrNull()
-                when (scalars.getValue(lhs).type()) {
+                val k = (scalars.getAsScalarValue(rhs).type() as? SbfType.NumType)?.value?.toLongOrNull()
+                when (scalars.getAsScalarValue(lhs).type()) {
                     is SbfType.PointerType.Stack -> {
                         if (k != null) {
                             /**
@@ -633,11 +644,14 @@ class StackStridePredicateDomain(
     }
 
     /** Return true iff [locInst] is a call to a CVT function **/
-    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeCVTCall(
+    private fun<TNum, TOffset, TScalarDom> analyzeCVTCall(
         locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain<TNum, TOffset>,
+        scalars: TScalarDom,
         memSummaries: MemorySummaries
-    ): Boolean {
+    ): Boolean
+        where TNum : INumValue<TNum>,
+              TOffset : IOffset<TOffset>,
+              TScalarDom: ScalarValueProvider<TNum, TOffset> {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call)
 
@@ -650,7 +664,8 @@ class StackStridePredicateDomain(
                         return true
                     }
                     CVTCore.RESTORE_SCRATCH_REGISTERS -> {
-                        val topStack = (scalars.getValue(Value.Reg(SbfRegister.R10_STACK_POINTER)).type() as? SbfType.PointerType.Stack)?.offset?.toLongOrNull()
+                        val topStack = (scalars.getAsScalarValue(Value.Reg(SbfRegister.R10_STACK_POINTER)).type()
+                            as? SbfType.PointerType.Stack)?.offset?.toLongOrNull()
                         check(topStack != null){ "r10 should point to a statically known stack offset"}
                         base.restoreScratchRegisters(topStack, globalState.globals.elf.useDynamicFrames())
                         return true
@@ -667,11 +682,14 @@ class StackStridePredicateDomain(
 
 
     /** Return true iff [locInst] is a call to a Solana syscall **/
-    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeSolanaCall(
+    private fun<TNum, TOffset, TScalarDom> analyzeSolanaCall(
         locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain<TNum, TOffset>,
+        scalars: TScalarDom,
         memSummaries: MemorySummaries
-    ): Boolean {
+    ): Boolean
+        where TNum : INumValue<TNum>,
+              TOffset : IOffset<TOffset>,
+              TScalarDom: ScalarValueProvider<TNum, TOffset> {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call)
 
@@ -687,11 +705,13 @@ class StackStridePredicateDomain(
         return true
     }
 
-    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeCall(
+    private fun<TNum, TOffset, TScalarDom> analyzeCall(
         locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain<TNum, TOffset>,
+        scalars: TScalarDom,
         memSummaries: MemorySummaries
-    ) {
+    ) where TNum : INumValue<TNum>,
+            TOffset : IOffset<TOffset>,
+            TScalarDom: ScalarValueProvider<TNum, TOffset> {
         if (analyzeCVTCall(locInst, scalars, memSummaries)) {
             return
         }
@@ -704,73 +724,86 @@ class StackStridePredicateDomain(
         base.analyzeExternalCall(locInst, scalars, memSummaries)
     }
 
-    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeStore(
+    private fun<TNum, TOffset, TScalarDom> analyzeStore(
         locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain<TNum, TOffset>
-    ) {
+        scalars: TScalarDom
+    ) where TNum : INumValue<TNum>,
+            TOffset : IOffset<TOffset>,
+            TScalarDom: ScalarValueProvider<TNum, TOffset>  {
+
         val inst = locInst.inst
-        check(inst is SbfInstruction.Mem)
-        check(!inst.isLoad)
+        check(inst is SbfInstruction.Mem && !inst.isLoad)
 
         val baseReg = inst.access.base
         val baseType = scalars.getAsScalarValue(baseReg).type()
-        if (baseType is SbfType.PointerType.Stack) {
-            val stackTOffsets = baseType.offset.add(inst.access.offset.toLong())
-            check(!stackTOffsets.isBottom())
 
-            // Determine the stack offset.
-            // As a side effect, we can completely wipe out the stack in the worst-case
-            val stackOffset = when {
-                stackTOffsets.isTop() -> {
-                    base.removeStack()
-                    null
-                }
-                else -> {
-                    val stackOffsets = stackTOffsets.toLongList()
-                    when (stackOffsets.size) {
-                        0 -> {
-                            base.removeStack()
-                            null
+        if (!SolanaConfig.optimisticScalarAnalysis()) {
+            if (baseType is SbfType.Top) {
+                base.removeStack()
+                return
+            }
+        }
+
+        if (baseType !is SbfType.PointerType.Stack) {
+            return
+        }
+
+        val stackTOffsets = baseType.offset.add(inst.access.offset.toLong())
+        check(!stackTOffsets.isBottom())
+
+        // Determine the stack offset.
+        // As a side effect, we can completely wipe out the stack in the worst-case
+        val stackOffset = when {
+            stackTOffsets.isTop() -> {
+                base.removeStack()
+                null
+            }
+            else -> {
+                val stackOffsets = stackTOffsets.toLongList()
+                when (stackOffsets.size) {
+                    0 -> {
+                        base.removeStack()
+                        null
+                    }
+                    1 -> {
+                        stackOffsets.first()
+                    }
+                    else -> {
+                        stackOffsets.forEach {
+                            base.removeStackSliceIf(
+                                it,
+                                inst.access.width.toLong(),
+                                onlyPartial = false
+                            )
                         }
-                        1 -> {
-                            stackOffsets.first()
-                        }
-                        else -> {
-                            stackOffsets.forEach {
-                                base.removeStackSliceIf(
-                                    it,
-                                    inst.access.width.toLong(),
-                                    onlyPartial = false
-                                )
-                            }
-                            null
-                        }
+                        null
                     }
                 }
             }
+        }
 
-            // Do the actual store in the stack at the determined location
-            if (stackOffset != null) {
-                val slice = ByteRange(stackOffset, inst.access.width.toByte())
-                val x = when (val rhs = inst.value) {
-                    is Value.Imm -> SetOfStackStridePredicate.mkTop()
-                    is Value.Reg -> base.getRegister(rhs)
-                }
-                // onlyPartial=false means that any overlapping entry is killed
-                base.removeStackSliceIf(slice.offset, slice.width.toLong(), onlyPartial = false)
-                base.updateStack(slice, x, isWeak = false)
+        // Do the actual store in the stack at the determined location
+        if (stackOffset != null) {
+            val slice = ByteRange(stackOffset, inst.access.width.toByte())
+            val x = when (val rhs = inst.value) {
+                is Value.Imm -> SetOfStackStridePredicate.mkTop()
+                is Value.Reg -> base.getRegister(rhs)
             }
+            // onlyPartial=false means that any overlapping entry is killed
+            base.removeStackSliceIf(slice.offset, slice.width.toLong(), onlyPartial = false)
+            base.updateStack(slice, x, isWeak = false)
         }
     }
 
-
-    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeLoad(
+    private fun<TNum, TOffset, TScalarDom> analyzeLoad(
         locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain<TNum, TOffset>
-    ) {
+        scalars: TScalarDom
+    ) where TNum : INumValue<TNum>,
+            TOffset : IOffset<TOffset>,
+            TScalarDom: ScalarValueProvider<TNum, TOffset> {
+
         val inst = locInst.inst
-        check(inst is SbfInstruction.Mem)
-        check(inst.isLoad)
+        check(inst is SbfInstruction.Mem && inst.isLoad)
 
         val lhs = inst.value as Value.Reg
         if (inst.access.width.toInt() != 8) {
@@ -807,16 +840,17 @@ class StackStridePredicateDomain(
                 return
             }
         }
-
         // default: havoc lhs
         forget(lhs)
     }
 
-    fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyze(
+    fun<TNum, TOffset, TScalarDom> analyze(
         locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain<TNum, TOffset>,
+        scalars: TScalarDom,
         memSummaries: MemorySummaries
-    ) {
+    ) where TNum : INumValue<TNum>,
+            TOffset : IOffset<TOffset>,
+            TScalarDom: ScalarValueProvider<TNum, TOffset> {
 
         if (!SolanaConfig.UseScalarPredicateDomain.get()) {
             return
@@ -834,7 +868,12 @@ class StackStridePredicateDomain(
                 is SbfInstruction.Jump.ConditionalJump -> {}
                 is SbfInstruction.Assume -> { /* do nothing is sound */}
                 is SbfInstruction.Assert -> { /* do nothing is sound */}
-                is SbfInstruction.Mem -> if (s.isLoad) { analyzeLoad(locInst, scalars) } else { analyzeStore(locInst, scalars)}
+                is SbfInstruction.Mem ->
+                    if (s.isLoad) {
+                        analyzeLoad(locInst, scalars)
+                    } else {
+                        analyzeStore(locInst, scalars)
+                    }
                 is SbfInstruction.Jump.UnconditionalJump -> {}
                 is SbfInstruction.Exit -> {}
                 is SbfInstruction.Debug -> {}
@@ -843,24 +882,35 @@ class StackStridePredicateDomain(
     }
 }
 
-/** Reduced product of [ScalarDomain] and [StackStridePredicateDomain] **/
+class ScalarStackStridePredicateDomainFactory<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>
+    : IScalarDomainFactory<TNum, TOffset, ScalarStackStridePredicateDomain<TNum, TOffset>> {
+    override fun mkTop(fac: ISbfTypeFactory<TNum, TOffset>, globalState: GlobalState) =
+        ScalarStackStridePredicateDomain.makeTop(fac, globalState)
+    override fun mkBottom(fac: ISbfTypeFactory<TNum, TOffset>, globalState: GlobalState) =
+        ScalarStackStridePredicateDomain.makeBottom(fac, globalState)
+    override fun init(
+        fac: ISbfTypeFactory<TNum, TOffset>,
+        globalState: GlobalState,
+        addPreconditions: Boolean
+    ) = ScalarStackStridePredicateDomain(fac, globalState, addPreconditions)
+}
+
+/** Reduced product of a scalar domain and [StackStridePredicateDomain] **/
 class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private constructor(
-        private val scalars: ScalarDomain<TNum, TOffset>,
-        private val predicates: StackStridePredicateDomain,
-        private val globalState: GlobalState
+    private val scalars: StackStrideScalarDom<TNum, TOffset>,
+    private val predicates: StackStridePredicateDomain,
+    private val globalState: GlobalState
 ) : MutableAbstractDomain<ScalarStackStridePredicateDomain<TNum, TOffset>>,
     ScalarValueProvider<TNum, TOffset>,
     MutableScalarValueUpdater<TNum, TOffset>,
     MemoryDomainScalarOps<TNum, TOffset> {
-
-    val sbfTypeFac: ISbfTypeFactory<TNum, TOffset> = scalars.sbfTypeFac
 
     constructor(
         sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
         globalState: GlobalState,
         initPreconditions: Boolean = false):
         this(
-            ScalarDomain(sbfTypeFac, globalState, initPreconditions),
+            StackStrideScalarDom(sbfTypeFac, globalState, initPreconditions),
             StackStridePredicateDomain.makeTop(globalState),
             globalState
         )
@@ -871,7 +921,7 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
             globalState: GlobalState,
         ): ScalarStackStridePredicateDomain<TNum, TOffset> =
             ScalarStackStridePredicateDomain(
-                ScalarDomain.makeBottom(sbfTypeFac, globalState),
+                StackStrideScalarDom.makeBottom(sbfTypeFac, globalState),
                 StackStridePredicateDomain.makeBottom(globalState),
                 globalState
             )
@@ -930,15 +980,15 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
 
         fun evalPred(
             pred: StackStridePredicate,
-            scalars: ScalarDomain<TNum, TOffset>
+            scalars: StackStrideScalarDom<TNum, TOffset>
         ): ScalarValue<TNum, TOffset> {
             // use `this` to get the scalar value of `pred.reg`
-            val x = (scalars.getValue(pred.reg).type() as? SbfType.NumType)?.value
+            val x = (scalars.getAsScalarValue(pred.reg).type() as? SbfType.NumType)?.value
             return if (x != null) {
-                val offset = scalars.sbfTypeFac.numToOffset(pred.evalS(x))
+                val offset = scalars.getTypeFac().numToOffset(pred.evalS(x))
                 ScalarValue(SbfType.PointerType.Stack(offset))
             } else {
-                ScalarValue(scalars.sbfTypeFac.mkTop())
+                ScalarValue(scalars.getTypeFac().mkTop())
             }
         }
 
@@ -957,7 +1007,7 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
             val reg = Value.Reg(SbfRegister.getByValue(i.toByte()))
             val preds = other.predicates.getRegister(reg)
             if (!preds.isTop()) {
-                val scalarVal = this.scalars.getValue(reg)
+                val scalarVal = this.scalars.getAsScalarValue(reg)
                 // Predicates from `other` that are also true in `this`
                 val importedPredicates = preds.fold(SetOfStackStridePredicate()) { acc, pred ->
                     val newScalarVal = evalPred(pred, this.scalars)
@@ -1005,9 +1055,11 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
         )
     }
 
-    override fun getAsScalarValue(value: Value) = scalars.getValue(value)
+    override fun getAsScalarValue(value: Value) = scalars.getAsScalarValue(value)
 
     override fun getStackContent(offset: Long, width: Byte) = scalars.getStackContent(offset, width)
+
+    override fun getTypeFac() = scalars.getTypeFac()
 
     override fun setScalarValue(reg: Value.Reg, newVal: ScalarValue<TNum, TOffset>) {
         if (!isBottom()) {
@@ -1033,7 +1085,7 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
                         BinOp.ADD, BinOp.SUB -> {
                             val rhs = inst.v
                             val lhs = inst.dst
-                            val k = (scalars.getValue(rhs).type() as? SbfType.NumType)?.value?.toLongOrNull()
+                            val k = (scalars.getAsScalarValue(rhs).type() as? SbfType.NumType)?.value?.toLongOrNull()
                             if (k != 0L) {
                                 // REDUCTION: if pointer arithmetic over the stack: infer new predicate
                                 predicates.inferPredicate(lhs, scalars, inst).let { preds ->

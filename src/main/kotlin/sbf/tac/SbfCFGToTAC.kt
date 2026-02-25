@@ -135,8 +135,15 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     val rent: Rent = Rent { prefix -> vFac.mkFreshIntVar(prefix = prefix) }
 
     init {
-        val scalarAnalysis = AdaptiveScalarAnalysis(cfg, globals, memSummaries)
-        sbfTypesFac = scalarAnalysis.getSbfTypesFac()
+        sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
+        val scalarAnalysis = GenericScalarAnalysis(
+            cfg,
+            globals,
+            memSummaries,
+            sbfTypesFac,
+            MemoryScalarDomFac()
+        )
+
         types = AnalysisRegisterTypes(scalarAnalysis)
 
         val regVars: ArrayList<TACSymbol.Var> = ArrayList(NUM_OF_SBF_REGISTERS)

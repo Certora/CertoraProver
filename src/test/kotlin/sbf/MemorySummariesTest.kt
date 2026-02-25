@@ -37,17 +37,24 @@ class MemorySummariesTest {
         g: PTAGraph<TNum, TOffset, Flags>,
         baseR: Value.Reg,
         offset: Short,
-        width: Short
+        width: Short,
+        scalars: ScalarValueProvider<TNum, TOffset>
     ): PTANode<Flags> {
         val lhs = Value.Reg(SbfRegister.R7)
         check(baseR != lhs)
         val inst = SbfInstruction.Mem(Deref(width, baseR, offset), lhs, true)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
-        g.doLoad(locInst, baseR, SbfType.top())
+        g.doLoad(locInst, baseR, SbfType.top(), scalars)
         val sc = g.getRegCell(lhs)
         check(sc != null)
         return sc.getNode()
     }
+
+    private fun createScalarDomain(memSummaries: MemorySummaries = MemorySummaries()) =
+        ScalarDomain(
+            sbfTypesFac,
+            GlobalState(globals, memSummaries)
+        )
 
     private fun createMemoryDomain(memSummaries: MemorySummaries = MemorySummaries()) =
         MemoryDomain(
@@ -94,26 +101,38 @@ class MemorySummariesTest {
 
         g.setRegCell(r1, n1.createSymCell(0))
         g.setRegCell(r2, n2.createSymCell(0))
-
+        val scalars = createScalarDomain()
 
 
         val call = SbfInstruction.Call(name = "foo")
 
         println("Before $call: $g")
         // before the call *(r1+0) == *(r2+0)
-        val oldN = getNode(g, r1, 0, 8)
-        Assertions.assertEquals(true,  oldN == getNode(g, r2, 0, 8))
+        val oldN = getNode(g, r1, 0, 8, scalars)
+        Assertions.assertEquals(true,  oldN == getNode(g, r2, 0, 8, scalars))
         g.doCall(LocatedSbfInstruction(Label.fresh(), 0, call), absVal.getScalars())
         println("After $call with ${memSummaries.getSummary("foo")}: $g")
 
         // after the call *(r1+0) != *(r2+0)
-        Assertions.assertEquals(true, getNode(g, r1, 0, 8) != getNode(g, r2, 0, 8))
+        Assertions.assertEquals(
+            true,
+            getNode(g, r1, 0, 8, scalars) != getNode(g, r2, 0, 8, scalars)
+        )
         // *(r2+0) did not change
-        Assertions.assertEquals(true, getNode(g, r2, 0, 8) == oldN)
+        Assertions.assertEquals(
+            true,
+            getNode(g, r2, 0, 8, scalars) == oldN
+        )
         // *(r1+0) changed
-        Assertions.assertEquals(true, getNode(g, r1, 0, 8).mustBeInteger())
+        Assertions.assertEquals(
+            true,
+            getNode(g, r1, 0, 8, scalars).mustBeInteger()
+        )
         // This assertion is provable after commit "fix(sbf): do not remove predecessors when applying summary (pta domain)"
-        Assertions.assertEquals(true, stackC.getNode().getSucc(PTAField(PTAOffset(4040), 8)) != null)
+        Assertions.assertEquals(
+            true,
+            stackC.getNode().getSucc(PTAField(PTAOffset(4040), 8)) != null
+        )
     }
 
     @Test

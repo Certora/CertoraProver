@@ -26,10 +26,6 @@ import sbf.callgraph.SolanaFunction
 /** For internal errors **/
 class ScalarDomainError(msg: String): SolanaInternalError("ScalarDomain error: $msg")
 
-interface ScalarValueFactory<ScalarValue> {
-    fun mkTop(): ScalarValue
-}
-
 /**
  * Base class that contains lattice operations and some helpers to build scalar domains.
  *
@@ -42,7 +38,7 @@ interface ScalarValueFactory<ScalarValue> {
  */
 class ScalarBaseDomain<ScalarValue>(
     private var isBot: Boolean, /* to represent error or unreachable state */
-    private val sFac: ScalarValueFactory<ScalarValue>,
+    private val sFac: IScalarValueFactory<ScalarValue>,
     private var stack: StackEnvironment<ScalarValue>,
     private val registers: ArrayList<ScalarValue>,
     private val scratchRegisters: ArrayList<ScalarValue>
@@ -54,7 +50,7 @@ class ScalarBaseDomain<ScalarValue>(
         check(scratchRegisters.all {!it.isBottom()}) {"ScalarBaseDomain does not expect bottom scratch register"}
     }
 
-    constructor(sFac: ScalarValueFactory<ScalarValue>):
+    constructor(sFac: IScalarValueFactory<ScalarValue>):
         this(isBot = false, sFac,
             StackEnvironment.makeTop(),
             ArrayList(NUM_OF_SBF_REGISTERS),
@@ -65,7 +61,7 @@ class ScalarBaseDomain<ScalarValue>(
     }
 
     companion object {
-        fun <ScalarValue: StackEnvironmentValue<ScalarValue>> makeBottom(sFac: ScalarValueFactory<ScalarValue>): ScalarBaseDomain<ScalarValue> {
+        fun <ScalarValue: StackEnvironmentValue<ScalarValue>> makeBottom(sFac: IScalarValueFactory<ScalarValue>): ScalarBaseDomain<ScalarValue> {
             return ScalarBaseDomain(isBot = true, sFac,
                 StackEnvironment.makeBottom(),
                 arrayListOf(),
@@ -73,7 +69,7 @@ class ScalarBaseDomain<ScalarValue>(
             )
         }
 
-        fun <ScalarValue: StackEnvironmentValue<ScalarValue>> makeTop(sFac: ScalarValueFactory<ScalarValue>): ScalarBaseDomain<ScalarValue> {
+        fun <ScalarValue: StackEnvironmentValue<ScalarValue>> makeTop(sFac: IScalarValueFactory<ScalarValue>): ScalarBaseDomain<ScalarValue> {
             return ScalarBaseDomain(sFac)
         }
 
@@ -400,7 +396,7 @@ class ScalarBaseDomain<ScalarValue>(
         memSummaries: MemorySummaries
     ) where TNum: INumValue<TNum>,
             TOffset: IOffset<TOffset>,
-            D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset>  {
+            D: ScalarValueProvider<TNum, TOffset>  {
         class ScalarPredicateSummaryVisitor: SummaryVisitor {
             override fun noSummaryFound(locInst: LocatedSbfInstruction) {
                 forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
@@ -434,7 +430,7 @@ class ScalarBaseDomain<ScalarValue>(
         scalars: D)
     where TNum: INumValue<TNum>,
           TOffset: IOffset<TOffset>,
-          D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
+          D: ScalarValueProvider<TNum, TOffset> {
 
         val stmt = locInst.inst
         check(stmt is SbfInstruction.Call)

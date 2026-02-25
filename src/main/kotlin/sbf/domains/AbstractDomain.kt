@@ -148,6 +148,7 @@ class DefaultInstructionListener<T>: InstructionListener<T> {
 interface ScalarValueProvider<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
     fun getAsScalarValue(value: Value): ScalarValue<TNum, TOffset>
     fun getStackContent(offset: Long, width: Byte): ScalarValue<TNum, TOffset>
+    fun getTypeFac(): ISbfTypeFactory<TNum, TOffset>
 }
 
 /**
@@ -158,6 +159,7 @@ interface MutableScalarValueUpdater<TNum: INumValue<TNum>, TOffset: IOffset<TOff
     fun setScalarValue(reg: Value.Reg, newVal: ScalarValue<TNum, TOffset>)
     fun setStackContent(offset: Long, width: Byte, value: ScalarValue<TNum, TOffset>)
 }
+
 
 /** Special operations that [MemoryDomain] needs from the scalar domain **/
 interface MemoryDomainScalarOps<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {

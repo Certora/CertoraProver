@@ -3339,12 +3339,6 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         }
     }
 
-    @TestOnly
-    fun doLoad(locInst: LocatedSbfInstruction,
-               base: Value.Reg,
-               baseType: SbfType<TNum, TOffset>,
-    ) = doLoad(locInst, base, baseType, ScalarDomain.makeTop(sbfTypesFac, globalState))
-
     /** Transfer function for load instruction **/
     fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doLoad(
         locInst: LocatedSbfInstruction,

@@ -46,8 +46,7 @@ fun promoteStoresToMemcpy(
         globals,
         memSummaries,
         sbfTypesFac,
-        // We specifically want to use this scalar domain
-        ScalarRegisterStackEqualityDomainFactory()
+        CFGTransformScalarDomFac()
     )
     // [findWideningAndNarrowingStores] depends on endianness. Since we never expect big-endian,
     // we prefer to fail so that we are aware.

@@ -54,7 +54,7 @@ private val logger = Logger(LoggerTypes.SBF_SCALAR_ANALYSIS)
 private fun dbg(msg: () -> Any) { logger.info(msg)}
 
 private class ValueFactory<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
-    val sbfTypeFac: ISbfTypeFactory<TNum, TOffset>): ScalarValueFactory<ScalarValue<TNum, TOffset>> {
+    val sbfTypeFac: ISbfTypeFactory<TNum, TOffset>): IScalarValueFactory<ScalarValue<TNum, TOffset>> {
     override fun mkTop() = ScalarValue(sbfTypeFac.mkTop())
 }
 
@@ -144,6 +144,20 @@ fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> SbfType<TNum, TOffset>.l
         else -> this // biased towards `this`
     }
 }
+
+class ScalarDomainFactory<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>
+    : IScalarDomainFactory<TNum, TOffset, ScalarDomain<TNum, TOffset>> {
+    override fun mkTop(fac: ISbfTypeFactory<TNum, TOffset>, globalState: GlobalState) =
+        ScalarDomain.makeTop(fac, globalState)
+    override fun mkBottom(fac: ISbfTypeFactory<TNum, TOffset>, globalState: GlobalState) =
+        ScalarDomain.makeBottom(fac, globalState)
+    override fun init(
+        fac: ISbfTypeFactory<TNum, TOffset>,
+        globalState: GlobalState,
+        addPreconditions: Boolean
+    ) = ScalarDomain(fac, globalState, addPreconditions)
+}
+
 
 class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private constructor(
     private val base: ScalarBaseDomain<ScalarValue<TNum, TOffset>>,
@@ -1621,6 +1635,8 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
             setRegister(reg, newVal)
         }
     }
+
+    override fun getTypeFac() = sbfTypeFac
 
     override fun setStackContent(offset: Long, width: Byte, value: ScalarValue<TNum, TOffset>) {
         mayInitStack = mayInitStack.add(FiniteInterval.mkInterval(offset, width.toLong()))

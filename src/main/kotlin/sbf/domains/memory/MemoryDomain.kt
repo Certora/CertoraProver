@@ -68,8 +68,6 @@ private fun dbg(msg: () -> Any) { logger.info(msg)}
 
 class MemoryDomainError(msg: String): SolanaInternalError("MemoryDomain error: $msg")
 
-private typealias TScalarDomain<TNum, TOffset> = ScalarStackStridePredicateDomain<TNum, TOffset>
-
 /**
  * Configuration options for [MemoryDomain] that should not be set globally via CLI.
  * Since the memory domain may be executed multiple times (e.g., during CPI lowering
@@ -108,7 +106,7 @@ private val STATIC_FRAME_INITIAL_OFFSET = SBF_STACK_FRAME_SIZE
 
 
 class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>> private constructor(
-    private val scalars: TScalarDomain<TNum, TOffset>,
+    private val scalars: MemoryScalarDom<TNum, TOffset>,
     private val ptaGraph: PTAGraph<TNum, TOffset, Flags>,
     private val memcmpPreds: MemEqualityPredicateDomain<Flags>,
     private val opts: MemoryDomainOpts,
@@ -120,7 +118,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
                 opts: MemoryDomainOpts,
                 globalState: GlobalState,
                 initPreconditions: Boolean = false
-    ) : this(TScalarDomain(sbfTypeFac, globalState, initPreconditions),
+    ) : this(MemoryScalarDom(sbfTypeFac, globalState, initPreconditions),
              PTAGraph(nodeAllocator, sbfTypeFac, globalState, initPreconditions),
              MemEqualityPredicateDomain(globalState = globalState),
              opts,
@@ -181,7 +179,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
 
     override fun deepCopy(): MemoryDomain<TNum, TOffset, Flags> {
         return if (isBottom()) {
-            val res = MemoryDomain(ptaGraph.nodeAllocator, scalars.sbfTypeFac, opts, globalState)
+            val res = MemoryDomain(ptaGraph.nodeAllocator, scalars.getTypeFac(), opts, globalState)
             res.apply { setToBottom() }
         } else {
             MemoryDomain(scalars.deepCopy(), ptaGraph.copy(), memcmpPreds.deepCopy(), opts, globalState)
@@ -190,7 +188,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
 
     private fun deepCopyOnlyScalars(): MemoryDomain<TNum, TOffset, Flags> {
         return if (isBottom()) {
-            val res = MemoryDomain(ptaGraph.nodeAllocator, scalars.sbfTypeFac, opts, globalState)
+            val res = MemoryDomain(ptaGraph.nodeAllocator, scalars.getTypeFac(), opts, globalState)
             res.apply { setToBottom() }
         } else {
             MemoryDomain(scalars.deepCopy(), ptaGraph, memcmpPreds.deepCopy(), opts, globalState)
@@ -406,9 +404,9 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
             if (x != null && x.isConcrete()) {
                 val c = x.concretize()
                 if (c.getNode().mustBeInteger()) {
-                    val change = refineScalarValue(reg, ScalarValue(scalars.sbfTypeFac.anyNum()))
+                    val change = refineScalarValue(reg, ScalarValue(scalars.getTypeFac().anyNum()))
                     if (change) {
-                        val topNum =  scalars.sbfTypeFac.anyNum().concretize()
+                        val topNum =  scalars.getTypeFac().anyNum().concretize()
                         check(topNum != null) {"concretize on anyNum cannot be null"}
                         /// HACK: changing metadata serves here as caching the reduction.
                         val newMetadata = locInst.inst.metaData.plus(SbfMeta.REG_TYPE to  (reg to topNum))
@@ -423,7 +421,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
             /// even if the pointer analysis lost precision and cannot infer that fact anymore.
             locInst.inst.metaData.getVal(SbfMeta.REG_TYPE)?.let { (refinedReg, type) ->
                 if (refinedReg == reg && type is SbfRegisterType.NumType) {
-                    refineScalarValue(reg, ScalarValue(scalars.sbfTypeFac.anyNum()))
+                    refineScalarValue(reg, ScalarValue(scalars.getTypeFac().anyNum()))
                 }
             }
         }
@@ -614,7 +612,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
         dbg { "=== Memory Domain analyzing ${b.getLabel()} ===\n$this\n" }
         if (listener is DefaultInstructionListener) {
             if (isBottom()) {
-                return makeBottom(ptaGraph.nodeAllocator, scalars.sbfTypeFac, opts, globalState)
+                return makeBottom(ptaGraph.nodeAllocator, scalars.getTypeFac(), opts, globalState)
             }
             val out = if (isNonOpForPTA(b)) {
                 this.deepCopyOnlyScalars()
@@ -648,6 +646,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
 
     override fun getAsScalarValue(value: Value) = getScalars().getAsScalarValue(value)
     override fun getStackContent(offset: Long, width: Byte) = getScalars().getStackContent(offset, width)
+    override fun getTypeFac() = scalars.getTypeFac()
 
     /** External API for TAC encoding **/
     fun getRegCell(reg: Value.Reg): PTASymCell<Flags>? {

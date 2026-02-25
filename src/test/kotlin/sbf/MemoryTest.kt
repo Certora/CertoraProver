@@ -45,11 +45,12 @@ class MemoryTest {
         base: Value.Reg,
         offset: Short,
         width: Short,
-        lhs: Value.Reg
+        lhs: Value.Reg,
+        scalars: ScalarValueProvider<TNum, TOffset>
     ): PTASymCell<Flags>? {
         val inst = SbfInstruction.Mem(Deref(width, base, offset), lhs, true)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
-        g.doLoad(locInst, base, SbfType.top())
+        g.doLoad(locInst, base, SbfType.top(), scalars)
         return g.getRegCell(lhs)
     }
 
@@ -66,7 +67,6 @@ class MemoryTest {
     }
 
     private fun createMemcpy() = LocatedSbfInstruction(Label.fresh(),0, SbfInstruction.Call(SolanaFunction.SOL_MEMCPY.syscall.name))
-
 
     private fun createMemoryDomain() =
         MemoryDomain(
@@ -1205,10 +1205,10 @@ class MemoryTest {
 
         g.setRegCell(r4, stack.getNode().createSymCell(PTAOffset(3032)))
         // stack materialization happens here
-        val c5 = load(g, r4, 0, 8, r5)
-        val c6 = load(g, r4, 8, 8, r5)
-        val c7 = load(g, r4, 16, 8, r5)
-        val c8 = load(g, r4, 24, 8, r5)
+        val c5 = load(g, r4, 0, 8, r5, scalars)
+        val c6 = load(g, r4, 8, 8, r5, scalars)
+        val c7 = load(g, r4, 16, 8, r5, scalars)
+        val c8 = load(g, r4, 24, 8, r5, scalars)
 
         println("After stack materialization: $g")
         Assertions.assertEquals(true, c5 != null && c5.getNode() == sumN && c5 == c6 && c6 == c7 && c7 == c8 )
@@ -1267,10 +1267,10 @@ class MemoryTest {
         g.setRegCell(r4, stack.getNode().createSymCell(PTAOffset(3032)))
         // stack materialization for *sp(3032), *sp(3048), and *sp(3056) happens here
         // Note that *sp(3040) is equals to *sp(4040) which should point to (`intN`,0)
-        val c5 = load(g, r4, 0, 8, r5)
-        val c6 = load(g, r4, 8, 8, r5)
-        val c7 = load(g, r4, 16, 8, r5)
-        val c8 = load(g, r4, 24, 8, r5)
+        val c5 = load(g, r4, 0, 8, r5, scalars)
+        val c6 = load(g, r4, 8, 8, r5, scalars)
+        val c7 = load(g, r4, 16, 8, r5, scalars)
+        val c8 = load(g, r4, 24, 8, r5, scalars)
 
         println("After stack materialization: $g")
         Assertions.assertEquals(true, c5 != null && c5.getNode() == sumN && c5 != c6 && c5 == c7 && c7 == c8 )
