@@ -82,7 +82,7 @@ private fun replaceOrWithAssume(b: MutableSbfBasicBlock): Boolean {
                 if (isEqualToZero(nextUse.cond)) /* left == 0 */ {
                     val newAssume = SbfInstruction.Assume(Condition(CondOp.EQ, right, Value.Imm(0UL)),
                                                           inst.metaData.plus(SbfMeta.LOWERED_OR()))
-                    // replace the or instruction with `assume(right == 0)`
+                    // replace the `or` instruction with `assume(right == 0)`
                     b.replaceInstruction(locInst.pos, newAssume)
                     return true
                 }
@@ -96,7 +96,7 @@ private fun replaceOrWithAssume(b: MutableSbfBasicBlock): Boolean {
                                                             inst.metaData.plus(SbfMeta.LOWERED_OR()))
                     // replace `assume(left != 1)` with `assume(left == 0)`
                     b.replaceInstruction(nextUseLocInst.pos, newAssume1)
-                    // replace the or instruction with `assume(right == 0)`
+                    // replace the `or` instruction with `assume(right == 0)`
                     b.replaceInstruction(locInst.pos, newAssume2)
                     return true
                 }

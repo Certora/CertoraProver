@@ -210,14 +210,13 @@ class ElfFileView(private val reader: ElfFile, private val parser: ElfParser): I
 }
 
 class ElfDisassembler(pathName: String) {
-    private val file: File
+    private val file: File = File(pathName)
     private val reader: ElfFile
     private val parser: ElfParser
     private val globalsSymTable: ElfFileView
     private val debugSymbols: DebugSymbols
 
     init {
-        this.file = File(pathName)
         this.file.inputStream().let {
             // from can throw a java.io.IOException
             this.reader = ElfFile.from(it)

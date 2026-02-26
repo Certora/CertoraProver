@@ -27,6 +27,8 @@ import log.*
 
 private val logger = Logger(LoggerTypes.SBF_GLOBAL_VAR_ANALYSIS)
 
+private val sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
+
 /**
  * Whole-program analysis that identifies global variables that were not part of the ELF symbol table.
  *
@@ -40,15 +42,15 @@ private val logger = Logger(LoggerTypes.SBF_GLOBAL_VAR_ANALYSIS)
  * mis-classify two addresses as two different global variables which might affect soundness.
  * This is why the analysis is not executed by default.
  *
- * Note that `runGlobalInferenceAnalysis` will run [ScalarAnalysis] from scratch, but a reasonable question is why we do not
+ * Note that `runGlobalInferenceAnalysis` will run a scalar analysis from scratch, but a reasonable question is why we do not
  * infer global variables as part of [MemoryAnalysis] which runs a reduced product of scalar and pointer domains.
  *
  * We do not do it because the global inference analysis has some heuristics that scan multiple basic blocks
  * searching for some specific code patterns. These heuristics are harder to implement as part of an abstract domain because
  * the current API for an abstract domain is designed to just analyze one instruction at the time.
  *
- * We do not bother at the moment to change the API of an abstract domain because running [ScalarAnalysis] is
- * currently very cheap, but we might need to revisit these design decisions if [ScalarAnalysis] becomes more expensive.
+ * We do not bother at the moment to change the API of an abstract domain because running a scalar analysis is
+ * currently very cheap, but we might need to revisit these design decisions if it becomes more expensive.
  *
  * @param prog is the input program including information about globals
  * @return a new [SbfCallGraph] whose global variables consists of the
@@ -62,7 +64,13 @@ fun runGlobalInferenceAnalysis(
 ) : SbfCallGraph {
     return prog.transformSingleEntryAndGlobals { entryCFG ->
         val newEntryCFG = entryCFG.clone(entryCFG.getName())
-        val scalarAnalysis = AdaptiveScalarAnalysis(newEntryCFG, prog.getGlobals(), memSummaries)
+        val scalarAnalysis = GenericScalarAnalysis(
+            newEntryCFG,
+            prog.getGlobals(),
+            memSummaries,
+            sbfTypesFac,
+            GlobalAnalysisScalarDomFac()
+        )
         val globalInferAnalysis = GlobalInferenceAnalysis(newEntryCFG, scalarAnalysis, prog.getGlobals().elf)
         newEntryCFG to globalInferAnalysis.getNewGlobalMap()
     }
@@ -231,7 +239,7 @@ private class GlobalInferenceAnalysis<D, TNum: INumValue<TNum>, TOffset: IOffset
                     if (gv != null) {
                         addAnnotation(i)
                     }
-                    return gv
+                    gv
                 }
                 BinOp.ADD, BinOp.SUB -> {
                     if (!SolanaConfig.AggressiveGlobalDetection.get()) {

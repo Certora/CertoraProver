@@ -1203,6 +1203,7 @@ class Decompiler private constructor(
                 SHL -> push { TACExpr.BinOp.ShiftLeft(o2 = popExp(), o1 = popExp()) }
                 SHR -> push { TACExpr.BinOp.ShiftRightLogical(o2 = popExp(), o1 = popExp()) }
                 SAR -> push { TACExpr.BinOp.ShiftRightArithmetical(o2 = popExp(), o1 = popExp()) }
+                CLZ -> cmd { TACCmd.EVM.AssignClzCmd(op1 = popVar(), lhs = result(), meta = meta) }
                 BYTE -> cmdResult {
                     TACCmd.EVM.AssigningCmd.AssignByteCmd(op1 = pop(), op2 = pop(), lhs = result(), meta = meta)
                 }

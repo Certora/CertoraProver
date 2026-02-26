@@ -82,56 +82,6 @@ class AdaptiveScalarAnalysis
     override fun getGlobalVariableMap() = globals
 }
 
-interface IScalarDomainFactory<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, ScalarDomain> {
-    fun mkTop(fac: ISbfTypeFactory<TNum, TOffset>, globalState: GlobalState): ScalarDomain
-    fun mkBottom(fac: ISbfTypeFactory<TNum, TOffset>, globalState: GlobalState): ScalarDomain
-    /**
-     *  Return the initial abstract state.
-     *
-     *  If [addPreconditions] is true then it adds some facts that are true when the SBF program
-     *  is loaded (e.g., `r10` must point to the top of the stack)
-     */
-    fun init(fac: ISbfTypeFactory<TNum, TOffset>, globalState: GlobalState, addPreconditions: Boolean): ScalarDomain
-}
-
-class ScalarDomainFactory<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>: IScalarDomainFactory<TNum, TOffset, ScalarDomain<TNum, TOffset>> {
-    override fun mkTop(fac: ISbfTypeFactory<TNum, TOffset>, globalState: GlobalState) =
-        ScalarDomain.makeTop(fac, globalState)
-    override fun mkBottom(fac: ISbfTypeFactory<TNum, TOffset>, globalState: GlobalState) =
-        ScalarDomain.makeBottom(fac, globalState)
-    override fun init(
-        fac: ISbfTypeFactory<TNum, TOffset>,
-        globalState: GlobalState,
-        addPreconditions: Boolean
-    ) = ScalarDomain(fac, globalState, addPreconditions)
-}
-
-class ScalarStackStridePredicateDomainFactory<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>
-    : IScalarDomainFactory<TNum, TOffset, ScalarStackStridePredicateDomain<TNum, TOffset>> {
-    override fun mkTop(fac: ISbfTypeFactory<TNum, TOffset>, globalState: GlobalState) =
-        ScalarStackStridePredicateDomain.makeTop(fac, globalState)
-    override fun mkBottom(fac: ISbfTypeFactory<TNum, TOffset>, globalState: GlobalState) =
-        ScalarStackStridePredicateDomain.makeBottom(fac, globalState)
-    override fun init(
-        fac: ISbfTypeFactory<TNum, TOffset>,
-        globalState: GlobalState,
-        addPreconditions: Boolean
-    ) = ScalarStackStridePredicateDomain(fac, globalState, addPreconditions)
-}
-
-class ScalarRegisterStackEqualityDomainFactory<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>
-    : IScalarDomainFactory<TNum, TOffset, ScalarRegisterStackEqualityDomain<TNum, TOffset>> {
-    override fun mkTop(fac: ISbfTypeFactory<TNum, TOffset>, globalState: GlobalState) =
-        ScalarRegisterStackEqualityDomain.makeTop(fac, globalState)
-    override fun mkBottom(fac: ISbfTypeFactory<TNum, TOffset>, globalState: GlobalState) =
-        ScalarRegisterStackEqualityDomain.makeBottom(fac, globalState)
-    override fun init(
-        fac: ISbfTypeFactory<TNum, TOffset>,
-        globalState: GlobalState,
-        addPreconditions: Boolean
-    ) = ScalarRegisterStackEqualityDomain(fac, globalState, addPreconditions)
-}
-
 open class GenericScalarAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, ScalarDomain: AbstractDomain<ScalarDomain>>
     (val cfg: SbfCFG,
      val globals: GlobalVariables,

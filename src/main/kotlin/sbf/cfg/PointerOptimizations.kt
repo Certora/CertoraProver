@@ -38,8 +38,8 @@ fun runSimplePTAOptimizations(cfg: MutableSbfCFG, globals: GlobalVariables) {
     cfg.verify(false, "after merging blocks ")
     unhoistStoresAndLoads(cfg, globals)
     cfg.verify(false, "after unhoisting stores")
-    cfg.removeUselessBlocks()
-    cfg.verify(false, "after remove useless blocks")
+    cfg.removeEmptyBlocks()
+    cfg.verify(false, "after remove empty blocks")
     unhoistStackPop(cfg, globals)
     cfg.verify(false, "after unhoisting stack pop instruction")
     unhoistCalltraceFunctions(cfg)
@@ -49,7 +49,7 @@ fun runSimplePTAOptimizations(cfg: MutableSbfCFG, globals: GlobalVariables) {
 /**
  * CFG optimizations that help the pointer analysis.
  *
- * These optimizations require the scalar analysis, so they should be run after
+ * Some of these optimizations require the scalar analysis, so they should be run after
  * [prog] has been inlined and sliced for better precision.
  *
  * Note that each optimization runs a scalar analysis since the program can change from one optimization
@@ -58,8 +58,9 @@ fun runSimplePTAOptimizations(cfg: MutableSbfCFG, globals: GlobalVariables) {
 fun runPTAOptimizations(prog: SbfCallGraph, memSummaries: MemorySummaries): SbfCallGraph {
     return prog.transformSingleEntry { entryCFG ->
         val optEntryCFG = entryCFG.clone(entryCFG.getName())
-        promoteStoresToMemcpy(optEntryCFG, prog.getGlobals(), memSummaries)
+        promoteMemcpy(optEntryCFG, prog.getGlobals(), memSummaries)
         removeUselessDefinitions(optEntryCFG)
+        promoteMemset(optEntryCFG, prog.getGlobals(), memSummaries)
         markLoadedAsNumForPTA(optEntryCFG)
         unhoistPromotedMemcpy(optEntryCFG)
         optEntryCFG.simplify(prog.getGlobals())

@@ -111,10 +111,10 @@ data class DWARFDebugInformation(
     val parsing_errors: List<String> = listOf()
 )
 
-open class DebugSymbols(debugInfo: DWARFDebugInformation) {
+class DebugSymbols(debugInfo: DWARFDebugInformation) {
     val compilationUnits = debugInfo.compilation_units
 
-    open fun lookUpLineNumberInfo(addr: ULong): LineNumberInfo? {
+    fun lookUpLineNumberInfo(addr: ULong): LineNumberInfo? {
         val matchingCompilationUnit = this.compilationUnits.filter { it.isInRanges(addr) };
         check(matchingCompilationUnit.size <= 1) { "Found ${matchingCompilationUnit.size} compilation units matching the address ${addr}, ranges: ${matchingCompilationUnit.mapIndexed { idx, it -> "CU($idx): ${it.ranges}" }}" }
         return matchingCompilationUnit.firstOrNull()?.lookUpLineNumberInfo(addr)
@@ -180,29 +180,24 @@ data class LineNumberInfo(
     val address: Long? = null, val file_path: String? = null, val col: Long? = null, val line: Long? = null
 ) {
     /**
-     * This function returns a [Range.Range] indicating which file and line:col information
-     * this [DWARFTreeNode] belongs to.
+     * This function returns a [Range.Range] translating the line number information to our Range.
      *
      * Note: It's rarely possible to resolve more than the original line number from the debug information.
      * I.e. we cannot restore column information. As a fallback this method currently highlights
      * the first three characters of the line.
      */
-    fun getRange(): Range {
-        // Therefore, we require that the line number is strictly positive.
+    fun asRange(): Range.Range? {
         if (file_path == null || line == null) {
-            return Range.Empty("No file information provided in the debug information")
+            return null
         }
 
-        // We must substract -1 from the line number as the DWARF debug information is 1-based, but we use 0-based source positions.
-        val col = if (col == null || col == 0L) {
-            1
-        } else {
-            col
-        }
+        // Subtracting 1 here from line and col. SourcePosition operates 0-based,
+        // while DWARF debug information is 1-based
+        val zeroBasedColumn = col?.letIf(col > 0) { it - 1 } ?: 0
         return Range.Range(
             file_path,
-            SourcePosition((line - 1).toUInt(), col.toUInt()),
-            SourcePosition((line - 1).toUInt(), (col + 3).toUInt())
+            SourcePosition((line - 1).toUInt(), zeroBasedColumn.toUInt()),
+            SourcePosition((line - 1).toUInt(), (zeroBasedColumn + 3).toUInt())
         )
     }
 }
@@ -239,9 +234,15 @@ data class SourceRange(
     init {
         check(line >= 1UL) { "Offset in DWARF debug information is 1-based." }
     }
+
     fun asRange(): Range.Range {
-        return Range.Range(file_path, SourcePosition((line - 1UL).toUInt(), col?.toUInt()
-            ?: 0U), SourcePosition(line.toUInt(), 0U));
+        // Subtracting 1 here from line and col. SourcePosition operates 0-based,
+        // while DWARF debug information is 1-based
+        val zeroBasedColum = col?.let { (it - 1UL).toUInt() } ?: 0U
+        return Range.Range(
+            file_path,
+            SourcePosition((line - 1UL).toUInt(), zeroBasedColum),
+            SourcePosition(line.toUInt(), 0U));
     }
 }
 

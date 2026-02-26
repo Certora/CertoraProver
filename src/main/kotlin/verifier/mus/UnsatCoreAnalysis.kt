@@ -23,8 +23,7 @@ import config.Config
 import config.OUTPUT_NAME_DELIMITER
 import config.ReportTypes
 import datastructures.stdcollections.*
-import log.Logger
-import log.LoggerTypes
+import log.*
 import report.HTMLReporter
 import report.dumps.CodeMap
 import report.dumps.addUnsatCoreData
@@ -325,6 +324,23 @@ class UnsatCoreAnalysis private constructor(
                 val cmdsFromSol = codeMap.unsatCore.mapNotNullToSet { it.takeIf(::isFromSol)?.let(::getSolCmdData) }
                 val callIdsTouching = codeMap.callIdNames.filter { codeMap.touchesUnsatCore(it.key) }
                     .map { it.toString() }.toSet()
+
+                // Print and dump unsat core using dedicated printer.
+                // Failures here are non-fatal — the printer is a diagnostic tool and must not crash the prover.
+                runCatching {
+                    val printer = UnsatCorePrinter(originalTac, codeMap, contextLength = 5)
+                    logger.info { printer.print(enableColors = true) }
+                    val ucOutputNoColors = printer.print(enableColors = false)
+                    ArtifactManagerFactory().registerArtifact(
+                        "UnsatCoreTAC$OUTPUT_NAME_DELIMITER${codeMap.name}.txt",
+                        StaticArtifactLocation.Reports
+                    ) { name ->
+                        ArtifactFileUtils.getWriterForFile(name, true).use { it.append(ucOutputNoColors) }
+                    }
+                }.onFailure { e ->
+                    logger.warn { "UnsatCorePrinter failed for ${codeMap.name}: $e" }
+                }
+
                 SingleUnsatCoreStats(
                     runtime = null,
                     /** To be added in another PR (we also need to measure the time within [MUSSubsetSolver] **/
@@ -333,7 +349,7 @@ class UnsatCoreAnalysis private constructor(
                     callIdsTouchingUnsatCore = callIdsTouching,
                     missingCmdsFromSpec = softCmdsFromSpec.minus(cmdsFromSpec),
                     missingCmdsFromSol = softCmdsFromSol.minus(cmdsFromSol),
-                    callIdsNotTouchingUnsatCore = baseCodeMap.callIdNames.map { it.toString() }.toSet().minus(callIdsTouching)
+                    callIdsNotTouchingUnsatCore = baseCodeMap.callIdNames.map { it.toString() }.toSet().minus(callIdsTouching),
                 )
             }.toSet(),
             softConstraintsFromSpec = softCmdsFromSpec,

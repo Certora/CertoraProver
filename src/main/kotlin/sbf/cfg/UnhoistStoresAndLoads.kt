@@ -76,6 +76,7 @@ fun unhoistStoresAndLoads(cfg: MutableSbfCFG, globals: GlobalVariables, maxNumOf
 }
 
 /** [storeInst] is the [idx]-th instruction in [bb]. Return true if the following pattern:
+ * ```
  *  pred1:
  *       r1:= 5
  *       ...
@@ -88,6 +89,7 @@ fun unhoistStoresAndLoads(cfg: MutableSbfCFG, globals: GlobalVariables, maxNumOf
  *       ...
  *       *r2 := r1
  *       continuation
+ * ```
  **/
 private fun isStoreValOfAssignsOrLoads(storeInst: SbfInstruction.Mem, bb: SbfBasicBlock, idx: Int): Boolean {
     val storedVal = storeInst.value
@@ -113,7 +115,7 @@ private fun isStoreValOfAssignsOrLoads(storeInst: SbfInstruction.Mem, bb: SbfBas
 }
 
 /** [storeInst] is the [idx]-th instruction in [bb]. Return true if the following pattern:
- *
+ * ```
  *  pred1:
  *       r2  := *(rX + o)
  *       goto bb
@@ -122,6 +124,7 @@ private fun isStoreValOfAssignsOrLoads(storeInst: SbfInstruction.Mem, bb: SbfBas
  *       goto bb
  *  bb:
  *       *r2 := ...
+ * ```
  **/
 private fun isStoreDerefOfLoads(storeInst: SbfInstruction.Mem, bb: SbfBasicBlock, idx: Int): Boolean {
     val baseReg = storeInst.access.base
@@ -145,7 +148,7 @@ private fun isStoreDerefOfLoads(storeInst: SbfInstruction.Mem, bb: SbfBasicBlock
 
 
 /** [memInst] is the [idx]-th instruction in [bb]. Return true if the following pattern:
- *
+ * ```
  *  pred1:
  *       r2  := 516056 // identified as a global variable
  *       goto bb
@@ -155,6 +158,7 @@ private fun isStoreDerefOfLoads(storeInst: SbfInstruction.Mem, bb: SbfBasicBlock
  *  bb:
  *       ....
  *       *r2 := ...
+ * ```
  **/
 private fun isDerefToGlobalVariable(memInst: SbfInstruction.Mem,
                                     bb: SbfBasicBlock,

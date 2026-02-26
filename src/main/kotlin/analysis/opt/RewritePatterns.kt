@@ -96,6 +96,21 @@ fun PatternRewriter.basicPatternsList() = listOf(
         TACExpr.BinRel.Eq::class.java
     ),
 
+    /**
+     * From the vyper compiler:
+     *    `x xor y == 0` ~~> `x == y`
+     */
+    PatternHandler(
+        name = "xor4",
+        pattern = {
+            (lSym(A) xor lSym(B)) eq c(0)
+        },
+        handle = {
+            sym(A) eq sym(B)
+        },
+        TACExpr.BinRel.Eq::class.java
+    ),
+
     /** `x - y > 0` ~~> `x != y` */
     PatternHandler(
         name = "nonEqViaMinus",

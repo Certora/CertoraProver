@@ -40,7 +40,7 @@ open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset
 
     /** @return empty list if function is not summarized **/
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    operator fun invoke(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
+    internal operator fun invoke(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call) { "summarizeCompilerRt expects a call instruction instead of $inst" }
 

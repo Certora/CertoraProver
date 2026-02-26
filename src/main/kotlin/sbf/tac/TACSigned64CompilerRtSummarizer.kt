@@ -17,11 +17,9 @@
 
 package sbf.tac
 
-import sbf.cfg.*
 import vc.data.*
 import datastructures.stdcollections.*
 import sbf.domains.*
-import utils.*
 
 /**
  * Summarize 64-bit signed division and modulo operations.
@@ -29,7 +27,7 @@ import utils.*
 open class SummarizeSignedInteger64CompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> {
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun summarizeDivdi3(
+    internal fun summarizeDivdi3(
         res: TACSymbol.Var,
         @Suppress("UNUSED_PARAMETER")
         arg1: TACSymbol,
@@ -43,7 +41,7 @@ open class SummarizeSignedInteger64CompilerRt<TNum : INumValue<TNum>, TOffset : 
     }
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun summarizeModdi3(
+    internal fun summarizeModdi3(
         res: TACSymbol.Var,
         @Suppress("UNUSED_PARAMETER")
         arg1: TACSymbol,

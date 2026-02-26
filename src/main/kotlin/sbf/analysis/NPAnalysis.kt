@@ -88,10 +88,9 @@ private fun <TNum, TOffset, ScalarDomain> lattice(): JoinLattice<NPDomainState<T
 // We choose here the scalar domain used by the forward analysis
 private typealias TNum = ConstantSet
 private typealias TOffset= ConstantSet
-private typealias TScalarDomain = ScalarRegisterStackEqualityDomain<TNum, TOffset>
 
-typealias NPDomainT = NPDomain<TScalarDomain, TNum, TOffset>
-private typealias NPDomainStateT = NPDomainState<TNum, TOffset, TScalarDomain>
+typealias NPDomainT = NPDomain<NPDomScalarDom<TNum, TOffset>, TNum, TOffset>
+private typealias NPDomainStateT = NPDomainState<TNum, TOffset, NPDomScalarDom<TNum, TOffset>>
 
 class NPAnalysis(
     val cfg: MutableSbfCFG,
@@ -121,7 +120,7 @@ class NPAnalysis(
         globals,
         memSummaries,
         sbfTypeFac,
-        ScalarRegisterStackEqualityDomainFactory()
+        NPDomScalarDomFac()
     )
     val registerTypes = AnalysisRegisterTypes(fwdAnalysis, AnalysisCacheOptions.typesAndAssumes())
     /** Exit blocks of the cfg **/
@@ -155,9 +154,9 @@ class NPAnalysis(
         val block = cfg.getBlock(label)
         return if (block != null) {
             var outVal = if (block.getInstructions().any{ it is SbfInstruction.Exit}) {
-                NPDomain.mkTrue<TScalarDomain, TNum, TOffset>(sbfTypeFac)
+                NPDomain.mkTrue<NPDomScalarDom<TNum, TOffset>, TNum, TOffset>(sbfTypeFac)
             } else {
-                NPDomain.mkBottom<TScalarDomain, TNum, TOffset>(sbfTypeFac)
+                NPDomain.mkBottom<NPDomScalarDom<TNum, TOffset>, TNum, TOffset>(sbfTypeFac)
             }
             for (succ in block.getSuccs()) {
                 val succVal = getPreconditionsAtEntry(succ.getLabel())
@@ -173,7 +172,7 @@ class NPAnalysis(
 
     override fun transform(inState: NPDomainStateT, block: SbfBasicBlock): NPDomainStateT {
         val inNPVal = if (exits.contains(block.getLabel())) {
-            NPDomain.mkTrue<TScalarDomain, TNum, TOffset>(sbfTypeFac)
+            NPDomain.mkTrue<NPDomScalarDom<TNum, TOffset>, TNum, TOffset>(sbfTypeFac)
         } else {
             inState.state
         }

@@ -17,12 +17,10 @@
 
 package wasm.impCfg
 
-import analysis.CommandWithRequiredDecls.Companion.mergeMany
+import analysis.BitCounts
 import datastructures.stdcollections.*
 import tac.*
 import tac.generation.assign
-import tac.generation.assignHavoc
-import tac.generation.assume
 import vc.data.*
 import vc.data.TACExpr.Companion.zeroExpr
 import vc.data.TACSymbol.Companion.One
@@ -187,25 +185,10 @@ object WasmNumericExpr {
             UnaryNumericOp.I64_EXTEND16_S -> assign(lhs) {  arg1.signExt16().mod(I64_MOD) }
             UnaryNumericOp.I64_EXTEND32_S -> assign(lhs) {  arg1.signExt32().mod(I64_MOD) }
 
-            UnaryNumericOp.I32CLZ, UnaryNumericOp.I64CLZ -> {
-                // TODO: https://certora.atlassian.net/browse/CERT-6396
-                mergeMany(
-                    assignHavoc(lhs),
-                    assume {
-                       if (op == UnaryNumericOp.I32CLZ)  { lhs le 32.asTACExpr } else { lhs le 64.asTACExpr }
-                    }
-                )
-            }
-
-            UnaryNumericOp.I32CTZ, UnaryNumericOp.I64CTZ -> {
-                // TODO: https://certora.atlassian.net/browse/CERT-6396
-                mergeMany(
-                    assignHavoc(lhs),
-                    assume {
-                        if (op == UnaryNumericOp.I32CTZ) { lhs le 32.asTACExpr } else { lhs le 64.asTACExpr }
-                    }
-                )
-            }
+            UnaryNumericOp.I32CLZ -> BitCounts.countLeadingZeros(lhs, arg1, 32, MetaMap())
+            UnaryNumericOp.I64CLZ -> BitCounts.countLeadingZeros(lhs, arg1, 64, MetaMap())
+            UnaryNumericOp.I32CTZ -> BitCounts.countTrailingZeros(lhs, arg1, 32, MetaMap())
+            UnaryNumericOp.I64CTZ -> BitCounts.countTrailingZeros(lhs, arg1, 64, MetaMap())
         }
     }
 

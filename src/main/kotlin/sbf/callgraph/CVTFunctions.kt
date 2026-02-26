@@ -104,7 +104,7 @@ enum class CVTCore(val function: ExternalFunction) {
     NONDET_ACCOUNT_INFO(ExternalFunction(CVT_nondet_account_info, setOf(),setOf(Value.Reg(SbfRegister.R1_ARG))));
 
     companion object: ExternalLibrary<CVTCore>  {
-        private val nameMap = values().associateBy { it.function.name }
+        private val nameMap = CVTCore.entries.associateBy { it.function.name }
 
         override fun from(name: String) = nameMap[name]
         override fun addSummaries(memSummaries: MemorySummaries) {
@@ -171,7 +171,7 @@ enum class CVTCalltrace(val function: ExternalFunction,
                   setOf(CalltraceStr(SbfRegister.R1_ARG)));
 
     companion object: ExternalLibrary<CVTCalltrace>  {
-        private val nameMap = values().associateBy { it.function.name }
+        private val nameMap = CVTCalltrace.entries.associateBy { it.function.name }
 
         override fun from(name: String) = nameMap[name]
         override fun addSummaries(memSummaries: MemorySummaries) {
@@ -210,7 +210,7 @@ enum class CVTU128Intrinsics(val function: ExternalFunction) {
 
 
     companion object: ExternalLibrary<CVTU128Intrinsics>  {
-        private val nameMap = values().associateBy { it.function.name }
+        private val nameMap = CVTU128Intrinsics.entries.associateBy { it.function.name }
 
         override fun from(name: String) = nameMap[name]
 
@@ -236,7 +236,7 @@ enum class CVTI128Intrinsics(val function: ExternalFunction) {
     I128_NONDET(ExternalFunction(CvlrFunctions.CVT_nondet_i128, setOf(), setOf(Value.Reg(SbfRegister.R1_ARG))));
 
     companion object: ExternalLibrary<CVTI128Intrinsics>  {
-        private val nameMap = values().associateBy { it.function.name }
+        private val nameMap = CVTI128Intrinsics.entries.associateBy { it.function.name }
 
         override fun from(name: String) = nameMap[name]
 
@@ -322,7 +322,7 @@ enum class CVTNativeInt(val function: ExternalFunction) {
 
 
     companion object: ExternalLibrary<CVTNativeInt>  {
-        private val nameMap = values().associateBy { it.function.name }
+        private val nameMap = CVTNativeInt.entries.associateBy { it.function.name }
 
         override fun from(name: String) = nameMap[name]
         override fun addSummaries(memSummaries: MemorySummaries) {
@@ -346,7 +346,7 @@ enum class CVTNondet(val function: ExternalFunction) {
     NONDET_I64(ExternalFunction(CvlrFunctions.CVT_nondet_i64, setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf()));
 
     companion object: ExternalLibrary<CVTNondet>  {
-        private val nameMap = values().associateBy { it.function.name }
+        private val nameMap = CVTNondet.entries.associateBy { it.function.name }
 
         override fun from(name: String) = nameMap[name]
         override fun addSummaries(memSummaries: MemorySummaries) {

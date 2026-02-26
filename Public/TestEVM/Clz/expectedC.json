@@ -1,0 +1,11 @@
+{
+	"rules": {
+		"clz": "SUCCESS",
+		"clz_tests": "SUCCESS",
+		"envfreeFuncsStaticCheck": {
+			"SUCCESS": [
+				"clz(uint256)"
+			]
+		}
+	}
+}

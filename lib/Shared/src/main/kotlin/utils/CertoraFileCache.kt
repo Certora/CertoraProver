@@ -22,6 +22,7 @@ import config.SOURCES_SUBDIR
 import java.io.*
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
+import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.Path
 
@@ -39,6 +40,8 @@ object CertoraFileCache {
     private val fileToString = ConcurrentHashMap<CanonFile, String>()
     private val fileToBytes = ConcurrentHashMap<CanonFile, ByteArray>()
     private val fileToLineStarts = ConcurrentHashMap<CanonFile, LineStarts>()
+
+    const val CARGO_HOME_PREFIX = "/CARGO_HOME/"
 
     fun certoraSourcesDir(): File {
         val buildDir = Config.CertoraBuildDirectory.get()
@@ -104,6 +107,47 @@ object CertoraFileCache {
             }
         }
         return relPath
+    }
+
+    /**
+     * Resolves a given [path] string that starts in [CARGO_HOME_PREFIX] to the absolute path.
+     * Returns null in case it doesn't start in the prefix.
+     *
+     * If the global environment variable CARGO_HOME is set, and the path exists, or if the default .cargo
+     * home location (folder .cargo in the user's home directory) exists, the relative path
+     * (retained by stripping [CARGO_HOME_PREFIX] from [path]) is resolve from this folder.
+     *
+     * Returns the absolute resolved path if existing.
+     */
+    fun tryResolvePathInCargoHome(path: String): Path? {
+        @Suppress("ForbiddenMethodCall")
+        if(!path.startsWith(CARGO_HOME_PREFIX)){
+            return null
+        }
+        fun existingFileOrNull(file: File): File? {
+            return if (file.exists()) {
+                file
+            } else {
+                null
+            }
+        }
+        // Takes the user's environment variable CARGO_HOME folder or attempts to use the default location
+        // which is .cargo in the user's home folder
+        val cargoHome = System.getenv("CARGO_HOME")?.let {
+            existingFileOrNull(File(it))
+        } ?: run {
+            val userHome = System.getProperty("user.home")
+            existingFileOrNull(File(userHome, ".cargo"))
+        }
+
+        if (cargoHome == null) {
+            //Could not resolve file in CARGO_HOME folder
+            return null
+        }
+
+        val relativeFromCargoHome = path.replace(CARGO_HOME_PREFIX, "")
+        // Resolve the relative path from Cargo home path.
+        return Path(cargoHome.path, relativeFromCargoHome)
     }
 
     /** read [canonFile] as bytes and cache the result, or fetch existing cache content if available */

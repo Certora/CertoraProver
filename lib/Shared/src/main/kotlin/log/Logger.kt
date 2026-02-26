@@ -146,6 +146,7 @@ enum class LoggerTypes : LoggerName {
     SBF_LIVENESS,
     SBF_DEBUG_ANNOTATOR,
     SBF_MEMCPY_PROMOTION,
+    SBF_MEMSET_PROMOTION,
     WASM,
     WASM_ANALYSIS,
     CVLR,

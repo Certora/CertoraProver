@@ -585,7 +585,7 @@ class ScalarDomainTest {
     @Test
     fun `narrowing store of non-negative number with memcpy promotion`() {
         val cfg = `narrowing store`(5UL, 5UL)
-        promoteStoresToMemcpy(cfg, globals, memSummaries)
+        promoteMemcpy(cfg, globals, memSummaries)
         removeUselessDefinitions(cfg)
         println("$cfg")
 
@@ -609,7 +609,7 @@ class ScalarDomainTest {
     @Test
     fun `narrowing store of negative number with memcpy promotion`() {
         val cfg = `narrowing store`((-5).toULong(), 65531UL)
-        promoteStoresToMemcpy(cfg, globals, memSummaries)
+        promoteMemcpy(cfg, globals, memSummaries)
         removeUselessDefinitions(cfg)
         println("$cfg")
 

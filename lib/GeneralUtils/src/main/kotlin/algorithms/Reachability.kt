@@ -81,3 +81,43 @@ inline fun <V> traverseBFS(start: Iterable<V>, nexts: (V) -> Iterable<V>?): Unit
 inline fun <V> traverseBFS1(start: V, nexts: (V) -> Iterable<V>?): Unit {
     traverseBFS(listOf(start), nexts)
 }
+
+/**
+ * Compacts a graph to only include edges between target nodes.
+ * Intermediate (non-target) nodes are collapsed, creating direct edges between target nodes.
+ *
+ * For each target node, finds all other target nodes reachable from it through paths
+ * that may traverse non-target intermediate nodes.
+ *
+ *
+ * @param targetNodes Nodes to keep in the compacted graph
+ * @param nexts Function returning successors for each node
+ * @return MultiMap representing the compacted graph's adjacency list
+ */
+inline fun <V> compactGraph(targetNodes: Set<V>, crossinline nexts: (V) -> Iterable<V>?): MultiMap<V, V> {
+    val result = mutableMapOf<V, Set<V>>()
+
+    for (startNode in targetNodes) {
+        // Get immediate successors of this target node
+        val immediateSuccessors = nexts(startNode) ?: emptyList()
+
+        // Find all target nodes reachable through non-target intermediate nodes
+        val reachableTargets = getReachable(immediateSuccessors) { node ->
+            if (node in targetNodes) {
+                // Reached a target node - include it but don't traverse further
+                null
+            } else {
+                // Non-target node - traverse through it
+                nexts(node)
+            }
+        }
+
+        // Store all reachable target nodes as successors
+        val targets = reachableTargets.filter { it in targetNodes }.toSet()
+        if (targets.isNotEmpty()) {
+            result[startNode] = targets
+        }
+    }
+
+    return result
+}

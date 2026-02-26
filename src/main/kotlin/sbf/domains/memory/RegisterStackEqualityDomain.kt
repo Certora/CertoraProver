@@ -24,7 +24,6 @@ import sbf.cfg.*
 import datastructures.stdcollections.*
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
-import log.*
 import sbf.callgraph.SolanaFunction
 
 fun StackLocation.toInterval() = FiniteInterval.mkInterval(offset, width.toLong())
@@ -281,10 +280,13 @@ class RegisterStackEqualityDomain(
         }
     }
 
-    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>  summarizeCall(
+    private fun<TNum, TOffset, TScalarDomain> summarizeCall(
         locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain<TNum, TOffset>
-    ): RegisterStackEqualityDomain  {
+        scalars: TScalarDomain
+    ): RegisterStackEqualityDomain
+    where TNum: INumValue<TNum>,
+          TOffset: IOffset<TOffset>,
+          TScalarDomain: ScalarValueProvider<TNum, TOffset> {
         class ScalarSummaryVisitor(var state: RegisterStackEqualityDomain): SummaryVisitor {
             val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
             override fun noSummaryFound(
@@ -317,10 +319,13 @@ class RegisterStackEqualityDomain(
         return vis.state
     }
 
-    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeMemIntrinsics(
+    private fun<TNum, TOffset, TScalarDomain> analyzeMemIntrinsics(
         locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain<TNum, TOffset>
-    ): RegisterStackEqualityDomain {
+        scalars: TScalarDomain
+    ): RegisterStackEqualityDomain
+        where TNum: INumValue<TNum>,
+              TOffset: IOffset<TOffset>,
+              TScalarDomain: ScalarValueProvider<TNum, TOffset> {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call)
 
@@ -335,7 +340,7 @@ class RegisterStackEqualityDomain(
             SolanaFunction.SOL_MEMSET,
             SolanaFunction.SOL_MEMCPY_TRUNC -> {
                 // If we don't know the length then we give up and forget any information
-                (scalars.getValue(r3).type() as? SbfType.NumType)?.value?.toLongOrNull()
+                (scalars.getAsScalarValue(r3).type() as? SbfType.NumType)?.value?.toLongOrNull()
                     ?: return setToTop()
             }
             SolanaFunction.SOL_MEMCPY_ZEXT -> 8L
@@ -349,10 +354,13 @@ class RegisterStackEqualityDomain(
         }.havoc(r1, 0, len, scalars)
     }
 
-    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeCall(
+    private fun<TNum, TOffset, TScalarDomain> analyzeCall(
         locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain<TNum, TOffset>
-    ): RegisterStackEqualityDomain {
+        scalars: TScalarDomain
+    ): RegisterStackEqualityDomain
+        where TNum: INumValue<TNum>,
+              TOffset: IOffset<TOffset>,
+              TScalarDomain: ScalarValueProvider<TNum, TOffset> {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call)
 
@@ -389,12 +397,15 @@ class RegisterStackEqualityDomain(
     }
 
     /** Havoc all stack bytes in range `[base+offset ...., base+offset+size)` **/
-    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> havoc(
+    private fun<TNum, TOffset, TScalarDomain> havoc(
         base: Value.Reg,
         offset: Long,
         size: Long,
-        scalars: ScalarDomain<TNum, TOffset>
-    ): RegisterStackEqualityDomain {
+        scalars: TScalarDomain
+    ): RegisterStackEqualityDomain
+    where TNum: INumValue<TNum>,
+          TOffset: IOffset<TOffset>,
+          TScalarDomain: ScalarValueProvider<TNum, TOffset> {
         val baseTy = scalars.getAsScalarValue(base).type()
 
         // if we don't know the type of the base then we lose all information since we don't know which stack
@@ -432,10 +443,13 @@ class RegisterStackEqualityDomain(
         )
     }
 
-    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeStore(
+    private fun<TNum, TOffset, TScalarDomain> analyzeStore(
         locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain<TNum, TOffset>
-    ): RegisterStackEqualityDomain {
+        scalars: TScalarDomain
+    ): RegisterStackEqualityDomain
+        where TNum: INumValue<TNum>,
+              TOffset: IOffset<TOffset>,
+              TScalarDomain: ScalarValueProvider<TNum, TOffset> {
         val inst = locInst.inst
         check(inst is SbfInstruction.Mem)
         check(!inst.isLoad)
@@ -447,10 +461,13 @@ class RegisterStackEqualityDomain(
         return havoc(base, offset, width.toLong(), scalars)
     }
 
-    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeLoad(
+    private fun<TNum, TOffset, TScalarDomain> analyzeLoad(
         locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain<TNum, TOffset>
-    ): RegisterStackEqualityDomain {
+        scalars: TScalarDomain
+    ): RegisterStackEqualityDomain
+        where TNum: INumValue<TNum>,
+              TOffset: IOffset<TOffset>,
+              TScalarDomain: ScalarValueProvider<TNum, TOffset> {
         val inst = locInst.inst
         check(inst is SbfInstruction.Mem)
         check(inst.isLoad)
@@ -491,10 +508,13 @@ class RegisterStackEqualityDomain(
         return setRegister(lhs, StackLoad(stackSlot, locInst))
     }
 
-    fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyze(
+    fun<TNum, TOffset, TScalarDomain> analyze(
         locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain<TNum, TOffset>
-    ): RegisterStackEqualityDomain {
+        scalars: TScalarDomain
+    ): RegisterStackEqualityDomain
+        where TNum: INumValue<TNum>,
+              TOffset: IOffset<TOffset>,
+              TScalarDomain: ScalarValueProvider<TNum, TOffset>  {
         return when (val s = locInst.inst) {
             is SbfInstruction.Un -> forget(listOf(s.dst))
             is SbfInstruction.Bin -> analyzeBin(locInst)
@@ -527,102 +547,64 @@ class RegisterStackEqualityDomain(
     }
 }
 
-private fun getRegFromUnaryConditionOrNull(cond: Condition): Value.Reg? =
-    cond.left.takeIf { cond.right is Value.Imm }
-
-/**
- * Simple reduction from the equality domain to the scalar domain.
- *
- * This reduction propagates equality constraints between registers and stack memory
- * in two scenarios:
- *
- * 1. Constant propagation through equality:
- *    If `assume(r == k)` and `r -> *(stack(o,w))`, then `*(stack(o,w)) == k`
- *
- * 2. Register equality after load:
- *    If `load(r1, stack(o,w))` and `r2 -> *(stack(o,w))`, then `r1 == r2`
- *
- * where stack(o,w) denotes stack offsets [o, o+w)
- */
-private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> ScalarDomain<TNum, TOffset>.refineWithEqualities(
-    locInst: LocatedSbfInstruction,
-    equalities: RegisterStackEqualityDomain
-) {
-    if (isBottom()) {
-        return
-    }
-
-    val inst = locInst.inst
-    when {
-        inst is SbfInstruction.Mem && inst.isLoad -> {
-            val lhs = inst.value as Value.Reg
-            val eqSet = equalities.getEqualities(lhs)
-            if (eqSet.isNotEmpty()) {
-                // We compute a lower bound (not necessarily the greatest) using the ordering
-                var lbVal = this.getValue(lhs)
-                eqSet.forEach { reg ->
-                    val regVal = this.getValue(reg)
-                    if (!lbVal.lessOrEqual(regVal)) { // scalarVal is strictly smaller than lb
-                        lbVal = regVal
-                    }
-                }
-                if (!lbVal.isTop()) {
-                    this.setScalarValue(lhs, lbVal)
-                }
-            }
-        }
-        inst is SbfInstruction.Assume && inst.cond.op == CondOp.EQ-> {
-            val reg = getRegFromUnaryConditionOrNull(inst.cond) ?: return
-            val stackSlot = equalities.getRegister(reg)?.loc ?: return
-            val scalarVal = this.getValue(reg)
-            if (!scalarVal.isTop()) {
-                this.setStackContent(stackSlot.offset, stackSlot.width, scalarVal)
-            }
-        }
-        else -> {}
-    }
+class ScalarRegisterStackEqualityDomainFactory<TNum, TOffset>
+  : IScalarDomainFactory<TNum, TOffset, ScalarRegisterStackEqualityDomain<TNum, TOffset>>
+where TNum: INumValue<TNum>,
+      TOffset: IOffset<TOffset> {
+    override fun mkTop(fac: ISbfTypeFactory<TNum, TOffset>, globalState: GlobalState) =
+        ScalarRegisterStackEqualityDomain.makeTop(fac, globalState)
+    override fun mkBottom(fac: ISbfTypeFactory<TNum, TOffset>, globalState: GlobalState) =
+        ScalarRegisterStackEqualityDomain.makeBottom(fac, globalState)
+    override fun init(
+        fac: ISbfTypeFactory<TNum, TOffset>,
+        globalState: GlobalState,
+        addPreconditions: Boolean
+    ) = ScalarRegisterStackEqualityDomain(fac, globalState, addPreconditions)
 }
 
 /**
- * Simple Reduced Product between [ScalarDomain] and [RegisterStackEqualityDomain]
+ * Simple Reduced Product between a scalar domain and [RegisterStackEqualityDomain]
  **/
 class ScalarRegisterStackEqualityDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private constructor(
-        private val scalars: ScalarDomain<TNum, TOffset>,
-        private var equalities: RegisterStackEqualityDomain,
-        private val globalState: GlobalState
+    private val scalars: RegStackEqScalarDom<TNum, TOffset>,
+    private var equalities: RegisterStackEqualityDomain,
+    private val globalState: GlobalState
 ) : AbstractDomain<ScalarRegisterStackEqualityDomain<TNum, TOffset>>,
     ScalarValueProvider<TNum, TOffset>,
     StackLocationQuery {
-
-    val sbfTypeFac: ISbfTypeFactory<TNum, TOffset> = scalars.sbfTypeFac
 
     constructor(
         sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
         globalState: GlobalState,
         initPreconditions: Boolean = false):
         this(
-            ScalarDomain(sbfTypeFac, globalState, initPreconditions),
+            RegStackEqScalarDom(sbfTypeFac, globalState, initPreconditions),
             RegisterStackEqualityDomain.makeTop(globalState),
             globalState
         )
 
     companion object {
-        fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> makeTop(
+        fun<TNum, TOffset> makeTop(
             sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
             globalState: GlobalState
-        ): ScalarRegisterStackEqualityDomain<TNum, TOffset> {
+        ): ScalarRegisterStackEqualityDomain<TNum, TOffset>
+        where TNum: INumValue<TNum>,
+              TOffset: IOffset<TOffset> {
             return ScalarRegisterStackEqualityDomain(
-                ScalarDomain(sbfTypeFac, globalState),
+                RegStackEqScalarDom.makeTop(sbfTypeFac, globalState),
                 RegisterStackEqualityDomain.makeTop(globalState),
                 globalState
             )
         }
-        fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> makeBottom(
+
+        fun<TNum, TOffset> makeBottom(
             sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
             globalState: GlobalState
-        ): ScalarRegisterStackEqualityDomain<TNum, TOffset> {
+        ): ScalarRegisterStackEqualityDomain<TNum, TOffset>
+            where TNum: INumValue<TNum>,
+                  TOffset: IOffset<TOffset> {
             return ScalarRegisterStackEqualityDomain(
-                ScalarDomain.makeBottom(sbfTypeFac, globalState),
+                RegStackEqScalarDom.makeBottom(sbfTypeFac, globalState),
                 RegisterStackEqualityDomain.makeTop(globalState),
                 globalState
             )
@@ -709,6 +691,64 @@ class ScalarRegisterStackEqualityDomain<TNum: INumValue<TNum>, TOffset: IOffset<
         }
     }
 
+    private fun getRegFromUnaryConditionOrNull(cond: Condition): Value.Reg? =
+        cond.left.takeIf { cond.right is Value.Imm }
+
+    /**
+     * Simple reduction from the equality domain to the scalar domain.
+     *
+     * This reduction propagates equality constraints between registers and stack memory
+     * in two scenarios:
+     *
+     * 1. Constant propagation through equality:
+     *    If `assume(r == k)` and `r -> *(stack(o,w))`, then `*(stack(o,w)) == k`
+     *
+     * 2. Register equality after load:
+     *    If `load(r1, stack(o,w))` and `r2 -> *(stack(o,w))`, then `r1 == r2`
+     *
+     * where stack(o,w) denotes stack offsets [o, o+w)
+     */
+    private fun refineWithEqualities(
+        scalars: RegStackEqScalarDom<TNum, TOffset>,
+        locInst: LocatedSbfInstruction,
+        equalities: RegisterStackEqualityDomain
+    ) {
+
+        if (scalars.isBottom()) {
+            return
+        }
+
+        val inst = locInst.inst
+        when {
+            inst is SbfInstruction.Mem && inst.isLoad -> {
+                val lhs = inst.value as Value.Reg
+                val eqSet = equalities.getEqualities(lhs)
+                if (eqSet.isNotEmpty()) {
+                    // We compute a lower bound (not necessarily the greatest) using the ordering
+                    var lbVal = scalars.getAsScalarValue(lhs)
+                    eqSet.forEach { reg ->
+                        val regVal = scalars.getAsScalarValue(reg)
+                        if (!lbVal.lessOrEqual(regVal)) { // scalarVal is strictly smaller than lb
+                            lbVal = regVal
+                        }
+                    }
+                    if (!lbVal.isTop()) {
+                        scalars.setScalarValue(lhs, lbVal)
+                    }
+                }
+            }
+            inst is SbfInstruction.Assume && inst.cond.op == CondOp.EQ-> {
+                val reg = getRegFromUnaryConditionOrNull(inst.cond) ?: return
+                val stackSlot = equalities.getRegister(reg)?.loc ?: return
+                val scalarVal = scalars.getAsScalarValue(reg)
+                if (!scalarVal.isTop()) {
+                    scalars.setStackContent(stackSlot.offset, stackSlot.width, scalarVal)
+                }
+            }
+            else -> {}
+        }
+    }
+
     fun analyze(locInst: LocatedSbfInstruction): ScalarRegisterStackEqualityDomain<TNum, TOffset> {
         // this might be expensive if ultimately we don't use a listener.
         val outScalars = scalars.deepCopy()
@@ -718,7 +758,7 @@ class ScalarRegisterStackEqualityDomain<TNum: INumValue<TNum>, TOffset: IOffset<
         } else {
             equalities
         }
-        outScalars.refineWithEqualities(locInst, outEqualities)
+        refineWithEqualities(outScalars, locInst, outEqualities)
         return ScalarRegisterStackEqualityDomain(
             outScalars,
             outEqualities,
@@ -758,5 +798,7 @@ class ScalarRegisterStackEqualityDomain<TNum: INumValue<TNum>, TOffset: IOffset<
     override fun getStackContent(offset: Long, width: Byte): ScalarValue<TNum, TOffset> {
        return scalars.getStackContent(offset, width)
     }
+
+    override fun getTypeFac() = scalars.getTypeFac()
 
 }

@@ -35,7 +35,7 @@ import vc.data.*
  * The byte map scalarizer optimization does not support map definitions.
  */
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> memsetNonStackWithMapDef(
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> memsetNonStackWithMapDef(
     mapV: TACByteMapVariable,
     len: Long,
     value: Long
@@ -70,7 +70,7 @@ fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TF
  * Same semantics than `memsetNonStackWithMapDef` but this version does not use a map definition.
  */
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> memsetNonStack(
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> memsetNonStack(
     mapV: TACByteMapVariable,
     len: Long,
     value: Long

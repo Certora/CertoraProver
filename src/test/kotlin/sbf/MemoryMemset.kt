@@ -34,13 +34,16 @@ class MemoryMemsetTest {
     // Return node pointed by *([baseR] + [offset])
     private fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>>  getNode(
         g: PTAGraph<TNum, TOffset, Flags>,
-        base: Value.Reg, offset: Short, width: Short
+        base: Value.Reg,
+        offset: Short,
+        width: Short,
+        scalars: ScalarValueProvider<TNum, TOffset>
     ): PTANode<Flags>? {
         val lhs = Value.Reg(SbfRegister.R7)
         check(base != lhs)
         val inst = SbfInstruction.Mem(Deref(width, base, offset), lhs, true)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
-        g.doLoad(locInst, base, SbfType.top())
+        g.doLoad(locInst, base, SbfType.top(), scalars)
         val sc = g.getRegCell(lhs)
         return sc?.getNode()
     }
@@ -49,8 +52,9 @@ class MemoryMemsetTest {
     private fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>>  checkPointsToNode(
         g: PTAGraph<TNum, TOffset, Flags>,
         base: Value.Reg, offset: Short,
-        node: PTANode<Flags>
-    ) = getNode(g, base, offset, 8)?.id == node.getNode().id
+        node: PTANode<Flags>,
+        scalars: ScalarValueProvider<TNum, TOffset>
+    ) = getNode(g, base, offset, 8, scalars)?.id == node.getNode().id
 
     private fun createMemoryDomain() =
         MemoryDomain(
@@ -101,9 +105,9 @@ class MemoryMemsetTest {
         g.doMemset(locInst, scalars)
         sbfLogger.warn { "After\n$g" }
 
-        Assertions.assertEquals(false, checkPointsToNode(g, r1, 0, n1))
-        Assertions.assertEquals(false, checkPointsToNode(g, r1, 8, n2))
-        Assertions.assertEquals(false, checkPointsToNode(g, r1, 16, n3))
+        Assertions.assertEquals(false, checkPointsToNode(g, r1, 0, n1, scalars))
+        Assertions.assertEquals(false, checkPointsToNode(g, r1, 8, n2, scalars))
+        Assertions.assertEquals(false, checkPointsToNode(g, r1, 16, n3, scalars))
     }
 
     @Test
@@ -138,9 +142,9 @@ class MemoryMemsetTest {
         g.doMemset(locInst, scalars)
         sbfLogger.warn { "After\n$g" }
 
-        Assertions.assertEquals(true, checkPointsToNode(g, r1, 0, n1))
-        Assertions.assertEquals(true, checkPointsToNode(g, r1, 8, n2))
-        Assertions.assertEquals(true, checkPointsToNode(g, r1, 16, n3))
+        Assertions.assertEquals(true, checkPointsToNode(g, r1, 0, n1, scalars))
+        Assertions.assertEquals(true, checkPointsToNode(g, r1, 8, n2, scalars))
+        Assertions.assertEquals(true, checkPointsToNode(g, r1, 16, n3, scalars))
     }
 
     @Test
@@ -174,9 +178,9 @@ class MemoryMemsetTest {
         g.doMemset(locInst, scalars)
         sbfLogger.warn { "After\n$g" }
 
-        Assertions.assertEquals(true, checkPointsToNode(g, r1, 0, n1))
-        Assertions.assertEquals(true, checkPointsToNode(g, r1, 8, n2))
-        Assertions.assertEquals(true, checkPointsToNode(g, r1, 16, n3))
+        Assertions.assertEquals(true, checkPointsToNode(g, r1, 0, n1, scalars))
+        Assertions.assertEquals(true, checkPointsToNode(g, r1, 8, n2, scalars))
+        Assertions.assertEquals(true, checkPointsToNode(g, r1, 16, n3, scalars))
     }
 
 }

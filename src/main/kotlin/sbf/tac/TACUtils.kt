@@ -45,7 +45,7 @@ fun weakAssign(lhs: TACSymbol.Var, cond: TACExpr, rhs: TACExpr):  TACCmd.Simple.
 }
 
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
     unreachable(inst: SbfInstruction): List<TACCmd.Simple> {
     return listOf(
         Debug.unreachable(inst),
@@ -68,7 +68,7 @@ fun havocScalars(scalars: List<TACByteStackVariable>): List<TACCmd.Simple> {
  * See comments in [TACMemSplitter.HavocScalars]
  **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
     weakHavocScalars(base: TACExpr.Sym.Var,
                      offset: TACExpr.Sym.Const,
                      stackMap: Map<PTAOffset, List<TACByteStackVariable>>): List<TACCmd.Simple> {
@@ -90,7 +90,7 @@ fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TF
  * otherwise it evaluates to 1.
  **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
     allEqual(l1: List<TACSymbol.Var>, l2: List<TACSymbol.Var>, cmds: MutableList<TACCmd.Simple>): TACExpr {
     check(l1.size == l2.size) {"Precondition of emitTACVarsEq does not hold: $l1 and $l2 have different sizes."}
     val boolVars = ArrayList<TACSymbol.Var>(l1.size)
@@ -138,7 +138,7 @@ fun narrowFromMathInt(from: TACExpr, to: TACSymbol.Var, toTag: Tag.Bits = Tag.Bi
 
 /** res = high << 64 + low **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> mergeU128(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> mergeU128(
     low: TACExpr.Sym,
     high: TACExpr.Sym,
     cmds: MutableList<TACCmd.Simple>,
@@ -150,7 +150,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
 }
 /** res = high << 64 + low **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> mergeU128(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> mergeU128(
     res: TACSymbol.Var,
     low: TACExpr.Sym,
     high: TACExpr.Sym,
@@ -167,7 +167,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
 
 /** res = (w4 << 192) + (w3 << 128) + (w2 << 64) + w1 */
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> mergeU256(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> mergeU256(
     res: TACSymbol.Var,
     w1: TACExpr.Sym,
     w2: TACExpr.Sym,
@@ -195,7 +195,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
  *  high = e >> 64
  */
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> splitU128(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> splitU128(
     e: TACSymbol.Var, low: TACSymbol.Var, high: TACSymbol.Var): List<TACCmd.Simple> {
     val c64E = exprBuilder.SIXTY_FOUR.asSym()
     val twoPowerOf128 = BigInteger.TWO.pow(128).asTACExpr()
@@ -210,7 +210,7 @@ data class Result128(val low: TACVariable, val high: TACVariable, val overflow: 
 
 /** Get the symbolic TAC variables corresponding to the result of u128/i128 operation **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getResFrom128(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getResFrom128(
     locInst: LocatedSbfInstruction
 ): Result128? {
     val summaryArgs = mem.getTACMemoryFromSummary(locInst) ?: return null
@@ -245,7 +245,7 @@ data class U128ShiftOperands(val resLow: TACSymbol.Var,
 )
 
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> applyU128BinaryOperation(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> applyU128BinaryOperation(
     args: U128BinaryOperands,
     cmds: MutableList<TACCmd.Simple>,
     op: (res: TACSymbol.Var, overflow: TACSymbol.Var?, x: TACSymbol.Var, y: TACSymbol.Var) -> Unit) {
@@ -257,7 +257,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
 }
 
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> applyU128ShiftOperation(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> applyU128ShiftOperation(
     args: U128ShiftOperands,
     cmds: MutableList<TACCmd.Simple>,
     op: (res: TACSymbol.Var, x: TACSymbol.Var, shift: TACExpr.Sym) -> Unit) {
@@ -269,7 +269,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
 }
 
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> assume(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> assume(
     op: CondOp,
     left: TACExpr,
     right: TACExpr,
@@ -277,7 +277,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
 ): List<TACCmd.Simple> = assume(exprBuilder.mkBinRelExp(op, left, right), msg)
 
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> assume(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> assume(
     e: TACExpr,
     msg: String
 ): List<TACCmd.Simple> {
@@ -301,7 +301,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
  * where each `ei` is an element of [assumptions] and refers to `v`
  **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>  nondetWithAssumptions(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>  nondetWithAssumptions(
     v: TACSymbol.Var,
     assumptions: List<TACExpr> = listOf()
 ): List<TACCmd.Simple> {
@@ -326,7 +326,7 @@ fun switch(keyValPairs: List<Pair<TACExpr, TACExpr>>, default: TACExpr): TACExpr
 
 /** Extract TAC variables used by a summary **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getTACVariables(
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getTACVariables(
     locInst: LocatedSbfInstruction,
     cmds: MutableList<TACCmd.Simple>
 ) : List<TACSymbol.Var> {

@@ -615,9 +615,9 @@ class CloudVerification:
 
         elif Attrs.is_sui_app():
             sui_jar_settings = ['-movePath', Path(self.context.move_path).name]
-            if self.context.sui_package_summary_path:
+            if self.context.sui_package_summary_path and self.context.sui_package_summary_path.exists():
                 sui_jar_settings.append('-suiPackageSummaryPath')
-                sui_jar_settings.append(Path(self.context.sui_package_summary_path).name)
+                sui_jar_settings.append(self.context.sui_package_summary_path.name)
             auth_data["jarSettings"] = sui_jar_settings + jar_settings
 
         elif Attrs.is_concord_app():
@@ -769,8 +769,8 @@ class CloudVerification:
                           Util.get_configuration_layout_data_file(),
                           Util.get_build_dir() / Path(self.context.move_path).name]
 
-            if self.context.sui_package_summary_path:
-                files_list.append(Util.get_build_dir() / Path(self.context.sui_package_summary_path).name)
+            if self.context.sui_package_summary_path and self.context.sui_package_summary_path.exists():
+                files_list.append(Util.get_build_dir() / self.context.sui_package_summary_path.name)
 
             if Util.get_certora_sources_dir().exists():
                 files_list.append(Util.get_certora_sources_dir())

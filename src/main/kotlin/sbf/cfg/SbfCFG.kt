@@ -17,12 +17,14 @@
 
 package sbf.cfg
 
+import compiler.toHeuristicSourceSegment
 import com.certora.collect.*
 import sbf.SolanaConfig
 import sbf.disassembler.*
 import datastructures.stdcollections.*
 import dwarf.DebugSymbols
 import sbf.dwarf.DWARFEdgeLabelAnnotator
+import vc.data.TACMetaInfo
 import kotlin.collections.removeLast
 
 /**
@@ -106,13 +108,6 @@ class MutableSbfBasicBlock(private val label: Label): SbfBasicBlock {
         insts.clear()
         preds.clear()
         succs.clear()
-    }
-
-    fun removePred() {
-        // notify predecessors of bb
-        for (pred in preds) {
-            pred.succs.removeIf { it.label == label }
-        }
     }
 
     fun removeSuccs() {
@@ -645,6 +640,7 @@ class MutableSbfCFG(private val name: String): SbfCFG {
 
     /**
      * Transform
+     * ```
      *  bb:
      *     0
      *     ..
@@ -652,9 +648,9 @@ class MutableSbfCFG(private val name: String): SbfCFG {
      *     i+1
      *     ...
      *     goto Cont
-     *
+     * ```
      *  into
-     *
+     * ```
      *   bb:
      *     0
      *     ..
@@ -664,8 +660,8 @@ class MutableSbfCFG(private val name: String): SbfCFG {
      *    i+1
      *    ...
      *    goto Cont
-     *
-     * and return bb'
+     * ```
+     * and return `bb'`
      */
     fun splitBlock(label: Label, index: Int): MutableSbfBasicBlock {
         val b = getMutableBlock(label)
@@ -901,22 +897,23 @@ class MutableSbfCFG(private val name: String): SbfCFG {
         }
     }
 
-    // Remove empty blocks that only one successor
-    fun removeUselessBlocks() {
-        val worklist = ArrayList<Label>(blocks.size)
-        blocks.forEachEntry { worklist.add(it.key) }
+    // Remove empty blocks (only jump instruction) with only one successor
+    fun removeEmptyBlocks() {
+        val worklist = ArrayList<MutableSbfBasicBlock>(blocks.size)
+        worklist.addAll(blocks.values)
         while (worklist.isNotEmpty()) {
-            val curL = worklist.removeLast()
-            val curB = blocks[curL]
-            check(curB != null) { "cannot find block associated to $curL in removeUselessBlocks" }
+            val curB = worklist.removeLast()
+
+            // The block has only one terminator instruction
             if (!(curB.getSuccs().size == 1 && curB.numOfInstructions() == 1)) {
                 continue
             }
-            // The basic block has only an unconditional jump to its only successor
-            val succB = curB.getMutableSuccs().first()
 
-            if (curB == succB) {
-                // This is an empty loop: we don't touch it.
+            // The `curB` has only an unconditional jump to its only successor
+            val onlySuccB = curB.getMutableSuccs().single()
+
+            // This is an empty loop: we don't touch it.
+            if (curB == onlySuccB) {
                 continue
             }
 
@@ -926,26 +923,28 @@ class MutableSbfCFG(private val name: String): SbfCFG {
             // Redirect each predB predecessor to succB
             for (predB in predecessors) {
                 val predTermInst = predB.getTerminator()
-                check(predTermInst is SbfInstruction.Jump) {"$predTermInst should be a jump instruction in removeUselessBlocks"}
+                check(predTermInst is SbfInstruction.Jump) {
+                    "$predTermInst should be a jump instruction in removeEmptyBlocks"
+                }
                 when (predTermInst) {
                     is SbfInstruction.Jump.UnconditionalJump -> {
                         predB.replaceInstruction(
                             predB.numOfInstructions() - 1,
-                            predTermInst.copy(target = succB.getLabel())
+                            predTermInst.copy(target = onlySuccB.getLabel())
                         )
                     }
                     is SbfInstruction.Jump.ConditionalJump -> {
                         predB.replaceInstruction(
                             predB.numOfInstructions() - 1,
-                            if (predTermInst.target == succB.getLabel()) {
-                                predTermInst.copy(target = succB.getLabel())
+                            if (predTermInst.target == curB.getLabel()) {
+                                predTermInst.copy(target = onlySuccB.getLabel())
                             } else {
-                                predTermInst.copy(falseTarget = succB.getLabel())
+                                predTermInst.copy(falseTarget = onlySuccB.getLabel())
                             }
                         )
                     }
                 }
-                predB.addSucc(succB)
+                predB.addSucc(onlySuccB)
                 // No need to remove curB as successor of predB because it will be done when calling removeBlock
             }
             curB.clear()
@@ -1268,10 +1267,26 @@ class MutableSbfCFG(private val name: String): SbfCFG {
     }
 
     fun addDebugInformation(debugInformation: DebugSymbols) {
-        this.getEntry().getInstruction(0).metaData.getVal(SbfMeta.SBF_ADDRESS)?.let {addr ->
+        this.getEntry().getInstruction(0).metaData.getVal(SbfMeta.SBF_ADDRESS)?.let { addr ->
             val debugInfoForMethod = debugInformation.getMethodByNameAndAddress(this.name, addr)
             if(debugInfoForMethod != null) {
                 DWARFEdgeLabelAnnotator(debugInformation, debugInfoForMethod, this, addr).addDebugInformation()
+            }
+        }
+    }
+
+    /**
+     * Adds [TACMetaInfo] to each instruction for which a [SbfMeta.SBF_ADDRESS] is given
+     * and the debug symbols provide [dwarf.LineNumberInfo] for this specific address.
+     */
+    fun addSourceSegments(debugSymbols: DebugSymbols) {
+        this.blocks.forEachEntry { (_, b) ->
+            b.getInstructions().forEachIndexed { index, instruction ->
+                val addr = instruction.metaData.getVal(SbfMeta.SBF_ADDRESS) ?: return@forEachIndexed
+                val lineNumberInfo = debugSymbols.lookUpLineNumberInfo(addr) ?: return@forEachIndexed
+                val sourceSegment = lineNumberInfo.asRange().toHeuristicSourceSegment() ?: return@forEachIndexed
+                val metaData = instruction.metaData
+                b.replaceInstruction(index, instruction.copyInst(metadata = metaData.plus(SbfMeta.SOURCE_SEGMENT to sourceSegment)))
             }
         }
     }

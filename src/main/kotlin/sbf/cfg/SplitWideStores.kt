@@ -19,6 +19,7 @@ package sbf.cfg
 
 import sbf.disassembler.*
 import datastructures.stdcollections.*
+import sbf.SolanaConfig
 import sbf.analysis.*
 import sbf.domains.*
 
@@ -33,6 +34,7 @@ import sbf.domains.*
  */
 
 private const val NUM_ITERATIONS = 5
+private val sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
 
 fun splitWideStores(cfg: MutableSbfCFG,
                     globals: GlobalVariables,
@@ -42,7 +44,13 @@ fun splitWideStores(cfg: MutableSbfCFG,
     // see test03 in splitWideStores to understand why we might need to run the scalar analysis
     // multiple times
     while (change && i < NUM_ITERATIONS) {
-        val scalarAnalysis = AdaptiveScalarAnalysis(cfg, globals, memSummaries)
+        val scalarAnalysis = GenericScalarAnalysis(
+            cfg,
+            globals,
+            memSummaries,
+            sbfTypesFac,
+            CFGTransformScalarDomFac()
+        )
         change = splitWideStores(cfg, scalarAnalysis)
         i++
     }

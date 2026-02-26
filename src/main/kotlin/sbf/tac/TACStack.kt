@@ -35,7 +35,7 @@ import datastructures.stdcollections.*
  * @param preservedValues maps offsets to [Constant] values corresponding to the left-hand side of the load instruction.
  */
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> stackLoad(
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> stackLoad(
     base: TACExpr.Sym.Var,
     o: TACExpr.Sym.Const,
     variables : Map<PTAOffset, TACByteStackVariable>,
@@ -85,7 +85,7 @@ fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TF
  *  ```
  */
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> stackStore(
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> stackStore(
     base: TACExpr.Sym.Var,
     o: TACExpr.Sym.Const,
     stackLocs : Map<PTAOffset, TACByteStackVariable>,
@@ -109,7 +109,7 @@ fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TF
  * Precondition: [stackOffset] is negative because stack grows downward.
  **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> pointsToStack(
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> pointsToStack(
     base: TACExpr.Sym.Var,
     o: TACExpr.Sym.Const,
     stackOffset: PTAOffset
@@ -138,7 +138,7 @@ fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TF
  * ```
  */
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> resolveStackAccess(
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> resolveStackAccess(
     base: TACExpr.Sym.Var,
     o: TACExpr.Sym.Const,
     stackLocs : Map<PTAOffset, TACExpr.Sym>

@@ -258,7 +258,7 @@ data class ConstantSet private constructor(
                     o1.assume(op, o2)
                 }
             }
-            return if (res.all { it.isFalse() }) {
+            if (res.all { it.isFalse() }) {
                 TriBoolean(false)
             } else if (res.all { it.isTrue() }) {
                 TriBoolean(true)

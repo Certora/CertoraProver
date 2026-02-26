@@ -81,7 +81,7 @@ def set_sui_build_directory(context: CertoraContext) -> None:
 
         sources.add(move_toml_file.absolute())
         context.move_path = str(spec_package_dir / "build")
-        context.sui_package_summary_path = str(spec_package_dir / "package_summaries")
+        context.sui_package_summary_path = spec_package_dir / "package_summaries"
 
         if context.build_script:
             # Run the user-provided build script
@@ -111,12 +111,10 @@ def set_sui_build_directory(context: CertoraContext) -> None:
                     ignore=shutil.ignore_patterns('*.move'))
 
     # Copy package summary directory if it exists.  Projects built manually with "sui move build" may not have this.
-    if context.sui_package_summary_path:
-        package_summary_dir = Path(context.sui_package_summary_path)
-        if package_summary_dir.exists():
-            assert package_summary_dir.is_dir(), f"Package summary path '{package_summary_dir}' is not a directory"
-            shutil.copytree(package_summary_dir,
-                            Util.get_build_dir() / package_summary_dir.name)
+    if context.sui_package_summary_path and context.sui_package_summary_path.exists():
+        assert context.sui_package_summary_path.is_dir(), f"Package summary path '{context.sui_package_summary_path}' is not a directory"
+        shutil.copytree(context.sui_package_summary_path,
+                        Util.get_build_dir() / context.sui_package_summary_path.name)
 
     try:
         # Create generators

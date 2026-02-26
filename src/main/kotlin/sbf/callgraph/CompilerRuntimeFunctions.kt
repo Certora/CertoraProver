@@ -71,7 +71,7 @@ enum class SignedInteger64CompilerRtFunction(val function: ExternalFunction) {
             SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet()));
 
     companion object: ExternalLibrary<SignedInteger64CompilerRtFunction>  {
-        private val nameMap = values().associateBy { it.function.name }
+        private val nameMap = SignedInteger64CompilerRtFunction.entries.associateBy { it.function.name }
 
         override fun from(name: String) = nameMap[name]
         override fun addSummaries(memSummaries: MemorySummaries) {
@@ -139,7 +139,7 @@ enum class IntegerU128CompilerRtFunction(val function: ExternalFunction) {
         SbfRegister.R3_ARG, SbfRegister.R4_ARG).map{ Value.Reg(it)}.toSet()));
 
     companion object: ExternalLibrary<IntegerU128CompilerRtFunction>  {
-        private val nameMap = values().associateBy { it.function.name }
+        private val nameMap = IntegerU128CompilerRtFunction.entries.associateBy { it.function.name }
 
         override fun from(name: String) = nameMap[name]
         override fun addSummaries(memSummaries: MemorySummaries) {
@@ -276,7 +276,7 @@ enum class FPCompilerRtFunction(val function: ExternalFunction) {
 
 
     companion object: ExternalLibrary<FPCompilerRtFunction>  {
-        private val nameMap = values().associateBy { it.function.name }
+        private val nameMap = FPCompilerRtFunction.entries.associateBy { it.function.name }
 
         override fun from(name: String) = nameMap[name]
 

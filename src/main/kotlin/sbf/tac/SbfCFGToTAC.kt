@@ -125,7 +125,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     // We need type information about registers and stack contents.
     // It's much cheaper to analyze the whole cfg from scratch with a ScalarAnalysis and rebuild invariants at the
     // instruction level than rebuilding invariants at the instruction level with [memoryAnalysis]
-    val sbfTypesFac: ISbfTypeFactory<TNumAdaptiveScalarAnalysis, TOffsetAdaptiveScalarAnalysis>
+    val sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
     val types: IRegisterTypes<TNumAdaptiveScalarAnalysis, TOffsetAdaptiveScalarAnalysis>
     // Stack of scratch registers
     val scratchRegVars: ArrayList<TACSymbol.Var> = arrayListOf()
@@ -135,8 +135,14 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     val rent: Rent = Rent { prefix -> vFac.mkFreshIntVar(prefix = prefix) }
 
     init {
-        val scalarAnalysis = AdaptiveScalarAnalysis(cfg, globals, memSummaries)
-        sbfTypesFac = scalarAnalysis.getSbfTypesFac()
+        val scalarAnalysis = GenericScalarAnalysis(
+            cfg,
+            globals,
+            memSummaries,
+            sbfTypesFac,
+            MemoryScalarDomFac()
+        )
+
         types = AnalysisRegisterTypes(scalarAnalysis)
 
         val regVars: ArrayList<TACSymbol.Var> = ArrayList(NUM_OF_SBF_REGISTERS)
@@ -328,7 +334,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 throw TACTranslationError("TAC encoding of 32-bit $inst not supported")
             }
             val op1 = exprBuilder.mkVar(inst.dst)
-            return if (SolanaConfig.UseTACMathInt.get() &&
+            if (SolanaConfig.UseTACMathInt.get() &&
                 (useMathInt || inst.metaData.getVal(SbfMeta.SAFE_MATH) != null)) {
                 // Currently, `SAFE_MATH` annotations are only used for addition/subtraction before checking for overflow.
                 // These operations must be done on MathInt.
@@ -619,7 +625,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 }
                 newCmds += cmd
                 newCmds += TACCmd.Simple.JumpiCmd(trueTargetNBId, falseTargetNBId, cmd.lhs)
-                return newCmds
+                newCmds
             }
         }
     }
@@ -1140,6 +1146,11 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         val cvlrRange = metaData.getVal(SbfMeta.CVLR_RANGE)
         if (cvlrRange != null) {
             pairs += Pair(TACMeta.CVL_RANGE, cvlrRange)
+        }
+
+        val srcMetaInfo = metaData.getVal(SbfMeta.SOURCE_SEGMENT)
+        if (srcMetaInfo != null) {
+            pairs += Pair(TACMeta.SBF_SOURCE_SEGMENT, srcMetaInfo)
         }
 
         return cmds.map { it.plusMetaMap(pairs) }

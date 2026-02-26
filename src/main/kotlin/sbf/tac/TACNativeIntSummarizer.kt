@@ -36,7 +36,7 @@ import java.math.BigInteger
  * Currently, we use 256-bit TAC variables to simulate nativeint.
  */
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeNativeInt(
+internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeNativeInt(
     locInst: LocatedSbfInstruction
 ): List<TACCmd.Simple> {
     val inst = locInst.inst

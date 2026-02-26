@@ -241,6 +241,7 @@ class Wto(val cfg: SbfCFG) {
        return components.asReversed()
     }
 
+    @Suppress("unused")
     fun isInCycle(label: Label): Boolean {
         return containingCycleMap[label] != null
     }

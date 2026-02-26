@@ -95,7 +95,7 @@ private fun narrowMaskedLoad(cfg: MutableSbfCFG, loadLocInst: LocatedSbfInstruct
 
     // Check if the use is a mask with 0xFF, 0xFFFF, or 0xFFFF_FFFF
     val narrowWidth: Short = when {
-        isMaskWith0xFF(use.inst, lhs) -> 1
+        isMaskWith0x1(use.inst, lhs) || isMaskWith0xFF(use.inst, lhs) -> 1
         isMaskWith0xFFFF(use.inst, lhs) -> 2
         isMaskWith0xFFFFFFFF(use.inst, lhs) -> 4
         else -> return false
@@ -121,6 +121,9 @@ private fun isMaskWithImmediate(inst: SbfInstruction, reg: Value.Reg, mask: ULon
     val imm = inst.v as? Value.Imm ?: return false
     return imm.v == mask
 }
+
+private fun isMaskWith0x1(inst: SbfInstruction, reg: Value.Reg) =
+    isMaskWithImmediate(inst, reg, mask = 0x1UL)
 
 private fun isMaskWith0xFF(inst: SbfInstruction, reg: Value.Reg) =
     isMaskWithImmediate(inst, reg, mask = 0xFFUL)

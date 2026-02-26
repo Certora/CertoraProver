@@ -17,7 +17,6 @@
 
 package sbf.tac
 
-import sbf.cfg.*
 import vc.data.*
 import datastructures.stdcollections.*
 import sbf.domains.*
@@ -131,7 +130,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
 
     /** Build expression if [v] is equal to 2 as f64 **/
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun isTwo(v: TACSymbol): TACExpr {
+    internal fun isTwo(v: TACSymbol): TACExpr {
         val two = exprBuilder.mkConst(twoBits).asSym()
         return txf { v.asSym() eq two }
     }
@@ -144,7 +143,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
      * ```
      */
      context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-     fun summarizeUnorddf2(
+     internal fun summarizeUnorddf2(
         res: TACSymbol.Var,
         arg1: TACSymbol,
         arg2: TACSymbol
@@ -159,7 +158,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
         )
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun summarizeAdddf3(
+    internal fun summarizeAdddf3(
         res: TACSymbol.Var,
         @Suppress("UNUSED_PARAMETER")
         arg1: TACSymbol,
@@ -172,7 +171,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
     }
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun summarizeSubdf3(
+    internal fun summarizeSubdf3(
         res: TACSymbol.Var,
         @Suppress("UNUSED_PARAMETER")
         arg1: TACSymbol,
@@ -200,7 +199,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
      * ```
      */
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun summarizeMuldf3(
+    internal fun summarizeMuldf3(
         res: TACSymbol.Var,
         arg1: TACSymbol,
         arg2: TACSymbol
@@ -235,7 +234,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
     }
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun summarizeDivdf3(
+    internal fun summarizeDivdf3(
         res: TACSymbol.Var,
         @Suppress("UNUSED_PARAMETER")
         arg1: TACSymbol,
@@ -248,7 +247,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
     }
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun summarizeNegdf3(
+    internal fun summarizeNegdf3(
         res: TACSymbol.Var,
         @Suppress("UNUSED_PARAMETER")
         arg: TACSymbol
@@ -272,7 +271,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
      * ```
      */
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun summarizeFixunsdfdi(
+    internal fun summarizeFixunsdfdi(
         res: TACSymbol.Var,
         arg: TACSymbol
     ): List<TACCmd.Simple> {
@@ -306,7 +305,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
      * ```
      */
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun summarizeFloatundidf(
+    internal fun summarizeFloatundidf(
         res: TACSymbol.Var,
         arg: TACSymbol
     ): List<TACCmd.Simple> {
@@ -328,7 +327,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
 
     /** Return zero if neither argument is NaN, and [arg1] and [arg2] are equal. **/
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun summarizeEqdf2(
+    internal fun summarizeEqdf2(
         res: TACSymbol.Var,
         arg1: TACSymbol,
         arg2: TACSymbol
@@ -353,7 +352,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
 
     /** Return a nonzero value if either argument is NaN, or if [arg1] and [arg2] are unequal **/
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun summarizeNedf2(
+    internal fun summarizeNedf2(
         res: TACSymbol.Var,
         arg1: TACSymbol,
         arg2: TACSymbol
@@ -377,7 +376,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
 
     /** Return a value less than zero if neither argument is NaN, and [arg1] is strictly less than [arg2]. **/
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun summarizeLtdf2(
+    internal fun summarizeLtdf2(
         res: TACSymbol.Var,
         arg1: TACSymbol,
         arg2: TACSymbol
@@ -396,7 +395,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
 
     /** Return a value less than or equal to zero if neither argument is NaN, and [arg1] is less than or equal to [arg2] **/
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun summarizeLedf2(
+    internal fun summarizeLedf2(
         res: TACSymbol.Var,
         arg1: TACSymbol,
         arg2: TACSymbol
@@ -417,7 +416,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
      * return a value greater than or equal to zero if neither argument is NaN, and [arg1] is greater than or equal to [arg2].
      **/
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun summarizeGedf2(
+    internal fun summarizeGedf2(
         res: TACSymbol.Var,
         arg1: TACSymbol,
         arg2: TACSymbol
@@ -438,7 +437,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
      * Return a value greater than zero if neither argument is NaN, and [arg1] is strictly greater than [arg2].
      */
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun summarizeGtdf2(
+    internal fun summarizeGtdf2(
         res: TACSymbol.Var,
         arg1: TACSymbol,
         arg2: TACSymbol

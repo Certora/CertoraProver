@@ -95,7 +95,7 @@ where D: AbstractDomain<D>,
      */
     private val processedBlocks: MutableSet<Label> = mutableSetOf()
 
-    private val allRegisters = SbfRegister.values().map{ r -> Value.Reg(r)}.toSet()
+    private val allRegisters = SbfRegister.entries.map{ r -> Value.Reg(r)}.toSet()
 
     private val typeAndStateExtractor = TypeAndStateExtractor()
 

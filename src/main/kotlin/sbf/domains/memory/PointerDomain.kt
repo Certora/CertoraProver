@@ -17,7 +17,6 @@
 
 package sbf.domains
 
-import com.certora.collect.*
 import sbf.*
 import sbf.disassembler.*
 import sbf.callgraph.*
@@ -27,7 +26,6 @@ import kotlin.math.absoluteValue
 import datastructures.stdcollections.*
 import log.*
 import org.jetbrains.annotations.TestOnly
-import utils.*
 import kotlin.collections.removeLast
 
 /**
@@ -282,20 +280,6 @@ sealed class PTACell<Flags: IPTANodeFlags<Flags>>(
         resolve()
 
         return _node.createSymCell(_offset)
-    }
-
-    fun getFields(): List<PTAField> {
-        resolve()
-
-        val out = mutableListOf<PTAField>()
-        for (size in usedMemoryBitwidths) {
-            val field = PTAField(_offset, size.toShort())
-            val succ = _node.getSucc(field)
-            if (succ != null) {
-                out.add(field)
-            }
-        }
-        return out
     }
 
     /**
@@ -1852,7 +1836,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     private val scratchRegisters: ArrayList<PTASymCell<Flags>?> = arrayListOf()
 
     init {
-        for (i in 0 until NUM_OF_SBF_REGISTERS) {
+        repeat(NUM_OF_SBF_REGISTERS) {
             registers.add(null)
         }
         if (init) {
@@ -3338,12 +3322,6 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             }
         }
     }
-
-    @TestOnly
-    fun doLoad(locInst: LocatedSbfInstruction,
-               base: Value.Reg,
-               baseType: SbfType<TNum, TOffset>,
-    ) = doLoad(locInst, base, baseType, ScalarDomain.makeTop(sbfTypesFac, globalState))
 
     /** Transfer function for load instruction **/
     fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doLoad(

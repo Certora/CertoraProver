@@ -17,6 +17,7 @@
 
 package sbf.callgraph
 
+import compiler.toHeuristicSourceSegment
 import datastructures.stdcollections.*
 import sbf.analysis.AdaptiveScalarAnalysis
 import sbf.analysis.AnalysisRegisterTypes
@@ -30,6 +31,7 @@ import sbf.tac.Calltrace.getFilepathAndLineNumber
 import utils.Range
 import utils.SourcePosition
 import utils.checkedMinus
+import utils.letIf
 
 fun inlineAttachedLocations(
     prog: SbfCallGraph,
@@ -94,7 +96,12 @@ private class AttachedLocationInliner<TNum : INumValue<TNum>, TOffset : IOffset<
         val rangeMeta = rangeFromStack(attachedLocationStack, collector)
             ?: return
 
-        val newMeta = locInst.inst.metaData.plus(rangeMeta)
+        val sourceSegment = rangeMeta.second.toHeuristicSourceSegment()
+        val newMeta = locInst.inst.metaData
+            .plus(rangeMeta)
+            .letIf(sourceSegment != null){
+                it.plus(SbfMeta.SOURCE_SEGMENT to sourceSegment!!)
+            }
         val newInst = locInst.inst.copyInst(newMeta)
 
         collector.markChangeTo(locInst, listOf(newInst))
