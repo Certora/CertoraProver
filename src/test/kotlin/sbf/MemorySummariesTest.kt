@@ -74,9 +74,9 @@ class MemorySummariesTest {
          * Therefore, after applying the summary, *(r2+0) must still point to the same cell but *(r1+0) should point to
          * a new cell with a fresh node marked as integer.
          */
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r10 = Value.Reg(SbfRegister.R10)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
 
         val configFileContents = arrayListOf("#[type((*i64)(r1+0):num)]", "^foo$")
         val memSummaries = MemorySummaries.readSpecFile(configFileContents,"unknown")

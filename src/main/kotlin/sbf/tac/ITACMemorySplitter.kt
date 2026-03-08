@@ -238,10 +238,10 @@ interface TACMemSplitter {
             if (scalarsReg == byteMapReg) {
                 throw TACTranslationError("creating an invalid MixedRegionsTACMemCmpInfo object (1)")
             }
-            if (!(scalarsReg >= SbfRegister.R1_ARG && scalarsReg <= SbfRegister.R2_ARG) ) {
+            if (!(scalarsReg >= SbfRegister.R1 && scalarsReg <= SbfRegister.R2) ) {
                 throw TACTranslationError("creating an invalid MixedRegionsTACMemCmpInfo object (2)")
             }
-            if (!(byteMapReg >= SbfRegister.R1_ARG && byteMapReg <= SbfRegister.R2_ARG) ) {
+            if (!(byteMapReg >= SbfRegister.R1 && byteMapReg <= SbfRegister.R2) ) {
                 throw TACTranslationError("creating an invalid MixedRegionsTACMemCmpInfo object (3)")
             }
         }

@@ -27,6 +27,7 @@ import log.*
 import rules.RuleChecker
 import rules.TWOSTAGE_META_MODEL
 import rules.TWOSTAGE_META_VARORIGIN
+import rules.fixedVariable
 import smt.CoverageInfoEnum
 import smt.solverscript.LExpressionFactory
 import smt.solverscript.functionsymbols.*
@@ -94,8 +95,9 @@ class LeinoWP(
      */
     private val varMetas = core.analysisCache.graph.commands
         .map { it.cmd }
-        .filterIsInstance<TACCmd.Simple.AssigningCmd>()
-        .mapNotNull { it.lhs `to?` it.meta[TWOSTAGE_META_VARORIGIN]?.ptrs }
+        .mapNotNull { cmd ->
+            cmd.fixedVariable()?.let { it `to?` cmd.meta[TWOSTAGE_META_VARORIGIN]?.ptrs }
+        }
         .groupBy { it.first }
         .mapValues { (_,v) -> v.flatMap { it.second } }
         .filterValues { it.isNotEmpty() }

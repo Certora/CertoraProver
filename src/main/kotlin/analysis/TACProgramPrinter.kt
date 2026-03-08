@@ -23,6 +23,7 @@ import rules.TWOSTAGE_META_VARORIGIN
 import tac.MetaKey
 import tac.MetaMap.Companion.nothing
 import tac.NBId
+import utils.*
 import utils.Color.Companion.bBlack
 import utils.Color.Companion.bCyan
 import utils.Color.Companion.bGreenBg
@@ -36,8 +37,6 @@ import utils.Color.Companion.redBg
 import utils.Color.Companion.whiteBg
 import utils.Color.Companion.yellow
 import utils.Color.Companion.yellowBg
-import utils.containsAny
-import utils.letIf
 import vc.data.*
 import vc.data.TACMeta.CVL_EXP
 import vc.data.tacexprutil.TACExprUtils.contains
@@ -262,17 +261,18 @@ class TACProgramPrinter {
                 ln("${"${cmd.base}[${cmd.loc}]".cyan} := ${cmd.value}")
 
             is TACCmd.Simple.ByteLongCopy -> with(cmd) {
-                ln("${"$dstBase[$dstOffset..]".cyan} := $srcBase[$srcOffset, length=$length]")
+                ln("${"$dstBase[$dstOffset..]".cyan} = $srcBase[$srcOffset..+$length]]")
             }
 
             is TACCmd.Simple.AssigningCmd.AssignExpCmd ->
-                ln("${cmd.lhs} $lhsInfo:= ${cmd.rhs}")
+                ln("${cmd.lhs} $lhsInfo:= ${toString(cmd.rhs)}")
 
             is TACCmd.Simple.Assume ->
                 ln("ASSUME ${cmd.condExpr}".bMagenta +if(cmd is TACCmd.Simple.AssumeCmd){"[${cmd.msg}]"} else {""})
 
             is TACCmd.Simple.AssertCmd ->
                 ln("ASSERT ${cmd.o}".bRed +" [${cmd.msg}]")
+
 
             else -> default()
         }
@@ -283,4 +283,14 @@ class TACProgramPrinter {
 
         return sb.toString()
     }
+
+    fun toString(e : TACExpr) = with(e) {
+        when (this) {
+            is TACExpr.Store -> "$base[$loc = $value]".green
+            is TACExpr.LongStore -> "$dstMap[$dstOffset.. = $srcMap[$srcOffset..+$length]]".green
+            is TACExpr.Select -> "$base[$loc]".blue
+            else -> e.toString()
+        }
+    }
+
 }

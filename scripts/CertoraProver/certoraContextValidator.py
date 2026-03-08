@@ -146,7 +146,7 @@ class CertoraContextValidator:
         # Check for duplicates, we exclude ARG_FLAG_LIST_ATTRIBUTES as those can have duplicates e.g.
         # prover_args value of “-rule rule1 -rule rule2" is valid, although the -rule string appears more than once.
 
-        if conf_key not in Attrs.ARG_FLAG_LIST_ATTRIBUTES:
+        if conf_key not in Attrs.DUPLICATES_ALLOWED_LIST_ATTRIBUTES:
             if len(value) != len(set(value)):
                 raise Util.CertoraUserInputError(f"The value of attribute '{conf_key}' contains duplicate entries: {value}")
 
@@ -243,6 +243,7 @@ class CertoraContextValidator:
         set_bytecode_relative_paths(context)
         check_files_input(context.files)
         check_vyper_flag(context)
+        check_vyper_imports(context)
         check_via_ir_attr(context)
         check_contract_name_arg_inputs(context)  # Here context.contracts is set
         Util.check_packages_arguments(context)
@@ -439,6 +440,15 @@ def check_vyper_flag(context: CertoraContext) -> None:
         vy_paths = [path for path in context.files if path.endswith(".vy")]
         if not vy_paths:
             validation_logger.warning("vyper attribute was set but no Vyper files were set")
+
+def check_vyper_imports(context: CertoraContext) -> None:
+    if not context.resolve_vyper_imports:
+        if context.vyper_import_path:
+            raise Util.CertoraUserInputError("cannot set 'vyper_import_path' without setting 'resolve_vyper_imports' "
+                                             "to true")
+        if context.vyper_system_path:
+            raise Util.CertoraUserInputError("cannot set 'vyper_system_path' without setting 'resolve_vyper_imports' "
+                                             "to true")
 
 def check_contract_name_arg_inputs(context: CertoraContext) -> None:
     """

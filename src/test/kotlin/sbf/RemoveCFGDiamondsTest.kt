@@ -173,8 +173,8 @@ class RemoveCFGDiamondsTest {
         println("After removing diamonds: $cfg")
         Assertions.assertEquals(true,
             checkFirstSelect(cfg,
-                Value.Reg(SbfRegister.R4_ARG),
-                Condition(CondOp.EQ, Value.Reg(SbfRegister.R1_ARG), Value.Reg(SbfRegister.R3_ARG)),
+                Value.Reg(SbfRegister.R4),
+                Condition(CondOp.EQ, Value.Reg(SbfRegister.R1), Value.Reg(SbfRegister.R3)),
                 Value.Imm(0UL),
                 Value.Imm(1UL)
             )
@@ -219,8 +219,8 @@ class RemoveCFGDiamondsTest {
         println("After removing diamonds: $cfg")
         Assertions.assertEquals(true,
             checkFirstSelect(cfg,
-                Value.Reg(SbfRegister.R4_ARG),
-                Condition(CondOp.NE, Value.Reg(SbfRegister.R1_ARG), Value.Reg(SbfRegister.R3_ARG)),
+                Value.Reg(SbfRegister.R4),
+                Condition(CondOp.NE, Value.Reg(SbfRegister.R1), Value.Reg(SbfRegister.R3)),
                 Value.Imm(0UL),
                 Value.Imm(1UL)
             )
@@ -265,8 +265,8 @@ class RemoveCFGDiamondsTest {
         println("After removing diamonds: $cfg")
         Assertions.assertEquals(true,
             checkFirstSelect(cfg,
-                Value.Reg(SbfRegister.R4_ARG),
-                Condition(CondOp.NE, Value.Reg(SbfRegister.R1_ARG), Value.Reg(SbfRegister.R3_ARG)),
+                Value.Reg(SbfRegister.R4),
+                Condition(CondOp.NE, Value.Reg(SbfRegister.R1), Value.Reg(SbfRegister.R3)),
                 Value.Imm(0UL),
                 Value.Imm(1UL)
             )

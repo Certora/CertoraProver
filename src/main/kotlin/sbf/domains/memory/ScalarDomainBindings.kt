@@ -26,11 +26,41 @@ package sbf.domains
  *
  * Having all aliases in one place simplifies switching scalar domain implementations, however
  * note that some domains (e.g.
- * ([ScalarStackStridePredicateDomain] and [ScalarRegisterStackEqualityDomain]) are not fully
+ * (`ScalarStackStridePredicateDomain` and `ScalarRegisterStackEqualityDomain`) are not fully
  * inter-exchangeable because they implement different interfaces. Also, factory aliases (suffix Fac)
  * must match their corresponding domain alias, so changing a domain alias requires updating its
  * factory alias as well.
- */
+ *
+ * This is the current architecture of the memory abstract domain:
+ *
+ *   ┌─────────────────────────────────────────┐
+ *   │             MemoryDomain                │
+ *   ├─────────────────────────────────────────┤
+ *   │     ScalarStackStridePredicateDomain    │
+ *   ├─────────────────────────────────────────┤
+ *   │           ScalarKnownBitsDomain         │
+ *   ├─────────────────────────────────────────┤
+ *   │             ScalarDomain                │
+ *   └─────────────────────────────────────────┘
+ *
+ * Information flows upward from each domain to the one above it.
+ * The flow is occasionally bidirectional, but not always.
+ *
+ * The backward analysis (`NPAnalysis`) uses a different architecture: it performs a forward pass followed by a backward pass.
+ * The backward pass computes a backward fixpoint using `NPDomain` that uses invariants from the forward pass.
+ * The forward pass computes a forward fixpoint using:
+ *
+ *   ┌─────────────────────────────────────────┐
+ *   │    ScalarRegisterStackEqualityDomain    │
+ *   ├─────────────────────────────────────────┤
+ *   │    ScalarStackStridePredicateDomain     │
+ *   ├─────────────────────────────────────────┤
+ *   │         ScalarKnownBitsDomain           │
+ *   ├─────────────────────────────────────────┤
+ *   │             ScalarDomain                │
+ *   └─────────────────────────────────────────┘
+ *
+ **/
 
 /** Scalar domain used by [MemoryDomain] **/
 typealias MemoryScalarDom<TNum, TOffset> = ScalarStackStridePredicateDomain<TNum, TOffset>
@@ -38,7 +68,10 @@ typealias MemoryScalarDom<TNum, TOffset> = ScalarStackStridePredicateDomain<TNum
 typealias MemoryScalarDomFac<TNum, TOffset> = ScalarStackStridePredicateDomainFactory<TNum, TOffset>
 
 /** Scalar domain used by [ScalarStackStridePredicateDomain] **/
-typealias StackStrideScalarDom<TNum, TOffset> = ScalarDomain<TNum, TOffset>
+typealias StackStrideScalarDom<TNum, TOffset> = ScalarKnownBitsDomain<TNum, TOffset>
+
+/** Scalar domain used by [ScalarKnownBitsDomain] **/
+typealias KnownBitsScalarDom<TNum, TOffset> = ScalarDomain<TNum, TOffset>
 
 /** Scalar domain used by [ScalarRegisterStackEqualityDomain] **/
 typealias RegStackEqScalarDom<TNum, TOffset> = ScalarStackStridePredicateDomain<TNum, TOffset>
@@ -48,7 +81,7 @@ typealias NPDomScalarDom<TNum, TOffset> = ScalarRegisterStackEqualityDomain<TNum
 /** Scalar domain factory used by [NPDomainAnalysis] **/
 typealias NPDomScalarDomFac<TNum, TOffset> = ScalarRegisterStackEqualityDomainFactory<TNum, TOffset>
 
-/** Scalar domain factory used by CFG transformations: [PromoteStoresToMemcpy], [SplitWideStores]**/
+/** Scalar domain factory used by CFG transformations: [PromoteMemcpy], [PromoteMemset], [SplitWideStores]**/
 typealias CFGTransformScalarDomFac<TNum, TOffset> = ScalarRegisterStackEqualityDomainFactory<TNum, TOffset>
 
 /** Scalar domain factory used by [GlobalInferenceAnalysis] **/

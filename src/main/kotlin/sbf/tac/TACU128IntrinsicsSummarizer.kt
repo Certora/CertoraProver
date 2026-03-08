@@ -67,11 +67,11 @@ internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANo
     check(CVTU128Intrinsics.from(inst.name) == CVTU128Intrinsics.U128_LEQ)
     {"summarizeU128Leq expects ${CVTU128Intrinsics.U128_LEQ.function.name}"}
 
-    val res = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
-    val xLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R1_ARG))
-    val xHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R2_ARG))
-    val yLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R3_ARG))
-    val yHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R4_ARG))
+    val res = exprBuilder.mkVar(SbfRegister.R0)
+    val xLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R1))
+    val xHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R2))
+    val yLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R3))
+    val yHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R4))
 
     val cmds = mutableListOf(Debug.externalCall(inst))
     val xE = mergeU128(xLowE, xHighE, cmds)
@@ -115,9 +115,9 @@ internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANo
     check(CVTU128Intrinsics.from(inst.name) == CVTU128Intrinsics.U128_GT0)
     { "summarizeU128Gt0 expects ${CVTU128Intrinsics.U128_GT0.function.name}" }
 
-    val res = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
-    val xLowE  = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R1_ARG))
-    val xHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R2_ARG))
+    val res = exprBuilder.mkVar(SbfRegister.R0)
+    val xLowE  = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R1))
+    val xHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R2))
 
     val cmds = mutableListOf(Debug.externalCall(inst))
     cmds.add(assign(res, TACExpr.BinBoolOp.LOr(
@@ -145,10 +145,10 @@ internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANo
     { "summarizeU128CeilDiv expects ${CVTU128Intrinsics.U128_CEIL_DIV.function.name}" }
 
     val (resLow, resHigh, overflow) = getResFrom128(locInst) ?: return listOf()
-    val xLowE  = exprBuilder.mkVar(SbfRegister.R2_ARG).asSym()
-    val xHighE = exprBuilder.mkVar(SbfRegister.R3_ARG).asSym()
-    val yLowE  = exprBuilder.mkVar(SbfRegister.R4_ARG).asSym()
-    val yHighE = exprBuilder.mkVar(SbfRegister.R5_ARG).asSym()
+    val xLowE  = exprBuilder.mkVar(SbfRegister.R2).asSym()
+    val xHighE = exprBuilder.mkVar(SbfRegister.R3).asSym()
+    val yLowE  = exprBuilder.mkVar(SbfRegister.R4).asSym()
+    val yHighE = exprBuilder.mkVar(SbfRegister.R5).asSym()
     val args = U128BinaryOperands(resLow.tacVar, resHigh.tacVar, overflow?.tacVar, xLowE, xHighE, yLowE, yHighE)
 
     val (xMath, yMath, resMath) = Triple(vFac.mkFreshMathIntVar(), vFac.mkFreshMathIntVar(), vFac.mkFreshMathIntVar())

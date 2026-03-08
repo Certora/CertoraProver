@@ -18,13 +18,11 @@
 package analysis.opt.inliner
 
 import analysis.numeric.linear.ReducedLinearTerm
-import analysis.opt.intervals.ExtBig.Companion.asExtBig
 import analysis.opt.intervals.Intervals
 import com.certora.collect.*
 import config.Config.exactByteMaps
 import datastructures.stdcollections.*
 import evm.EVM_MOD_GROUP256
-import evm.MAX_EVM_INT256
 import tac.Tag
 import utils.*
 import utils.SignUtilities.from2sComplement
@@ -204,17 +202,12 @@ sealed interface Inlinee {
 
 
     companion object {
-        private val Intervals.isNonNeg
-            get() = isNotEmpty() && this isLe MAX_EVM_INT256.asExtBig
 
-        private val Intervals.isPos
-            get() = 0 !in this && isNonNeg
+        private fun Term.isGe(other: Term, eval: (TACSymbol.Var) -> Intervals) =
+            (this - other).evaluate(eval).isSurely2sNonNeg()
 
-        private fun Term.isGe(other : Term, eval: (TACSymbol.Var) -> Intervals) =
-            (this - other).evaluate(eval).isNonNeg
-
-        private fun Term.isGt(other : Term, eval: (TACSymbol.Var) -> Intervals) =
-            (this - other).evaluate(eval).isPos
+        private fun Term.isGt(other: Term, eval: (TACSymbol.Var) -> Intervals) =
+            (this - other).evaluate(eval).isSurely2sPos()
 
         /** is [this] surely in [[low], [high]) */
         fun Term.isSurelyInside(low: Term, high: Term, eval: (TACSymbol.Var) -> Intervals) =

@@ -134,6 +134,20 @@ class TACVerifier private constructor(
         BuiltInRuleId.sanity, BuiltInRuleId.deepSanity -> true
         else -> false
     }
+
+    private fun sanityLocalSettings(): LocalSettings {
+        val base = LocalSettings()
+        return base.copy(
+            depth = Config.SanityDepth.get(),
+            parallelSplitting = Config.SanityParallelSplitting.get(),
+            solverTimeout = Config.SanitySolverTimeout.get().seconds,
+            solverProgramChoice = SolverChoice(Config.SanitySolverProgramChoice.get().toList()),
+            backendStrategy = Config.SanityBackendStrategy.get(),
+            nonLinearArithmetic = Config.SanityUseNIA.get(),
+            useLIA = Config.SanityUseLIA.get(),
+        )
+    }
+
     private val rootTacProgramMetadata = run {
         val block = (rule as? CVLSingleRule)?.block
         TACProgramMetadata(
@@ -361,7 +375,8 @@ class TACVerifier private constructor(
                     TimeoutCracker.solve(finalTac) { tacProgram, localSettings ->
                         leinoVCWithSplitting(tacProgram, localSettings) }
                 }
-                maybeTimeoutCracker() ?: leinoVCWithSplitting(finalTac)
+                val localSettings = if (isCMDLineSanityRule) { sanityLocalSettings() } else { LocalSettings() }
+                maybeTimeoutCracker() ?: leinoVCWithSplitting(finalTac, localSettings)
             }
             statistics.smt = statistics.smt.copy(finishTime = TimeSinceStart())
             res

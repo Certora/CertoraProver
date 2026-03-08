@@ -60,7 +60,7 @@ internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
             srcBase = initMap.tacVar,
             srcOffset = TACSymbol.Zero,
             dstBase = mapV.tacVar,
-            dstOffset = exprBuilder.mkVar(SbfRegister.R1_ARG),
+            dstOffset = exprBuilder.mkVar(SbfRegister.R1),
             length = exprBuilder.mkConst(len),
         )
     )
@@ -83,7 +83,7 @@ internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
     }
     val cmds = mutableListOf<TACCmd.Simple>()
     for (i in 0 until len) {
-        cmds.addAll(mapStores(mapV, exprBuilder.mkVar(SbfRegister.R1_ARG), PTAOffset(i), valueS))
+        cmds.addAll(mapStores(mapV, exprBuilder.mkVar(SbfRegister.R1), PTAOffset(i), valueS))
     }
     return cmds
 }

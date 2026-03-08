@@ -17,48 +17,86 @@
 
 package sbf.cfg
 
+import sbf.analysis.AnalysisRegisterTypes
+import sbf.cfg.SbfMeta.NARROWED_LOAD
+import sbf.domains.AbstractDomain
+import sbf.domains.INumValue
+import sbf.domains.IOffset
+import sbf.domains.SbfType
+import sbf.domains.ScalarValueProvider
+import datastructures.stdcollections.*
+import org.jetbrains.annotations.TestOnly
+import sbf.SolanaConfig
+import sbf.analysis.AnalysisCacheOptions
+import sbf.analysis.GenericScalarAnalysis
+import sbf.analysis.IAnalysis
+import sbf.disassembler.GlobalVariables
+import sbf.domains.CFGTransformScalarDomFac
+import sbf.domains.ConstantSetSbfTypeFactory
+import sbf.domains.MemorySummaries
+import kotlin.toULong
+
 /**
  * Narrow loads in [cfg] that satisfy [pred].
  **/
+@TestOnly
 fun narrowMaskedLoads(
     cfg: MutableSbfCFG,
-    pred: (SbfInstruction.Mem) -> Boolean
-) {
+    globals: GlobalVariables,
+    memSummaries: MemorySummaries,
+    pred: (SbfInstruction.Mem) -> Boolean = { true }
+)  {
+
+    val sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
+    val scalarAnalysis = GenericScalarAnalysis(
+        cfg,
+        globals,
+        memSummaries,
+        sbfTypesFac,
+        CFGTransformScalarDomFac()
+    )
+
     for (b in cfg.getMutableBlocks().values) {
-        narrowMaskedLoads(b, cfg, pred)
+        narrowMaskedLoads(b, scalarAnalysis, pred)
     }
 }
 
 /**
  * Narrow loads in [b] that satisfy [pred].
- *
- * The code is inefficient because after each narrow happens all located instructions after the narrowed load
- * are invalidated since their position in [b] changed.
- *
- * precondition: [b] belongs to [cfg]
  **/
-fun narrowMaskedLoads(
+fun<D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> narrowMaskedLoads(
     b: MutableSbfBasicBlock,
-    cfg: MutableSbfCFG,
+    scalarAnalysis: IAnalysis<D>,
     pred: (SbfInstruction.Mem) -> Boolean
-) {
-    var change = true
-    // The termination argument is that after the inner loop finishes either `change` is false and therefore,
-    // it exists the while loop, or `change` is true and a new iteration of the inner loop will happen
-    // but with one less load since `narrowMaskedLoad` removed a load.
-    while (change) {
-        change = false
-        for (locInst in b.getLocatedInstructions()) {
-            val inst = locInst.inst
-            if (inst is SbfInstruction.Mem && inst.isLoad && pred(inst)) {
-                if (narrowMaskedLoad(cfg, locInst)) {
-                    // the load has been removed
-                    change = true
-                    break
-                }
-            }
+) where D: AbstractDomain<D>,
+        D: ScalarValueProvider<TNum, TOffset> {
+
+    // We need to recompute the instruction-level invariants for `b` at each loop iteration
+    val types = AnalysisRegisterTypes(
+        scalarAnalysis,
+        options = AnalysisCacheOptions.typesAndStatesAt {
+            val inst = it.inst
+            inst is SbfInstruction.Mem && inst.isLoad
+        }
+    )
+
+    // Add some annotations required by `narrowMaskedLoad`
+    findMismatchedLoads(b, types).forEach { locInst ->
+        // don't invalidate other locInst's pos since we replace one instruction with another
+        b.replaceInstruction(locInst.pos, locInst.inst)
+    }
+
+    // We traverse in reverse order so that `locInst`'s `pos` are not invalidated when they
+    // are processed
+    for (locInst in b.getLocatedInstructions().reversed()) {
+        val inst = locInst.inst
+        if (inst is SbfInstruction.Mem && inst.isLoad && pred(inst)) {
+            narrowMaskedLoad(b, locInst)
         }
     }
+
+    // Remove annotations added by `annotateMismatchedLoads`
+    b.removeAnnotations(listOf(SbfMeta.MISMATCHED_LOAD))
 }
 
 /**
@@ -67,48 +105,59 @@ fun narrowMaskedLoads(
  *
  * For instance, replace this pattern
  * ```
- * r1 = *(u64*) (r10 + -1592)
+ * *(u8*) (r10 -1592) = ...
+ * ...
+ * r1 = *(u64*) (r10 -1592)
  * r1 := r1 and 255
  * ```
  * with
  * ```
+ * *(u8*) (r10 -1592) = ...
+ * ...
  * r1 = *(u8*) (r10 + -1592)
  * ```
  */
-private fun narrowMaskedLoad(cfg: MutableSbfCFG, loadLocInst: LocatedSbfInstruction): Boolean {
+private fun narrowMaskedLoad(block: MutableSbfBasicBlock, loadLocInst: LocatedSbfInstruction): Boolean {
+    check(block.getLabel() == loadLocInst.label)
     val loadInst = loadLocInst.inst
     check(loadInst is SbfInstruction.Mem && loadInst.isLoad)
 
     val lhs = loadInst.value as Value.Reg
+
+    // It requires first to call `annotateMismatchedLoads`
+    val numBytesLastStore = loadInst.metaData.getVal(SbfMeta.MISMATCHED_LOAD) ?: return false
 
     // Only optimize 8-byte loads
     if (loadInst.access.width.toInt() != 8) {
         return false
     }
 
-    val block = cfg.getMutableBlock(loadLocInst.label)
-    check(block != null)
-
     // Find the single use of the destination register after the load
     val use = getNextUseInterBlock(block, loadLocInst.pos+1, lhs)
         ?: return false
 
-    // Check if the use is a mask with 0xFF, 0xFFFF, or 0xFFFF_FFFF
+    // The transformation must be intra-block
+    if (use.label != block.getLabel()) {
+        return false
+    }
+
+    // Check if the use is a mask with `0x1`, `0xFF`, `0xFFFF`, or `0xFFFF_FFFF`
     val narrowWidth: Short = when {
-        isMaskWith0x1(use.inst, lhs) || isMaskWith0xFF(use.inst, lhs) -> 1
-        isMaskWith0xFFFF(use.inst, lhs) -> 2
-        isMaskWith0xFFFFFFFF(use.inst, lhs) -> 4
+        numBytesLastStore >= 1 && (isMaskWith0x1(use.inst, lhs) || isMaskWith0xFF(use.inst, lhs)) -> 1
+        numBytesLastStore >= 2 && isMaskWith0xFFFF(use.inst, lhs) -> 2
+        numBytesLastStore >= 4 && isMaskWith0xFFFFFFFF(use.inst, lhs) -> 4
         else -> return false
     }
 
     // Replace load with narrowed version
-    val narrowedLoad = loadInst.copy(access = loadInst.access.copy(width = narrowWidth))
+    val narrowedLoad = loadInst.copy(
+        access = loadInst.access.copy(width = narrowWidth),
+        metaData = loadInst.metaData + NARROWED_LOAD()
+    )
     block.replaceInstruction(loadLocInst.pos, narrowedLoad)
 
     // Remove the now-redundant mask instruction
-    val useBlock = cfg.getMutableBlock(use.label)
-    check(useBlock != null)
-    useBlock.removeAt(use.pos)
+    block.removeAt(use.pos)
 
     return true
 }
@@ -133,3 +182,47 @@ private fun isMaskWith0xFFFF(inst: SbfInstruction, reg: Value.Reg) =
 
 private fun isMaskWith0xFFFFFFFF(inst: SbfInstruction, reg: Value.Reg) =
     isMaskWithImmediate(inst, reg, mask = 0xFFFFFFFFUL)
+
+
+/**
+ * Return load instructions that might not match its corresponding last store.
+ **/
+private fun<D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> findMismatchedLoads(
+    b: SbfBasicBlock,
+    types: AnalysisRegisterTypes<D, TNum, TOffset>,
+): List<LocatedSbfInstruction>
+where D: AbstractDomain<D>,
+      D: ScalarValueProvider<TNum, TOffset> {
+
+    val newInsts = mutableListOf<LocatedSbfInstruction>()
+    for (locInst in b.getLocatedInstructions()) {
+        val inst = locInst.inst
+        if (inst !is SbfInstruction.Mem || !inst.isLoad) {
+            continue
+        }
+        val width = inst.access.width.toULong()
+        // We will only optimize 8-byte loads
+        if (width != 8UL) {
+            continue
+        }
+
+        val baseTy = types.typeAtInstruction(locInst, inst.access.base) as? SbfType.PointerType.Stack
+            ?: continue
+
+        val resolvedOffset = baseTy.offset.add(inst.access.offset.toLong()).toLongOrNull()
+            ?: continue
+
+
+        val scalarAbsVal = types.getAbstractState(locInst) ?: continue
+        if (scalarAbsVal.mayStackBeInitialized(resolvedOffset, 8UL)) {
+            for (n in listOf(1, 2, 4)) {
+                if (!scalarAbsVal.mayStackBeInitialized(resolvedOffset + n, 8UL - n.toULong())) {
+                    // The last store was likely at offset=`resolvedOffset` and with=`n`
+                    newInsts.add(locInst.copy(inst = inst.copy(metaData = inst.metaData + (SbfMeta.MISMATCHED_LOAD to n))))
+                    break
+                }
+            }
+        }
+    }
+    return newInsts
+}

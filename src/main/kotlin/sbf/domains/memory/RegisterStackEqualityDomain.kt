@@ -105,30 +105,6 @@ class RegisterStackEqualityDomain(
 
     fun isTop() = registers.isEmpty()
 
-    private fun <A> PersistentList<A>.zipToPersistent(
-        other: PersistentList<A>,
-        transform: (A, A) -> A
-    ): PersistentList<A> {
-        check(this.size == other.size)
-        val size = this.size
-        var result = this
-        for (i in 0 until size) {
-            result = result.set(i, transform(this[i], other[i]))
-        }
-        return result
-    }
-
-    private fun <A> PersistentList<A>.mapToPersistent(
-        transform: (A) -> A
-    ): PersistentList<A> {
-        val size = this.size
-        var result = this
-        for (i in 0 until size) {
-            result = result.set(i, transform(this[i]))
-        }
-        return result
-    }
-
 
     fun join(other: RegisterStackEqualityDomain): RegisterStackEqualityDomain {
         return when {
@@ -248,35 +224,29 @@ class RegisterStackEqualityDomain(
     }
 
     private fun saveScratchRegisters(): RegisterStackEqualityDomain {
-        // we always push scratch registers, even if the abstract state is top
-        return pushScratchReg(registers[Value.Reg(SbfRegister.R6)])
-            .pushScratchReg(registers[Value.Reg(SbfRegister.R7)])
-            .pushScratchReg(registers[Value.Reg(SbfRegister.R8)])
-            .pushScratchReg(registers[Value.Reg(SbfRegister.R9)])
+        // we always push scratch registers and r10, even if the abstract state is top
+        val regsToSave = SbfRegister.registersToSaveOrRestore
+
+        return regsToSave.fold(this) { acc, reg ->
+            acc.pushScratchReg(registers[Value.Reg(reg)])
+        }
     }
 
     private fun restoreScratchRegisters(): RegisterStackEqualityDomain {
-        if (scratchRegisters.size < 4) {
+        val regsToRestore = SbfRegister.registersToSaveOrRestore
+        val n = regsToRestore.size
+        if (scratchRegisters.size < n) {
             throw ScalarDomainError(
                 "The number of calls to save/restore scratch registers must match: $scratchRegisters"
             )
-        } else {
-            // we always pop scratch registers, even if the abstract state is top
-            val lastIdx = scratchRegisters.lastIndex
-
-            val tmp9 = scratchRegisters[lastIdx]
-            val tmp8 = scratchRegisters[lastIdx-1]
-            val tmp7 = scratchRegisters[lastIdx-2]
-            val tmp6 = scratchRegisters[lastIdx-3]
-
-            return popScratchReg().
-                   popScratchReg().
-                   popScratchReg().
-                   popScratchReg().
-                   setRegister(Value.Reg(SbfRegister.R9), tmp9).
-                   setRegister(Value.Reg(SbfRegister.R8), tmp8).
-                   setRegister(Value.Reg(SbfRegister.R7), tmp7).
-                   setRegister(Value.Reg(SbfRegister.R6), tmp6)
+        }
+        val lastIdx = scratchRegisters.lastIndex
+        // Collect saved values in the order they were pushed (r6, r7, r8, r9, r10)
+        val savedValues = regsToRestore.indices.map { i -> scratchRegisters[lastIdx - (n - 1 - i)] }
+        // Pop n scratch registers, then restore each register
+        val popped = regsToRestore.fold(this) { acc, _ -> acc.popScratchReg() }
+        return regsToRestore.zip(savedValues).fold(popped) { acc, (reg, value) ->
+            acc.setRegister(Value.Reg(reg), value)
         }
     }
 
@@ -288,7 +258,7 @@ class RegisterStackEqualityDomain(
           TOffset: IOffset<TOffset>,
           TScalarDomain: ScalarValueProvider<TNum, TOffset> {
         class ScalarSummaryVisitor(var state: RegisterStackEqualityDomain): SummaryVisitor {
-            val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+            val r0 = Value.Reg(SbfRegister.R0)
             override fun noSummaryFound(
                 @Suppress("UNUSED_PARAMETER") locInst: LocatedSbfInstruction
             ) {
@@ -330,9 +300,9 @@ class RegisterStackEqualityDomain(
         check(inst is SbfInstruction.Call)
 
 
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
+        val r0 = Value.Reg(SbfRegister.R0)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r3 = Value.Reg(SbfRegister.R3)
 
         val len: Long = when (SolanaFunction.from(inst.name)) {
             SolanaFunction.SOL_MEMCPY,
@@ -406,41 +376,25 @@ class RegisterStackEqualityDomain(
     where TNum: INumValue<TNum>,
           TOffset: IOffset<TOffset>,
           TScalarDomain: ScalarValueProvider<TNum, TOffset> {
-        val baseTy = scalars.getAsScalarValue(base).type()
-
-        // if we don't know the type of the base then we lose all information since we don't know which stack
-        // offsets have been modified
-        if (baseTy.isTop()) {
-            return setToTop()
+        return when (val res = resolveStackAccess(base, offset, scalars)) {
+            is StackAccessResolution.UnknownBase,
+            is StackAccessResolution.UnknownOffset -> setToTop()
+            is StackAccessResolution.NonStack -> this
+            is StackAccessResolution.KnownOffsets -> {
+                val offsets = res.offsets
+                RegisterStackEqualityDomain(
+                    registers.removeAll { mayOverlap(it.value.loc, offsets, size) },
+                    scratchRegisters.mapToPersistent { stackLoad ->
+                        if (stackLoad == null || mayOverlap(stackLoad.loc, offsets, size)) {
+                            null
+                        } else {
+                            stackLoad
+                        }
+                    },
+                    globalState
+                )
+            }
         }
-
-        // if it is not a stack pointer then we do nothing
-        val stackPtrTy = (baseTy as? SbfType.PointerType.Stack) ?: return this
-
-        val symOffset = stackPtrTy.offset.add(offset)
-
-        // We don't know which stack offsets are being modified so we all information
-        if (symOffset.isTop()) {
-            return setToTop()
-        }
-
-        val offsets = symOffset.toLongList()
-        check(offsets.isNotEmpty())
-
-        return RegisterStackEqualityDomain(
-            registers.removeAll {
-                val stackLoad = it.value
-                mayOverlap(stackLoad.loc, offsets, size)
-            },
-            scratchRegisters.mapToPersistent { stackLoad ->
-                if (stackLoad == null || mayOverlap(stackLoad.loc, offsets, size)) {
-                    null
-                } else {
-                    stackLoad
-                }
-            },
-            globalState
-        )
     }
 
     private fun<TNum, TOffset, TScalarDomain> analyzeStore(
@@ -473,17 +427,22 @@ class RegisterStackEqualityDomain(
         check(inst.isLoad)
 
         val lhs = inst.value as Value.Reg
-        val base = inst.access.base
         val width = inst.access.width.toByte()
         val offset = inst.access.offset.toLong()
 
-        // Only track equalities for loads from stack pointers
-        val baseTy = (scalars.getAsScalarValue(base).type() as? SbfType.PointerType.Stack)
-            ?: return forget(listOf(lhs))
-
-        // Compute the absolute stack offset being loaded from
-        val stackOffset = baseTy.offset.add(offset).toLongOrNull()
-            ?: return forget(listOf(lhs))
+        val stackOffset = when (val res = resolveStackAccess(inst.access.base, offset, scalars)) {
+            is StackAccessResolution.UnknownBase,
+            is StackAccessResolution.NonStack,
+            is StackAccessResolution.UnknownOffset -> {
+                return forget(listOf(lhs))
+            }
+            is StackAccessResolution.KnownOffsets -> {
+                if (res.offsets.size != 1) {
+                    return forget(listOf(lhs))
+                }
+                res.offsets.first()
+            }
+        }
 
         // Handle narrow loads (width < 8 bytes)
         // SBF implicitly zero-extends narrow loads to 64 bits, which changes the value
@@ -691,9 +650,6 @@ class ScalarRegisterStackEqualityDomain<TNum: INumValue<TNum>, TOffset: IOffset<
         }
     }
 
-    private fun getRegFromUnaryConditionOrNull(cond: Condition): Value.Reg? =
-        cond.left.takeIf { cond.right is Value.Imm }
-
     /**
      * Simple reduction from the equality domain to the scalar domain.
      *
@@ -706,7 +662,7 @@ class ScalarRegisterStackEqualityDomain<TNum: INumValue<TNum>, TOffset: IOffset<
      * 2. Register equality after load:
      *    If `load(r1, stack(o,w))` and `r2 -> *(stack(o,w))`, then `r1 == r2`
      *
-     * where stack(o,w) denotes stack offsets [o, o+w)
+     * where `stack(o,w)` denotes stack offsets `[o, o+w)`
      */
     private fun refineWithEqualities(
         scalars: RegStackEqScalarDom<TNum, TOffset>,
@@ -738,7 +694,7 @@ class ScalarRegisterStackEqualityDomain<TNum: INumValue<TNum>, TOffset: IOffset<
                 }
             }
             inst is SbfInstruction.Assume && inst.cond.op == CondOp.EQ-> {
-                val reg = getRegFromUnaryConditionOrNull(inst.cond) ?: return
+                val reg = inst.cond.getRegIfUnaryCondition() ?: return
                 val stackSlot = equalities.getRegister(reg)?.loc ?: return
                 val scalarVal = scalars.getAsScalarValue(reg)
                 if (!scalarVal.isTop()) {
@@ -791,13 +747,16 @@ class ScalarRegisterStackEqualityDomain<TNum: INumValue<TNum>, TOffset: IOffset<
 
     override fun toString() = "($scalars,equalities=$equalities)"
 
-    override fun getAsScalarValue(value: Value): ScalarValue<TNum, TOffset> {
-        return scalars.getAsScalarValue(value)
-    }
+    override fun getAsScalarValue(value: Value): ScalarValue<TNum, TOffset> =
+        scalars.getAsScalarValue(value)
 
-    override fun getStackContent(offset: Long, width: Byte): ScalarValue<TNum, TOffset> {
-       return scalars.getStackContent(offset, width)
-    }
+
+    override fun getStackContent(offset: Long, width: Byte): ScalarValue<TNum, TOffset> =
+       scalars.getStackContent(offset, width)
+
+
+    override fun mayStackBeInitialized(offset: Long, size: ULong) =
+        scalars.mayStackBeInitialized(offset, size)
 
     override fun getTypeFac() = scalars.getTypeFac()
 

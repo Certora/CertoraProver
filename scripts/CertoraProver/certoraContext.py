@@ -290,6 +290,9 @@ def get_args(args_list: List[str], app: Type[App.CertoraApp]) -> CertoraContext:
             Util.reset_certora_internal_dir(context.build_dir)
             os.rename(current_build_directory, context.build_dir)
 
+    if is_evm_app_class(context):
+        handle_vyper_system_path(context)
+
     # Store current options (including the ones read from .conf file)
     context.conf_options = current_conf_to_file(context)
 
@@ -602,14 +605,14 @@ def run_local_spec_check(with_typechecking: bool, context: CertoraContext, extra
         raise Util.CertoraUserInputError("Cannot run local checks because of missing a suitable java installation. "
                                          "To skip local checks run with the --disable_local_typechecking flag")
 
-def attrs_to_relative(context: CertoraContext) -> None:
-    def to_relative(input_path: Union[str, Path]) -> Union[str, Path]:
-        path = Path(input_path) if isinstance(input_path, str) else input_path
-        if path.is_absolute():
-            relative_path = os.path.relpath(path, cwd)   # Path.relative_to only works for subdirectories
-            return str(relative_path) if isinstance(input_path, str) else relative_path
-        return input_path
+def to_relative(input_path: Union[str, Path]) -> Union[str, Path]:
+    path = Path(input_path) if isinstance(input_path, str) else input_path
+    if path.is_absolute():
+        relative_path = os.path.relpath(path, Path.cwd())   # Path.relative_to only works for subdirectories
+        return str(relative_path) if isinstance(input_path, str) else relative_path
+    return input_path
 
+def attrs_to_relative(context: CertoraContext) -> None:
     def str_attr_to_relative(attr_name: str) -> None:
         attr_value = getattr(context, attr_name, None)
         if attr_value:
@@ -655,7 +658,6 @@ def attrs_to_relative(context: CertoraContext) -> None:
             if Path(spec_file).is_absolute():
                 context.verify = ':'.join([contract, str(to_relative(spec_file))])
 
-    cwd = Path.cwd()
     str_attr_to_relative('packages_path')
     str_attr_to_relative('bytecode_spec')
     str_attr_to_relative('yul_abi')
@@ -691,3 +693,24 @@ def get_map_attribute_value(context: CertoraContext, path: Path, attr_name: str)
             if glob.globmatch(str(path), pattern, flags=glob.GLOBSTAR):
                 return entry_value
     raise RuntimeError(f"cannot match {attr_name} to {path} from {attr_name}_map")
+
+def handle_vyper_system_path(context: CertoraContext) -> None:
+    """
+    Just like the Vyper compiler, we add the sys.path to the search path for imports, which allows us to resolve imports
+    using a package manager.
+
+    Note that we do this here, rather than allowing the Vyper compiler to do it, because we want to persist these paths
+    in the generated run.conf file, to make it easy to reproduce in a different environment.
+    """
+    if context.resolve_vyper_imports:
+        if not context.vyper_system_path:
+            # Pass the directories from sys.path in reversed order (Vyper treats later paths as higher precedence)
+            context.vyper_system_path = [
+                to_relative(p) for p in reversed(sys.path) if Path(p).is_dir()
+            ]
+        else:
+            # Filter out any directories that do not exist, to make the generated run.conf file more portable to
+            # different environments.
+            context.vyper_system_path = [
+                p for p in context.vyper_system_path if Path(p).is_dir()
+            ]

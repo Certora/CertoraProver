@@ -29,6 +29,7 @@ import java.io.Serializable
 import kotlin.io.path.Path
 
 private val logger = Logger(LoggerTypes.COMMON)
+private val debugSymbolLogger = Logger(LoggerTypes.DEBUG_SYMBOLS)
 
 /**
  * [indexToFilePath] maps an index used by solc to identify a source file to its path, where a path
@@ -160,7 +161,7 @@ fun Range.Range?.toHeuristicSourceSegment(): SourceSegment? {
         }
         CertoraFileCache.byteContent(s) to CertoraFileCache.lineStarts(s)
     } catch (e: CertoraFileCacheException) {
-        logger.warn(e.cause) { "Had error when reading from source file $sourceFile" }
+        debugSymbolLogger.debug(e.cause) { "Had error when reading from source file $sourceFile" }
         return null
     }
     val startIndex =

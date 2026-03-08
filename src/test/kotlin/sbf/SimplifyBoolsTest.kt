@@ -42,9 +42,9 @@ class SimplifyBoolsTest {
         val cfg = SbfTestDSL.makeCFG("test1") {
             bb(0) {
 
-                select(r2, Condition(CondOp.EQ, Value.Reg(SbfRegister.R3_ARG), Value.Imm(0UL)), 0, 1)
+                select(r2, Condition(CondOp.EQ, Value.Reg(SbfRegister.R3), Value.Imm(0UL)), 0, 1)
                 r1 = 0
-                select(r1, Condition(CondOp.EQ, Value.Reg(SbfRegister.R3_ARG), Value.Imm(0UL)), 1, 0)
+                select(r1, Condition(CondOp.EQ, Value.Reg(SbfRegister.R3), Value.Imm(0UL)), 1, 0)
                 r3 = 4
                 BinOp.OR(r2,r1)
                 assume(CondOp.NE(r2, 1))
@@ -155,14 +155,14 @@ class SimplifyBoolsTest {
     fun test6() {
         val cfg = SbfTestDSL.makeCFG("test6") {
             bb(0) {
-                select(r2, Condition(CondOp.NE, Value.Reg(SbfRegister.R4_ARG), Value.Imm(0UL)), 0, 1)
-                select(r3, Condition(CondOp.NE, Value.Reg(SbfRegister.R4_ARG), Value.Imm(0UL)), 0, 1)
+                select(r2, Condition(CondOp.NE, Value.Reg(SbfRegister.R4), Value.Imm(0UL)), 0, 1)
+                select(r3, Condition(CondOp.NE, Value.Reg(SbfRegister.R4), Value.Imm(0UL)), 0, 1)
                 BinOp.OR(r2,r3)
-                select(r3, Condition(CondOp.NE, Value.Reg(SbfRegister.R4_ARG), Value.Imm(0UL)), 1, 0)
+                select(r3, Condition(CondOp.NE, Value.Reg(SbfRegister.R4), Value.Imm(0UL)), 1, 0)
                 BinOp.OR(r2,r3)
-                select(r3, Condition(CondOp.NE, Value.Reg(SbfRegister.R4_ARG), Value.Imm(0UL)), 1, 0)
+                select(r3, Condition(CondOp.NE, Value.Reg(SbfRegister.R4), Value.Imm(0UL)), 1, 0)
                 BinOp.OR(r2,r3)
-                select(r1, Condition(CondOp.LE, Value.Reg(SbfRegister.R3_ARG), Value.Reg(SbfRegister.R9)), 0, 1)
+                select(r1, Condition(CondOp.LE, Value.Reg(SbfRegister.R3), Value.Reg(SbfRegister.R9)), 0, 1)
                 BinOp.OR(r2,r1)
                 assume(CondOp.NE(r2, 1))
                 exit()

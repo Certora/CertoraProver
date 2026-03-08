@@ -147,7 +147,10 @@ class DefaultInstructionListener<T>: InstructionListener<T> {
 /** Operations to query scalar values from a scalar domain  **/
 interface ScalarValueProvider<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
     fun getAsScalarValue(value: Value): ScalarValue<TNum, TOffset>
+    /** Return the scalar value stored in the stack bytes `[offset, offset+width-1]` **/
     fun getStackContent(offset: Long, width: Byte): ScalarValue<TNum, TOffset>
+    /** Return false if no bytes in `[offset, offset+size-1]` has ever been written on the stack **/
+    fun mayStackBeInitialized(offset: Long, size: ULong): Boolean
     fun getTypeFac(): ISbfTypeFactory<TNum, TOffset>
 }
 

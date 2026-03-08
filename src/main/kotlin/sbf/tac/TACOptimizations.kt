@@ -28,6 +28,7 @@ import analysis.split.BoolOptimizer
 import config.Config
 import config.ReportTypes
 import instrumentation.transformers.FilteringFunctions
+import instrumentation.transformers.SimpleConstantVariableRemover
 import instrumentation.transformers.TACDSA
 import instrumentation.transformers.optimizeAssignments
 import log.*
@@ -146,6 +147,7 @@ fun runDSAandUnrollLoops(coreTAC: CoreTACProgram): CoreTACProgram {
     return CoreTACProgram.Linear(coreTAC)
         .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
         .map(CoreToCoreTransformer(ReportTypes.COLLAPSE_EMPTY_DSA, TACDSA::collapseEmptyAssignmentBlocks))
+        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.REMOVE_SIMPLE_CONSTANT_VARIABLES, SimpleConstantVariableRemover::transform))
         .map(CoreToCoreTransformer(ReportTypes.HOIST_LOOPS, LoopHoistingOptimization::hoistLoopComputations))
         .map(CoreToCoreTransformer(ReportTypes.UNROLL, CoreTACProgram::convertToLoopFreeCode)).ref
 }

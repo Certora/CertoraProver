@@ -38,7 +38,7 @@ fun <D, TNum, TOffset>
     return if (regType is SbfType.PointerType.Stack) {
         val regOffset = regType.offset.toLongOrNull() ?: return null
         val derefOffset = regOffset + offset
-        val r10 = SbfRegister.R10_STACK_POINTER
+        val r10 = SbfRegister.R10
         val r10Type = types.typeAtInstruction(locatedInst, r10)
         check(r10Type is SbfType.PointerType.Stack) { "normalizeStackAccess: scalar analysis lost track of r10 at $locatedInst (1)" }
         val stackPtr = r10Type.offset.toLongOrNull()
@@ -90,9 +90,9 @@ fun findDefinitionInterBlock(b: SbfBasicBlock, reg: Value.Reg, startPos: Int = b
 
 /** Return true if [reg] is used between [from] (exclusive) and [to] (exclusive) **/
 fun isUsed(bb: SbfBasicBlock, reg: Value.Reg, from: Int, to:Int): Boolean {
-    return bb.getInstructions().subList(from+1, to).any { inst ->
-        inst.readRegisters.contains(reg)
-    }
+    return bb.getInstructions().subList(from+1, to)
+        .filter { inst -> inst  !is SbfInstruction.Debug }
+        .any { inst -> inst.readRegisters.contains(reg) }
 }
 
 /** Return true if [reg] is redefined between [from] (exclusive) and [to] (exclusive) **/
@@ -115,7 +115,8 @@ fun getNextUseInterBlock(bb: SbfBasicBlock, start: Int, reg: Value.Reg, maxNumLe
                 continue
             } else {
                 val inst = locInst.inst
-                if (inst.readRegisters.contains(reg)) {
+
+                if (inst !is SbfInstruction.Debug && inst.readRegisters.contains(reg)) {
                     // reg is used
                     return locInst
                 }

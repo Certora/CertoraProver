@@ -82,7 +82,7 @@ class SbfDisassemblerTest {
         Assertions.assertEquals(true, inst1.toString() == inst2.toString())
         Assertions.assertEquals(true,
         inst1 is SbfInstruction.Bin &&
-            inst1.dst.r == SbfRegister.R2_ARG &&
+            inst1.dst.r == SbfRegister.R2 &&
             (inst1.v is Value.Imm &&  (inst1.v as Value.Imm).v ==  262137UL))
     }
 
@@ -116,7 +116,7 @@ class SbfDisassemblerTest {
         println("$inst")
         Assertions.assertEquals(true,
             inst is SbfInstruction.Bin &&
-                inst.dst.r == SbfRegister.R2_ARG &&
+                inst.dst.r == SbfRegister.R2 &&
                 (inst.v is Value.Imm &&  (inst.v as Value.Imm).v == (-12884901896).toULong()))
     }
 
@@ -170,8 +170,8 @@ class SbfDisassemblerTest {
         Assertions.assertEquals(true,
             inst is SbfInstruction.Mem &&
                 !inst.isLoad &&
-                inst.access.base.r == SbfRegister.R10_STACK_POINTER &&
+                inst.access.base.r == SbfRegister.R10 &&
                 inst.access.offset.toInt() == -72 &&
-                inst.value == Value.Reg(SbfRegister.R1_ARG))
+                inst.value == Value.Reg(SbfRegister.R1))
     }
 }

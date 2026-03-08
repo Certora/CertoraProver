@@ -18,7 +18,6 @@
 package sbf
 
 import config.ConfigScope
-import datastructures.stdcollections.*
 import sbf.cfg.*
 import sbf.disassembler.SbfRegister
 import sbf.disassembler.Label
@@ -148,7 +147,7 @@ class TACAllocatorsTest {
 
     @Test
     fun test6() {
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r1 = Value.Reg(SbfRegister.R1)
         val cfg = MutableSbfCFG("test6")
         val l0 = Label.Address(1)
         val b0 = cfg.getOrInsertBlock(l0)

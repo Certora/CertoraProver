@@ -17,6 +17,7 @@
 
 package rules
 
+import analysis.opt.DiamondSimplifier.registerMergeableAnnot
 import analysis.opt.intervals.Intervals
 import analysis.opt.intervals.IntervalsCalculator
 import config.Config
@@ -55,6 +56,11 @@ enum class TwoStageRound{
 val TWOSTAGE_META_VARORIGIN = MetaKey<CmdPointerList>("twostage.varorigin")
 
 /**
+ * The original block id in the unoptimized program.
+ */
+val TWOSTAGE_META_BLOCKORIGIN = MetaKey<NBId>("twostage.blockorigin").registerMergeableAnnot()
+
+/**
  * This meta stores a fixed assignment to an assigning command. It is picked up during the Leino encoding to enforce
  * the stored value.
  */
@@ -85,34 +91,22 @@ private fun sendAlert(rule: IRule, msg: String) {
 }
 
 /**
- * Eliminates [blocks] from the program, assuming that they are unreachable (here: because we also fix the model).
- * We do not really remove those blocks from the program, but force them to be vacuous by adding an `assert(false)` and
- * relying on subsequent static analysis to actually remove them. To make things easy for us, we keep the graph
- * structure intact by injecting artificial (conditional) jump commands based on the blocks successors.
- *
- * Important note: this only works with `-canonicalizeTAC false`, as canonicalization renames all blocks.
+ * Maintains the [blocks] in the program by eliminating the block in the sets complement. Elimination is done
+ * by assuming that they are unreachable.
+ * We do not really remove those blocks from the program, but force them to be vacuous by adding an `assume(false)` and
+ * relying on subsequent static analysis to actually remove them.
  */
-private fun CoreTACProgram.eliminateBlocks(blocks: Set<NBId>): CoreTACProgram {
+private fun CoreTACProgram.maintainBlocks(blocks: Set<NBId>): CoreTACProgram {
     val newCode = code.map { (blk, cmds) ->
-        blk to if (blk in blocks) {
-            logger.debug { "eliminating ${blk}" }
-            val succs = blockgraph[blk]
-            listOfNotNull(
-                TACCmd.Simple.AssumeCmd(TACSymbol.False, "eliminateBlocks"),
-                when {
-                    succs.isNullOrEmpty() -> null
-                    succs.size == 1 -> TACCmd.Simple.JumpCmd(succs.single())
-                    succs.size == 2 -> TACCmd.Simple.JumpiCmd(succs.first(), succs.last(), TACSymbol.True)
-                    else -> null
-                }
-            )
+        blk to if (blk !in blocks) {
+            logger.debug { "assuming false in ${blk}" }
+            listOf(TACCmd.Simple.AssumeCmd(TACSymbol.False, "eliminateBlocks")) + cmds
         } else {
             cmds
         }
     }.toMap()
     return copy(code = newCode)
 }
-
 /**
  * Perform the first check with destructive optimizations enabled. Annotates the program beforehand, so that the model
  * can be used to fix variables to values in the rerun.
@@ -130,34 +124,37 @@ private suspend fun doFirstCheck(tac: CoreTACProgram, check: suspend (CoreTACPro
 /**
  * Add the model to assigning commands in the tac program to fix variables to the values of the given [model]
  * which corresponds to the violation of the first run. Only those variables are fixed, for which [filter] returns
- * true. NB: we only add some meta to assigning commands, but do not "fix" values in a strict TAC sense, i.e. by adding
- * assume commands.
+ * true. NB: we add meta to assigning, assert and more commands (see [fixedVariable]). The values are not "fixed"
+ * in a strict TAC sense, i.e. by adding assume commands or using assigns directly - instead specific meta
+ * [TWOSTAGE_META_MODEL] is used by the Leino encoding.
+ *
+ * [visitableBlocks] is the set of blocks that remained in the program post-optimizations - in the second round,
+ * the search space can be limited to these blocks as the CEX .
  */
 private fun patchTAC(
     tac: CoreTACProgram,
     model: CounterexampleModel,
+    visitableBlocks: Set<NBId>,
     filter: (TACSymbol.Var, TACValue) -> Boolean
 ): CoreTACProgram {
     // maps CmdPointer from the original tac program to the assignment of the respective lhs
     val fixed = model.tacAssignments
         .flatMap { (sym, v) -> sym.meta[TWOSTAGE_META_VARORIGIN]?.ptrs?.map { it to v } ?: listOf() }
         .toMap()
-    // go through tac and attach the model to every suitable assignment
+    // go through tac and attach the model to every suitable assignment, assert and assume
     return tac.patching { p ->
         tac.analysisCache.graph.commands
             .filter { (ptr, _) -> ptr in fixed }
-            .filter { (_, cmd) -> cmd is TACCmd.Simple.AssigningCmd }
             .forEach { (ptr, cmd) ->
-                val variable = (cmd as TACCmd.Simple.AssigningCmd).lhs
-                val value = fixed[ptr]!!
-                if (filter(variable, value)) {
-                    logger.debug { "fix ${ptr} -> ${variable} = ${value}" }
-                    p.update(ptr, cmd.plusMeta(TWOSTAGE_META_MODEL, value))
+                cmd.fixedVariable()?.let { variable ->
+                    val value = fixed[ptr]!!
+                    if (filter(variable, value)) {
+                        logger.debug { "fix $ptr -> $variable = $value" }
+                        p.update(ptr, cmd.plusMeta(TWOSTAGE_META_MODEL, value))
+                    }
                 }
             }
-    }.eliminateBlocks(model.unreachableNBIds).also {
-        logger.debug { "Eliminated ${model.unreachableNBIds.size} / ${tac.code.size} blocks from ${tac.name}" }
-    }
+    }.maintainBlocks(visitableBlocks)
 }
 
 /**
@@ -171,14 +168,20 @@ private fun passesSanityCheck(patchedTac: CoreTACProgram, model: CounterexampleM
         preserve = { false },
         seed = patchedTac.analysisCache.graph.commands
             .filter { TWOSTAGE_META_MODEL in it.cmd.meta }
-            .mapNotNull {
-                it.ptr `to?` when (val v = it.cmd.meta[TWOSTAGE_META_MODEL]) {
-                    is TACValue.PrimitiveValue -> v.asBigInt
-                    is TACValue.SKey.Basic -> v.offset.asBigInt
+            .mapNotNull { ltacmd ->
+                val spot = when(val c = ltacmd.cmd){
+                    is TACCmd.Simple.AssertCmd -> IntervalsCalculator.Spot.Expr(ltacmd.ptr, c.o)
+                    is TACCmd.Simple.AssumeCmd -> IntervalsCalculator.Spot.Expr(ltacmd.ptr, c.cond)
+                    is TACCmd.Simple.AssigningCmd ->  IntervalsCalculator.Spot.Lhs(ltacmd.ptr)
+                    else -> `impossible!`
+                }
+
+                when (val v = ltacmd.cmd.meta[TWOSTAGE_META_MODEL]) {
+                    is TACValue.PrimitiveValue -> spot to Intervals(v.asBigInt)
+                    is TACValue.SKey.Basic -> spot to Intervals(v.offset.asBigInt)
                     else -> null
                 }
             }
-            .map { (ptr, v) -> IntervalsCalculator.Spot.Lhs(ptr) to Intervals(v) }
             .toList(),
     ).g.vertices.containsAll(model.reachableNBIds)
 
@@ -191,13 +194,14 @@ private fun passesSanityCheck(patchedTac: CoreTACProgram, model: CounterexampleM
 private suspend fun doSecondCheck(
     tac: CoreTACProgram,
     model: CounterexampleModel,
+    visitableBlocks: Set<NBId>,
     subname: String,
     check: suspend (CoreTACProgram, TwoStageRound) -> CompiledRule.CompileRuleCheckResult,
     filter: (TACSymbol.Var, TACValue) -> Boolean
 ): CompiledRule.CompileRuleCheckResult? {
     val name = "${tac.name}-${subname}"
     // do the second check without destructive optimizations
-    val patchedTac = patchTAC(tac, model, filter).withDestructiveOptimizations(false).copy(name = name)
+    val patchedTac = patchTAC(tac, model, visitableBlocks, filter).withDestructiveOptimizations(false).copy(name = name)
     // dump tac of the rerun
     dumpTAC(patchedTac)
 
@@ -220,12 +224,42 @@ private suspend fun doSecondCheck(
     }
 }
 
+/**
+ * Returns the variable for a command that can be fixed, i.e., a variable
+ * for which the value (if available) from the first run will be used in the second run.
+ */
+fun TACCmd.Simple.fixedVariable(): TACSymbol.Var? =
+    when (this) {
+        is TACCmd.Simple.AssigningCmd -> lhs
+        is TACCmd.Simple.AssertCmd -> o as? TACSymbol.Var
+        is TACCmd.Simple.AssumeCmd -> cond as? TACSymbol.Var
+        else -> null
+    }
 
+
+/**
+ * Returns a modified CoreTACProgram where each command that should be fixed according to [fixedVariable]
+ * receives the meta [TWOSTAGE_META_VARORIGIN].
+ */
 fun CoreTACProgram.annotateWithTwoStageMeta(): CoreTACProgram {
-    return this.patching { p ->
-        this.analysisCache.graph.commands
-            .filter { it.cmd is TACCmd.Simple.AssigningCmd }
-            .forEach { (ptr, cmd) -> p.update(ptr, cmd.plusMeta(TWOSTAGE_META_VARORIGIN, CmdPointerList(ptr))) }
+    return ConcurrentPatchingProgram(this).let { p ->
+        this.analysisCache.graph.blocks.parallelStream().forEach { b ->
+            if (b.commands.isNotEmpty()) {
+                val annotationCmd = TACCmd.Simple.AnnotationCmd(
+                    TACCmd.Simple.AnnotationCmd.Annotation(TWOSTAGE_META_BLOCKORIGIN, b.id)
+                )
+                p.prependBefore(b.commands.first().ptr, listOf(annotationCmd))
+                b.commands
+                    .filter { it.cmd.fixedVariable() != null }
+                    .forEach { (ptr, cmd) ->
+                        p.replace(ptr, cmd.plusMeta(
+                            key = TWOSTAGE_META_VARORIGIN,
+                            v = CmdPointerList(ptr))
+                        )
+                    }
+            }
+        }
+        p.toCode()
     }
 }
 
@@ -256,15 +290,20 @@ suspend fun twoStageDestructiveOptimizationsCheck(
     return if (firstResult.result.getOrNull()?.result is Verifier.JoinedResult.Failure) {
         logger.info { "Doing the two-stage dance" }
         // extract the violation and patch the tac program
-        var totalVerifyTime = firstResult.result.getOrThrow().verifyTime
-        fun CompiledRule.CompileRuleCheckResult?.addToVerifyTime() = this?.also { totalVerifyTime = totalVerifyTime.join(result.getOrThrow().verifyTime) }
+        val result = firstResult.result.getOrThrow()
+        var totalVerifyTime = result.verifyTime
+        fun CompiledRule.CompileRuleCheckResult?.addToVerifyTime() = this?.also { totalVerifyTime = totalVerifyTime.join(result.verifyTime) }
         val model =
-            firstResult.result.getOrNull()?.result?.examplesInfo?.head?.model
+            result.result.examplesInfo?.head?.model
                 ?: throw ViolationWithoutModelException()
 
-        val checkResult = (doSecondCheck(tac, model, "rerun-allvars", check) { _, _ -> true }).addToVerifyTime()
-            ?: (doSecondCheck(tac, model, "rerun-numvars", check) { v, _ -> v.tag != Tag.Bool }).addToVerifyTime()
-            ?: (doSecondCheck(tac, model, "rerun-boolvars", check) { v, _ -> v.tag == Tag.Bool }).addToVerifyTime()
+        val visitableBlocks = result.result.simpleSimpleSSATAC.code.flatMap { (_, cmds) ->
+            cmds.mapNotNull { it.maybeAnnotation(TWOSTAGE_META_BLOCKORIGIN) }
+        }.toSet()
+
+        val checkResult = (doSecondCheck(tac, model, visitableBlocks, "rerun-allvars", check) { _, _ -> true }).addToVerifyTime()
+            ?: (doSecondCheck(tac, model, visitableBlocks, "rerun-numvars", check) { v, _ -> v.tag != Tag.Bool }).addToVerifyTime()
+            ?: (doSecondCheck(tac, model, visitableBlocks, "rerun-boolvars", check) { v, _ -> v.tag == Tag.Bool }).addToVerifyTime()
             ?: run {
                 val msg = "The violation for $ruleDescription could not be confirmed without destructive optimizations. It is probably spurious and the call trace generation likely fails. Please run again with `-destructiveOptimizations disable`."
                 check(Config.DestructiveOptimizationsMode.get() != DestructiveOptimizationsModeEnum.TWOSTAGE_CHECKED) { msg }
@@ -280,7 +319,7 @@ suspend fun twoStageDestructiveOptimizationsCheck(
     }
 }
 
-suspend fun <T: SingleRule> twoStageDestructiveOptimizationsCheck(
+suspend fun <T : SingleRule> twoStageDestructiveOptimizationsCheck(
     scene: IScene,
     rule: CompiledRule<T>,
 ): CompiledRule.CompileRuleCheckResult {

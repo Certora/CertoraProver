@@ -80,9 +80,9 @@ class TACMemcpyPromotionTest {
     ```
      **/
     private fun `widening + narrowing`(): MutableSbfCFG {
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         cfg.setEntry(b1)
@@ -139,9 +139,9 @@ class TACMemcpyPromotionTest {
      * ```
      */
     private fun `widening store`(): MutableSbfCFG {
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         cfg.setEntry(b1)
@@ -195,10 +195,10 @@ class TACMemcpyPromotionTest {
      * assert(r2 == 0)
      */
     private fun `narrowing store`(): MutableSbfCFG {
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r0 = Value.Reg(SbfRegister.R0)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         cfg.setEntry(b1)
@@ -261,10 +261,10 @@ class TACMemcpyPromotionTest {
      * ```
      */
     private fun `example from manifest`(): MutableSbfCFG {
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r0 = Value.Reg(SbfRegister.R0)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         cfg.setEntry(b1)

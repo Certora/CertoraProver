@@ -20,7 +20,6 @@ package analysis.icfg
 import algorithms.transitiveClosure
 import analysis.*
 import analysis.dataflow.GlobalValueNumbering
-import analysis.dataflow.IGlobalValueNumbering
 import analysis.ip.*
 import analysis.worklist.StepResult
 import analysis.worklist.VisitingWorklistIteration
@@ -444,7 +443,7 @@ abstract class GenericInternalSummarizer<K, S,
         function: InternalFunction,
         selectedSummary: SummarySelection<K, S>,
         intermediateCode: CoreTACProgram,
-        gvn: IGlobalValueNumbering,
+        gvn: GlobalValueNumbering,
     ): (SimplePatchingProgram) -> Unit {
         val callSite = function.start.toFuncStart()!!
         val functionId = callSite.which
@@ -459,7 +458,7 @@ abstract class GenericInternalSummarizer<K, S,
         return { patching: SimplePatchingProgram ->
             val remove = patching.splitBlockAfter(function.start.ptr)
             val exitBlock = when(exitsite) {
-                is ExitPointType.ConfluenceBlock -> exitsite.block
+                is ExitPointType.ConfluenceBlock -> exitsite.confluenceBlock
                 /**
                  * [ExitPointType.SimpleCommand.ptr] is the location of the exit annotation,
                  * so split AFTER it.
@@ -523,7 +522,7 @@ abstract class GenericInternalSummarizer<K, S,
          * blocks of [block] that contain the exit points *only* contain code for the exit points.
          * The start of [block] gives the rest of the program after function exit.
          */
-        data class ConfluenceBlock(val block: NBId) : ExitPointType
+        data class ConfluenceBlock(val confluenceBlock: NBId, val exitBlocks: Set<NBId>) : ExitPointType
     }
 
     private data class InternalFunctionExitData<FUNC_RET>(
@@ -543,7 +542,7 @@ abstract class GenericInternalSummarizer<K, S,
     private fun handleFunctionExits(
         function: InternalFunction,
         intermediateCode: CoreTACProgram,
-        gvn: IGlobalValueNumbering
+        gvn: GlobalValueNumbering
     ) : Either<InternalFunctionExitData<RET_DATA>, String> {
         val callSite = function.start.toFuncStart()!!
         val functionId = callSite.which
@@ -571,7 +570,7 @@ abstract class GenericInternalSummarizer<K, S,
                 val confluence = function.exits.monadicMap {
                     g.succ(it.ptr.block).singleOrNull()
                 }?.uniqueOrNull() ?: return "$functionId contains multiple exits and there is no apparent confluence point".toRight()
-                ExitPointType.ConfluenceBlock(confluence)
+                ExitPointType.ConfluenceBlock(confluence, function.exits.mapToSet { it.ptr.block })
             }
         }
         val isSingletonExit = exitPoint is ExitPointType.SimpleCommand
@@ -627,7 +626,7 @@ abstract class GenericInternalSummarizer<K, S,
                         }
                         return this.result(commandResults + accum.toRight())
                     }
-                    is ExitPointType.ConfluenceBlock -> exitPoint.block
+                    is ExitPointType.ConfluenceBlock -> exitPoint.confluenceBlock
                 }
                 var iter = g.succ(it).singleOrNull() ?: return this.haltWithError("At exit $it from $functionId do not have straightline code?")
                 while(iter.block != exitBlock) {
@@ -653,16 +652,16 @@ abstract class GenericInternalSummarizer<K, S,
             override fun reduce(results: List<Either<TACSymbol.Var, Map<TACSymbol.Var, Int>>>): Either<InternalFunctionExitData<RET_DATA>, String> {
                 val (writtenVars, exitStates) = results.partitionMap { it }
                 // alias source is the location from which we should find aliases for written variables that are not exit vars
-                val (livenessCheck, aliasSource) = when(exitPoint) {
+                val (livenessCheck, aliasSources) = when(exitPoint) {
                     is ExitPointType.SimpleCommand -> {
                         { v: TACSymbol.Var ->
                             g.cache.lva.isLiveAfter(exitPoint.ptr, v)
-                        } to exitPoint.ptr
+                        } to setOf(exitPoint.ptr)
                     }
                     is ExitPointType.ConfluenceBlock -> {
                         { v: TACSymbol.Var ->
-                            g.cache.lva.isLiveBefore(CmdPointer(exitPoint.block, 0), v)
-                        } to CmdPointer(exitPoint.block, 0)
+                            g.cache.lva.isLiveBefore(CmdPointer(exitPoint.confluenceBlock, 0), v)
+                        } to exitPoint.exitBlocks.mapToSet { g.elab(it).commands.last().ptr }
                     }
                 }
                 val exitRepresentative = function.exits.first().wrapped.maybeAnnotation(endMeta)!!
@@ -709,11 +708,20 @@ abstract class GenericInternalSummarizer<K, S,
                     // ignore keyword entries (tacM etc.) that are written within the summarized body.
                     // however, for some reason all stack variables are also annotated with the keyword entry "L"
                     // for "stack height" so explicitly ignore that...
-                    if(ent != null && ent.maybeTACKeywordOrdinal != TACKeyword.STACK_HEIGHT.ordinal) {
+                    if((ent != null && ent.maybeTACKeywordOrdinal != TACKeyword.STACK_HEIGHT.ordinal) || TACMeta.STORAGE_KEY in v.meta) {
                         continue
                     }
-                    // is there an alias that exists at the entrance to the function? If so, use that
-                    val aliases = gvn.findCopiesAt(function.start.ptr, aliasSource to v)
+                    // is there an alias that exists at the entrance to the function? If so, use that.
+                    // NB for functions with multiple exits, the confluence block might have other predecessors that
+                    // are not exits from this function.  So we need to query the exit blocks themselves, which should
+                    // return consistent results.
+                    val aliasesPerExit = aliasSources.map { aliasSource ->
+                        gvn.valueAfter(aliasSource, v)?.copiesBefore(function.start.ptr).orEmpty()
+                    }
+                    if(!aliasesPerExit.allSame()) {
+                        return "Variable $v was written within $functionId and has multiple inconsistent aliases at the exit, cannot summarize".toRight()
+                    }
+                    val aliases = aliasesPerExit.first()
                     if(aliases.isEmpty()) {
                         return "Variable $v was written within $functionId but could not find a new value for it outside the function".toRight()
                     }

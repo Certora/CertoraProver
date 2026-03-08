@@ -121,8 +121,8 @@ class SbfFunctionArgInferenceTest {
         val infer = runAnalysis(listOf(entrypoint, foo), "entrypoint", slice = true)
         Assertions.assertEquals(
             setOf(
-                Value.Reg(SbfRegister.R1_ARG),
-                Value.Reg(SbfRegister.R3_ARG),
+                Value.Reg(SbfRegister.R1),
+                Value.Reg(SbfRegister.R3),
             ),
             infer.liveAtCall("foo")
         )
@@ -149,7 +149,7 @@ class SbfFunctionArgInferenceTest {
         val infer = runAnalysis(listOf(entrypoint, foo), "entrypoint")
         val liveAtEntry = infer.liveAtCall("foo")
         Assertions.assertEquals(
-            setOf(Value.Reg(SbfRegister.R1_ARG)),
+            setOf(Value.Reg(SbfRegister.R1)),
             liveAtEntry
         )
     }
@@ -179,7 +179,7 @@ class SbfFunctionArgInferenceTest {
         Assertions.assertEquals(
             infer.liveAtCall("foo"),
             setOf(
-                Value.Reg(SbfRegister.R1_ARG),
+                Value.Reg(SbfRegister.R1),
             )
         )
     }
@@ -217,11 +217,11 @@ class SbfFunctionArgInferenceTest {
 
         val infer = runAnalysis(listOf(entry, foo, bar), "entrypoint")
         Assertions.assertEquals(
-            setOf(Value.Reg(SbfRegister.R1_ARG), Value.Reg(SbfRegister.R2_ARG)),
+            setOf(Value.Reg(SbfRegister.R1), Value.Reg(SbfRegister.R2)),
             infer.liveAtCall("foo"),
         )
         Assertions.assertEquals(
-            setOf(Value.Reg(SbfRegister.R1_ARG), Value.Reg(SbfRegister.R5_ARG)),
+            setOf(Value.Reg(SbfRegister.R1), Value.Reg(SbfRegister.R5)),
             infer.liveAtCall("bar"),
         )
     }

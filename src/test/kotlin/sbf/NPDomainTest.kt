@@ -520,7 +520,7 @@ class NPDomainTest {
             for (locInst in b.getLocatedInstructions()) {
                 val inst = locInst.inst
                 if (inst is SbfInstruction.Call && SolanaFunction.from(inst.name) == SolanaFunction.SOL_MEMCPY) {
-                    val ty = regTypes.typeAtInstruction(locInst, SbfRegister.R3_ARG)
+                    val ty = regTypes.typeAtInstruction(locInst, SbfRegister.R3)
                     Assertions.assertEquals(true, (ty as? SbfType.NumType)?.value?.toLongOrNull() == 32L)
                 }
             }
@@ -572,7 +572,7 @@ class NPDomainTest {
             for (locInst in b.getLocatedInstructions()) {
                 val inst = locInst.inst
                 if (inst is SbfInstruction.Call && SolanaFunction.from(inst.name) == SolanaFunction.SOL_MEMCPY) {
-                    val ty = regTypes.typeAtInstruction(locInst, SbfRegister.R3_ARG)
+                    val ty = regTypes.typeAtInstruction(locInst, SbfRegister.R3)
                     Assertions.assertEquals(true, (ty as? SbfType.NumType)?.value?.toLongOrNull() == 32L)
                 }
             }
@@ -609,9 +609,9 @@ class NPDomainTest {
          */
 
 
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test18")
 
         val l0 = Label.Address(1)
@@ -652,8 +652,8 @@ class NPDomainTest {
      */
     @Test
     fun `store of negative number and load of 1 byte`() {
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         cfg.setEntry(b1)
@@ -696,10 +696,10 @@ class NPDomainTest {
      */
     @Test
     fun `store of negative number with branches and load of 1 byte`() {
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         val b2 = cfg.getOrInsertBlock(Label.Address(2))
@@ -759,8 +759,8 @@ class NPDomainTest {
      */
     @Test
     fun `store of positive number and load of 1 byte`() {
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         cfg.setEntry(b1)

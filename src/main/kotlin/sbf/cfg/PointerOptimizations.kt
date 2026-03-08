@@ -40,8 +40,6 @@ fun runSimplePTAOptimizations(cfg: MutableSbfCFG, globals: GlobalVariables) {
     cfg.verify(false, "after unhoisting stores")
     cfg.removeEmptyBlocks()
     cfg.verify(false, "after remove empty blocks")
-    unhoistStackPop(cfg, globals)
-    cfg.verify(false, "after unhoisting stack pop instruction")
     unhoistCalltraceFunctions(cfg)
     cfg.verify(false, "after unhoisting calltrace functions")
 }
@@ -80,6 +78,8 @@ fun runPostSlicingOptimizations(prog: SbfCallGraph): SbfCallGraph {
         optEntryCFG.verify(false, "[after simplifyBools]")
         detectOverflowPatterns(optEntryCFG)
         optEntryCFG.verify(false, "[after markAddWithOverflow]")
+        simplifyByteSwapInsts(optEntryCFG)
+        optEntryCFG.verify(false, "[after simplifyByteSwapInsts]")
         optEntryCFG.normalize()
         optEntryCFG.verify(true, "after post-slicing optimizations")
         optEntryCFG

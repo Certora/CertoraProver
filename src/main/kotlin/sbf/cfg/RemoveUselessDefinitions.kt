@@ -35,7 +35,7 @@ fun removeUselessDefinitions(cfg: MutableSbfCFG, liveness: LivenessAnalysis) {
         for (locInst in bb.getLocatedInstructions()) {
             val inst = locInst.inst
             if ((inst is SbfInstruction.Mem && inst.isLoad) ||
-                (inst is SbfInstruction.Bin && inst.dst != Value.Reg(SbfRegister.R10_STACK_POINTER))) {
+                (inst is SbfInstruction.Bin && inst.dst != Value.Reg(SbfRegister.R10))) {
                 val liveRegisters = livenessAfterInst[locInst]
                 if (liveRegisters != null) {
                     if (inst.writeRegister.intersect(liveRegisters).isEmpty()) {

@@ -181,7 +181,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
 
             val initialOffset = getInitialStackOffset(globalState.globals.elf.useDynamicFrames())
             setRegister(
-                Value.Reg(SbfRegister.R10_STACK_POINTER),
+                Value.Reg(SbfRegister.R10),
                 ScalarValue(sbfTypeFac.toStackPtr(initialOffset))
             )
         }
@@ -397,7 +397,8 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                 // modular arithmetic
                 setRegister(stmt.dst, ScalarValue(sbfTypeFac.anyNum()))
             }
-            UnOp.BE16, UnOp.BE32, UnOp.BE64, UnOp.LE16, UnOp.LE32, UnOp.LE64 -> {
+            UnOp.BE16, UnOp.BE32, UnOp.BE64,
+            UnOp.LE16, UnOp.LE32, UnOp.LE64 -> {
                 analyzeByteSwapInst(stmt.dst)
             }
         }
@@ -721,20 +722,22 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
 
     /**
      *  Transfer function for `__CVT_restore_scratch_registers`
-     *  Invariant ensured by CFG construction: r10 has been decremented already
      **/
     private fun restoreScratchRegisters() {
-        val stackPtr = Value.Reg(SbfRegister.R10_STACK_POINTER)
-        val topStack = (getRegister(stackPtr).type() as? SbfType.PointerType.Stack)?.offset?.toLongOrNull()
-        check(topStack != null){ "r10 should point to a statically known stack offset"}
+        base.restoreScratchRegisters()
 
+        val newTopStack = checkNotNull(
+            (getRegister(Value.Reg(SbfRegister.R10)).type() as? SbfType.PointerType.Stack)
+                ?.offset?.toLongOrNull()
+        )
         val useDynFrames= globalState.globals.elf.useDynamicFrames()
 
+        base.removeDeadStackFields(newTopStack, useDynFrames)
+
         mayInitStack  = mayInitStack.intervals
-            .filter { i -> ScalarBaseDomain.isDeadOffset(i.l, topStack, useDynFrames) }
+            .filter { i -> ScalarBaseDomain.isDeadOffset(i.l, newTopStack, useDynFrames) }
             .fold(mayInitStack) { acc, i -> acc.remove(i) }
 
-        base.restoreScratchRegisters(topStack, useDynFrames)
     }
 
     /** Extracts known constant length from a register, or throws a detailed error. */
@@ -784,10 +787,10 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
      **/
     private fun analyzeMemcpy(locInst: LocatedSbfInstruction)  {
 
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val dstReg = Value.Reg(SbfRegister.R1_ARG) // dst
-        val srcReg = Value.Reg(SbfRegister.R2_ARG) // src
-        val lenReg = Value.Reg(SbfRegister.R3_ARG) // len
+        val r0 = Value.Reg(SbfRegister.R0)
+        val dstReg = Value.Reg(SbfRegister.R1) // dst
+        val srcReg = Value.Reg(SbfRegister.R2) // src
+        val lenReg = Value.Reg(SbfRegister.R3) // len
 
         if (locInst.inst.writeRegister.contains(r0)) {
             forget(r0)
@@ -866,9 +869,9 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
      * Note that the analysis of `memmove` is a rough over-approximation.
      **/
     private fun analyzeMemsetOrMemmove(locInst: LocatedSbfInstruction) {
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val dstReg = Value.Reg(SbfRegister.R1_ARG) // dst
-        val lenReg = Value.Reg(SbfRegister.R3_ARG) // len
+        val r0 = Value.Reg(SbfRegister.R0)
+        val dstReg = Value.Reg(SbfRegister.R1) // dst
+        val lenReg = Value.Reg(SbfRegister.R3) // len
 
         if (locInst.inst.writeRegister.contains(r0)) {
             forget(r0)
@@ -920,10 +923,10 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         transformValue: (ScalarValue<TNum, TOffset>, Long) -> ScalarValue<TNum, TOffset>
     ) {
 
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val dstReg = Value.Reg(SbfRegister.R1_ARG) // dst
-        val srcReg = Value.Reg(SbfRegister.R2_ARG) // src
-        val iReg = Value.Reg(SbfRegister.R3_ARG)   // i
+        val r0 = Value.Reg(SbfRegister.R0)
+        val dstReg = Value.Reg(SbfRegister.R1) // dst
+        val srcReg = Value.Reg(SbfRegister.R2) // src
+        val iReg = Value.Reg(SbfRegister.R3)   // i
 
         if (locInst.inst.writeRegister.contains(r0)) {
             forget(r0)
@@ -984,22 +987,22 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                 SolanaFunction.SOL_MEMCMP, SolanaFunction.SOL_INVOKE_SIGNED_C, SolanaFunction.SOL_INVOKE_SIGNED_RUST,
                 SolanaFunction.SOL_CURVE_GROUP_OP, SolanaFunction.SOL_CURVE_VALIDATE_POINT,
                 SolanaFunction.SOL_GET_STACK_HEIGHT ->
-                    setRegister(Value.Reg(SbfRegister.R0_RETURN_VALUE), ScalarValue(sbfTypeFac.anyNum()))
+                    setRegister(Value.Reg(SbfRegister.R0), ScalarValue(sbfTypeFac.anyNum()))
                 SolanaFunction.SOL_GET_CLOCK_SYSVAR, SolanaFunction.SOL_GET_RENT_SYSVAR ->
                     summarizeCall(locInst)
                 SolanaFunction.SOL_SET_CLOCK_SYSVAR ->
-                    forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
+                    forget(Value.Reg(SbfRegister.R0))
                 SolanaFunction.SOL_MEMCPY -> analyzeMemcpy(locInst)
                 SolanaFunction.SOL_MEMCPY_ZEXT -> analyzeMemcpyZext(locInst)
                 SolanaFunction.SOL_MEMCPY_TRUNC -> analyzeMemcpyTrunc(locInst)
                 SolanaFunction.SOL_MEMMOVE,
                 SolanaFunction.SOL_MEMSET -> analyzeMemsetOrMemmove(locInst)
-                else -> forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
+                else -> forget(Value.Reg(SbfRegister.R0))
             }
         } else {
             if (stmt.isAllocFn() && globalState.memSummaries.getSummary(stmt.name) == null) {
                 /// This is only used for pretty-printing
-                setRegister(Value.Reg(SbfRegister.R0_RETURN_VALUE), ScalarValue(sbfTypeFac.anyHeapPtr()))
+                setRegister(Value.Reg(SbfRegister.R0), ScalarValue(sbfTypeFac.anyHeapPtr()))
             } else {
                 /** CVT call **/
                 val cvtFunction = CVTFunction.from(stmt.name)
@@ -1008,12 +1011,12 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                         is CVTFunction.Core -> {
                             when (cvtFunction.value) {
                                 CVTCore.ASSUME -> {
-                                    analyzeAssume(Condition(CondOp.NE, Value.Reg(SbfRegister.R1_ARG), Value.Imm(0UL)))
+                                    analyzeAssume(Condition(CondOp.NE, Value.Reg(SbfRegister.R1), Value.Imm(0UL)))
                                 }
                                 CVTCore.ASSERT -> {
                                     // At this point, we don't check.
                                     // So if assert doesn't fail than we can assume that r1 !=0
-                                    analyzeAssume(Condition(CondOp.NE, Value.Reg(SbfRegister.R1_ARG), Value.Imm(0UL)))
+                                    analyzeAssume(Condition(CondOp.NE, Value.Reg(SbfRegister.R1), Value.Imm(0UL)))
                                 }
                                 CVTCore.SATISFY, CVTCore.SANITY -> {}
                                 CVTCore.SAVE_SCRATCH_REGISTERS -> saveScratchRegisters()
@@ -1024,21 +1027,21 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                                 CVTCore.NONDET_SOLANA_ACCOUNT_SPACE -> {
                                     /// This is only used for pretty-printing
                                     setRegister(
-                                        Value.Reg(SbfRegister.R0_RETURN_VALUE),
+                                        Value.Reg(SbfRegister.R0),
                                         ScalarValue(sbfTypeFac.anyInputPtr())
                                     )
                                 }
                                 CVTCore.ALLOC_SLICE -> {
                                     /// This is only used for pretty-printing
                                     /// That's why we return top in some cases rather than reporting an error
-                                    val returnedVal = when (getRegister(Value.Reg(SbfRegister.R1_ARG)).type()) {
+                                    val returnedVal = when (getRegister(Value.Reg(SbfRegister.R1)).type()) {
                                         is SbfType.PointerType.Heap -> sbfTypeFac.anyHeapPtr()
                                         is SbfType.PointerType.Input -> sbfTypeFac.anyInputPtr()
                                         is SbfType.PointerType.Global -> sbfTypeFac.anyGlobalPtr(null)
                                         is SbfType.PointerType.Stack -> sbfTypeFac.anyStackPtr()
                                         else -> sbfTypeFac.mkTop()
                                     }
-                                    setRegister(Value.Reg(SbfRegister.R0_RETURN_VALUE), ScalarValue(returnedVal))
+                                    setRegister(Value.Reg(SbfRegister.R0), ScalarValue(returnedVal))
                                 }
                             }
                         }
@@ -1076,11 +1079,11 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
             }
 
             override fun noSummaryFound(locInst: LocatedSbfInstruction) {
-                forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
+                forget(Value.Reg(SbfRegister.R0))
             }
 
             override fun processReturnArgument(locInst: LocatedSbfInstruction, type: MemSummaryArgumentType) {
-                setRegister(Value.Reg(SbfRegister.R0_RETURN_VALUE), getScalarValue(type))
+                setRegister(Value.Reg(SbfRegister.R0), getScalarValue(type))
             }
 
             override fun processArgument(locInst: LocatedSbfInstruction,
@@ -1625,6 +1628,11 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         } else {
             base.getStackSingletonOrNull(ByteRange(offset, width)) ?: ScalarValue(sbfTypeFac.mkTop())
         }
+    }
+
+    override fun mayStackBeInitialized(offset: Long, size: ULong): Boolean {
+        val interval = FiniteInterval.mkInterval(offset, size.toLong())
+        return (mayInitStack.intersects(interval))
     }
 
     override fun setScalarValue(reg: Value.Reg, newVal: ScalarValue<TNum, TOffset>) {

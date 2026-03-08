@@ -28,6 +28,7 @@ import evm.EVM_BITWIDTH256
 import evm.EVM_MOD_GROUP256
 import instrumentation.transformers.PeepHoleOptimizer.peepholeOptimize
 import log.*
+import rules.TWOSTAGE_META_BLOCKORIGIN
 import tac.MetaMap
 import tac.Tag
 import utils.*
@@ -369,7 +370,11 @@ object HeuristicalFolding {
         // so if we remove them, splitting is disabled.
         val g = c.analysisCache.graph
         val p = c.toPatchingProgram()
-        g.commands.filter { it.cmd is TACCmd.Simple.AnnotationCmd && it.cmd.annot.v.toString() != MetaMap.Companion.nothing.toString() }
+        g.commands.filter { it.cmd is TACCmd.Simple.AnnotationCmd && it.cmd.annot.v.toString() != MetaMap.Companion.nothing.toString()
+            /** This annotation is only maintained in the twostage modes.
+             * It's important that we keep this annotation to limit the search space in the second round */
+            && (it.cmd.annot.k != TWOSTAGE_META_BLOCKORIGIN)
+        }
             .forEach {
                 p.update(it.ptr) { TACCmd.Simple.LabelCmd(it.cmd.toString())}
             }

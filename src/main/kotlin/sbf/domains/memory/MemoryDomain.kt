@@ -644,8 +644,15 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
         }
     }
 
-    override fun getAsScalarValue(value: Value) = getScalars().getAsScalarValue(value)
-    override fun getStackContent(offset: Long, width: Byte) = getScalars().getStackContent(offset, width)
+    override fun getAsScalarValue(value: Value) =
+        getScalars().getAsScalarValue(value)
+
+    override fun getStackContent(offset: Long, width: Byte) =
+        getScalars().getStackContent(offset, width)
+
+    override fun mayStackBeInitialized(offset: Long, size: ULong)=
+        getScalars().mayStackBeInitialized(offset, size)
+
     override fun getTypeFac() = scalars.getTypeFac()
 
     /** External API for TAC encoding **/

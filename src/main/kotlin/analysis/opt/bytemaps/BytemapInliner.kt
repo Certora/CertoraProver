@@ -28,6 +28,7 @@ import com.certora.collect.TreapMap.MergeMode
 import datastructures.TreapMultiMap
 import datastructures.add
 import datastructures.delete
+import datastructures.memoized
 import datastructures.stdcollections.*
 import log.*
 import tac.Tag
@@ -36,11 +37,12 @@ import utils.Color.Companion.blue
 import utils.Color.Companion.yellow
 import vc.data.*
 import vc.data.TACCmd.Simple.AssigningCmd.AssignExpCmd
+import vc.data.tacexprutil.ExprUnfolder.Companion.unfoldToSingleVar
 import vc.data.tacexprutil.asConstOrNull
+import vc.data.tacexprutil.asVarOrNull
 import vc.data.tacexprutil.isConst
 import vc.data.tacexprutil.isVar
 import java.math.BigInteger
-
 
 private val logger: Logger = Logger(LoggerTypes.BYTEMAP_INLINER)
 
@@ -63,7 +65,11 @@ private val logger: Logger = Logger(LoggerTypes.BYTEMAP_INLINER)
  *
  * [cheap] makes the inliner run without using an [IntervalsCalculator], making it much faster, but it can do much less.
  * For one, it doesn't understand long-stores at all. This is useful specifically for getting rid of vyper usage of
- * memory, which obfuscates overflow patters (as well as other things).
+ * memory, which obfuscates overflow patterns (as well as other things).
+ *
+ * The optimizer also performs chain shortening on longstore operations via [shortenStoreChain]. This optimization
+ * eliminates intermediate bytemap variables by tracing through their definitions (see [shortenStoreChain] for details
+ * and examples).
  */
 class BytemapInliner private constructor(
     private val code: CoreTACProgram,
@@ -77,6 +83,7 @@ class BytemapInliner private constructor(
     private val tf = TermFactory(code, intervals)
     private val stats = SimpleCounterMap<String>()
     private fun <T> T.stat(s: String) = also { stats.plusOne(s) }
+
 
     /**
      * Returns the term for the rhs of the command, and tries to do so also in cases of a load from a bytestore.
@@ -126,7 +133,7 @@ class BytemapInliner private constructor(
             private val loadAtLhsFun = DeRecursor(
                 memoize = true,
                 reduce = { it.uniqueOrNull() },
-                nextsOrResult = { (currentPtr, query) : Pair<CmdPointer, Query> ->
+                nextsOrResult = { (currentPtr, query): Pair<CmdPointer, Query> ->
                     fun rhsTermOf(s: TACSymbol) = tf.rhsTerm(currentPtr, s)!!
 
                     fun loadAtRhs(base: TACSymbol.Var, query: Query) =
@@ -196,6 +203,231 @@ class BytemapInliner private constructor(
 
 
     /**
+     * Result of [careFor]: the bytemap variable and offset that should be used, along with the pointer where
+     * that variable is used (and that is the version of the variable we want).
+     */
+    private data class R(val at: CmdPointer, val mapVar: TACSymbol.Var, val offset: Term)
+
+    /**
+     * Given a bytemap definition at `origPtr`, traverses backwards through the store-chain to find the "real"
+     * source for a given memory region.
+     *
+     * `origPtr` The pointer to start the traversal from (typically a bytemap definition site)
+     * `origCareStart` The starting offset of the region we care about
+     * `careLength` The length of the region we care about
+     * `careForInside` If true, we want to find where data *inside* [`origCareStart`, `origCareStart`+`careLength`)
+     *                      came from. If false, we want to find the base map that is modified *outside* this range.
+     *
+     * @return An [R] containing the pointer, map variable, and offset where the region actually comes from,
+     *         or null if the analysis is uncertain. The pointer is where the map variable is used, i.e., is on the
+     *         rhs. That is the version we'd like to eventually inline.
+     *
+     * Example (careForInside = true):
+     *   Given: `M1 := M0[0x100.. = M2[0x50..+0x40]]` and we care about [0x110, 0x110+0x20),
+     *   Returns: R pointing to M2's definition with offset 0x60 (because 0x110-0x100+0x50 = 0x60)
+     *
+     * Example (careForInside = false):
+     *   Given: `M1 := M0[0x100.. = M2[0x50..+0x40]]` and we care about [0x200, 0x200+0x40),
+     *   Returns: R pointing to M0's definition with offset 0x200 (because the region doesn't intersect the store)
+     *
+     * This is memoized to avoid recalculating results.
+     */
+
+    private val careFor =
+        memoized { origPtr: CmdPointer, origCareStart: Term, careLength: Term, careForInside: Boolean ->
+            // this is nicer as recursion, but we run into stack overflow.
+            var ptr = origPtr
+            var careStart = origCareStart
+            var result: R? = null
+            while (true) {
+                fun t(v: TACSymbol) = tf.expr(ptr, v.asSym())!!
+                fun singleDef(v: TACSymbol.Var) = def.defSitesOf(v, ptr).singleOrNull()
+
+                // The handler returns null to terminate the loop (when no single def site exists), otherwise it
+                // updates `ptr` to point to the next map definition to examine, potentially updating `careStart` as well.
+                // We speculatively set `result` at each iteration, assuming it might be the final answer; if traversing
+                // to a deeper definition site yields a better result, it will overwrite this value.
+                val cmdHandler = object : ByteMapCmdHandler<Unit?> {
+                    override fun simpleAssign(lhs: TACSymbol.Var, rhs: TACSymbol.Var): Unit? {
+                        result = R(ptr, rhs, careStart)
+                        return singleDef(rhs)?.let { ptr = it /* this implicitly returns Unit (non-null) */ }
+                    }
+
+                    override fun store(
+                        lhs: TACSymbol.Var,
+                        rhsBase: TACSymbol.Var,
+                        loc: TACSymbol,
+                        value: TACSymbol
+                    ) = run {
+                        val inBounds = tf.isInside(t(loc), careStart, careLength)
+                        runIf(inBounds == true && !careForInside || inBounds == false && careForInside) {
+                            result = R(ptr, rhsBase, careStart)
+                            singleDef(rhsBase)?.let { ptr = it }
+                        }
+                    }
+
+                    override fun longstore(
+                        lhs: TACSymbol.Var,
+                        srcOffset: TACSymbol,
+                        dstOffset: TACSymbol,
+                        srcMap: TACSymbol.Var,
+                        dstMap: TACSymbol.Var,
+                        length: TACSymbol
+                    ) : Unit? {
+                        val lengthTerm = tf.rhsTerm(ptr, length)!!
+                        val srcOffsetTerm = tf.rhsTerm(ptr, srcOffset)!!
+                        val dstOffsetTerm = tf.rhsTerm(ptr, dstOffset)!!
+
+                        return if (careForInside) {
+                            // We're looking for where data inside [careStart, careStart+careLength) came from.
+                            // The longstore copies [dstOffset, dstOffset+length) from srcMap to dstMap.
+                            when (tf.isContainedIn(careStart, careLength, dstOffsetTerm, lengthTerm)) {
+                                // Case 1: Our region is fully contained in the longstore's destination range.
+                                // The data came from srcMap, but at a shifted offset.
+                                // Example: lhs := dstMap[100.. = srcMap[50..+64]], careStart=120, careLength=32
+                                // Result: data comes from srcMap at offset 70 (120-100+50)
+                                true -> {
+                                    val newCareStart = careStart + srcOffsetTerm - dstOffsetTerm
+                                    result = R(ptr, srcMap, newCareStart)
+                                    singleDef(srcMap)?.let {
+                                        ptr = it
+                                        careStart = newCareStart
+                                    }
+                                }
+
+                                // Case 2: Our region doesn't intersect the longstore's destination range.
+                                // The data came from the base dstMap unchanged.
+                                // Example: lhs := dstMap[100.. = srcMap[50..+64]], careStart=200, careLength=32
+                                // Result: data comes from dstMap at offset 200
+                                false -> {
+                                    result = R(ptr, dstMap, careStart)
+                                    singleDef(dstMap)?.let { ptr = it }
+                                }
+
+                                // Case 3: Partial overlap - can't determine statically.
+                                null -> null
+                            }
+                        } else {
+                            // We're looking for the base map that is modified outside [careStart, careStart+careLength).
+                            // Only proceed if the longstore's destination is fully contained in our "don't care" region.
+                            // Example: lhs := dstMap[100.. = srcMap[50..+64]], careStart=80, careLength=100
+                            // The store [100..164) is fully inside [80..180), so we can look at dstMap's definition.
+                            runIf(tf.isContainedIn(dstOffsetTerm, lengthTerm, careStart, careLength) == true) {
+                                result = R(ptr, dstMap, careStart)
+                                singleDef(dstMap)?.let { ptr = it }
+                            }
+                        }
+                    }
+                }
+                if (cmdHandler.handle(g.toCommand(ptr)) == null) {
+                    break
+                }
+            }
+            result
+        }
+
+
+    /**
+     * A fresh var recording the value of a map variable `mapVar` that appears at the rhs of `at`. It's used to bypass
+     * the effect of assignments to `mapVar` that appear after `at`.
+     */
+    private val bypassVars = memoized { at: CmdPointer, mapVar: TACSymbol.Var ->
+        patcher.newTempVar("bypass", Tag.ByteMap).also {
+            patcher.prependBefore(at, listOf(AssignExpCmd(it, mapVar)))
+        }
+    }
+
+    /**
+     * Attempts to optimize a longstore command by finding simpler source/destination maps in the store chain.
+     *
+     * For a command like `M3 := M1[dstOff.. = M2[srcOff..+len]]`, this function:
+     * 1. Traces back through M2's definition chain to find the "real" source of the data being copied
+     * 2. Traces back through M1's definition chain to find the "real" base map being modified
+     *
+     * This can shorten long chains like:
+     *   ```
+     *   M1 := M0[0x100.. = SomeData[0x50..+0x40]]
+     *   M2 := OtherData[0x0.. = M1[0x120..+0x20]]
+     *   ```
+     * into:
+     *   ```
+     *   M2 := OtherData[0x0.. = SomeData[0x70..+0x20]]
+     *   ```
+     *
+     * @param ptr Pointer to the command being optimized
+     * @param cmd The command itself (must be a longstore)
+     * @return A simplified command if optimization is possible, null otherwise
+     */
+    private fun shortenStoreChain(ptr: CmdPointer, cmd: TACCmd.Simple): TACCmd.Simple? {
+
+        /**
+         * Ensures that [mapVar] is accessible at [ptr] by either returning it directly (if it's in scope)
+         * or creating a bypass variable right before [at] that captures the value.
+         */
+        fun toMapVar(at: CmdPointer, mapVar: TACSymbol.Var) =
+            if (def.source(ptr, mapVar) == def.source(at, mapVar)) {
+                mapVar
+            } else {
+                bypassVars(at, mapVar)
+            }
+
+        return object : ByteMapCmdHandler<TACCmd.Simple> {
+            override fun longstore(
+                lhs: TACSymbol.Var,
+                srcOffset: TACSymbol,
+                dstOffset: TACSymbol,
+                srcMap: TACSymbol.Var,
+                dstMap: TACSymbol.Var,
+                length: TACSymbol
+            ): TACCmd.Simple? {
+                fun t(v: TACSymbol) = tf.expr(ptr, v.asSym())!!
+                fun singleDef(v: TACSymbol.Var) = def.defSitesOf(v, ptr).singleOrNull()
+
+                val srcOffsetTerm = t(srcOffset)
+                val dstOffsetTerm = t(dstOffset)
+                val lengthTerm = t(length)
+
+                val newSrcMapPtrAndOffset = singleDef(srcMap)
+                    ?.let { careFor(it, srcOffsetTerm, lengthTerm, true) }
+                    ?.let {
+                        val offset = it.offset.toTACExpr(ptr)
+                            ?: return@let null
+                        val newOffset = if (offset is TACExpr.Sym) {
+                            offset
+                        } else {
+                            val (newOffsetSym, cmds) = unfoldToSingleVar("offset", offset)
+                            patcher.prependBefore(ptr, cmds)
+                            newOffsetSym.asVarOrNull?.let(patcher::addVar)
+                            newOffsetSym
+                        }
+                        toMapVar(it.at, it.mapVar) to newOffset
+                    }
+
+                val newDstMap = singleDef(dstMap)
+                    ?.let { careFor(it, dstOffsetTerm, lengthTerm, false) }
+                    ?.let {
+                        check(it.offset == dstOffsetTerm)
+                        toMapVar(it.at, it.mapVar)
+                    }
+
+                return runIf(newSrcMapPtrAndOffset != null || newDstMap != null) {
+                    AssignExpCmd(
+                        lhs,
+                        TACExpr.LongStore(
+                            (newDstMap ?: dstMap).asSym(),
+                            dstOffset.asSym(),
+                            (newSrcMapPtrAndOffset?.first ?: srcMap).asSym(),
+                            (newSrcMapPtrAndOffset?.second ?: srcOffset.asSym()),
+                            length.asSym()
+                        )
+                    )
+                }
+            }
+        }.handle(cmd)
+    }
+
+
+    /**
      * Goes through the program graph in topological order, calculating the term associated with each lhs bits256/int
      * variable, and:
      *   1. if this term is a constant, replaces the rhs with that constant.
@@ -216,9 +448,15 @@ class BytemapInliner private constructor(
             } ?: treapMapOf()
 
             for ((ptr, cmd) in g.lcmdSequence(block)) {
-                val lhs = cmd.getLhs() ?: continue
+                val lhs = cmd.getModifiedVar() ?: continue
                 val newTerm = handleCmd(ptr, cmd)?.mod(Tag.Bit256.modulus)
                     ?.also { tf.lhsTerm[ptr] = it }
+
+                val shortenedCmd = shortenStoreChain(ptr, cmd)
+                if (shortenedCmd != null) {
+                    patcher.replace(ptr, shortenedCmd)
+                    continue
+                }
 
                 // all terms are mod 2^256, so int vars are not allowed to appear in `reps`.
                 if (lhs.tag !is Tag.Bit256 || !isInlineable(lhs)) {
@@ -295,7 +533,7 @@ class BytemapInliner private constructor(
      */
     private fun Term.toTACExpr(ptr: CmdPointer): TACExpr? {
         if (isConst) {
-            return c.asTACExpr
+            return c.mod(Tag.Bit256.modulus).asTACExpr
         }
         val (unique, coef) = literals.entries.singleOrNull()
             ?: return null
@@ -322,7 +560,7 @@ class BytemapInliner private constructor(
         return if (c == BigInteger.ZERO) {
             varExpr
         } else {
-            TACExpr.Vec.Add(varExpr, c.asTACExpr, Tag.Bit256)
+            TACExpr.Vec.Add(varExpr, c.mod(Tag.Bit256.modulus).asTACExpr, Tag.Bit256)
         }
     }
 

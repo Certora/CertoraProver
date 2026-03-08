@@ -115,17 +115,17 @@ object SbfTestDSL {
     }
 
     class BlockBuilderScope {
-        var r0 by RegDelegate(BuilderValue.Reg(SbfRegister.R0_RETURN_VALUE))
-        var r1 by RegDelegate(BuilderValue.Reg(SbfRegister.R1_ARG))
-        var r2 by RegDelegate(BuilderValue.Reg(SbfRegister.R2_ARG))
-        var r3 by RegDelegate(BuilderValue.Reg(SbfRegister.R3_ARG))
-        var r4 by RegDelegate(BuilderValue.Reg(SbfRegister.R4_ARG))
-        var r5 by RegDelegate(BuilderValue.Reg(SbfRegister.R5_ARG))
+        var r0 by RegDelegate(BuilderValue.Reg(SbfRegister.R0))
+        var r1 by RegDelegate(BuilderValue.Reg(SbfRegister.R1))
+        var r2 by RegDelegate(BuilderValue.Reg(SbfRegister.R2))
+        var r3 by RegDelegate(BuilderValue.Reg(SbfRegister.R3))
+        var r4 by RegDelegate(BuilderValue.Reg(SbfRegister.R4))
+        var r5 by RegDelegate(BuilderValue.Reg(SbfRegister.R5))
         var r6 by RegDelegate(BuilderValue.Reg(SbfRegister.R6))
         var r7 by RegDelegate(BuilderValue.Reg(SbfRegister.R7))
         var r8 by RegDelegate(BuilderValue.Reg(SbfRegister.R8))
         var r9 by RegDelegate(BuilderValue.Reg(SbfRegister.R9))
-        var r10 by RegDelegate(BuilderValue.Reg(SbfRegister.R10_STACK_POINTER))
+        var r10 by RegDelegate(BuilderValue.Reg(SbfRegister.R10))
 
         sealed class BuilderValue {
             abstract val v: Value
@@ -151,16 +151,30 @@ object SbfTestDSL {
 
         }
 
-
-        operator fun Any.get(offset: Short): BuilderLVal {
+        operator fun Any.get(offset: Short, width: Int = 8): BuilderLVal {
             check (this@get is BuilderValue.Reg)
-            return BuilderLVal(this@get, offset)
+            check (width == 1 || width == 2 || width == 4 || width == 8) {
+                "Memory access width must be 1, 2, 4, or 8 bytes, got $width"
+            }
+            return BuilderLVal(this@get, offset, width)
         }
 
+        // r[offset] = v defaults to 8 bytes (backward compatible)
         operator fun Any.set(offset: Short, x: Any) {
             check (this@set is BuilderValue.Reg)
             SbfInstruction.Mem(
                 Deref(8, this@set.v, offset), x.builderValue.v, isLoad = false
+            ).push()
+        }
+
+        // r[offset, width] = v selects the byte width explicitly
+        operator fun Any.set(offset: Short, width: Int, x: Any) {
+            check (this@set is BuilderValue.Reg)
+            check (width == 1 || width == 2 || width == 4 || width == 8) {
+                "Memory access width must be 1, 2, 4, or 8 bytes, got $width"
+            }
+            SbfInstruction.Mem(
+                Deref(width.toShort(), this@set.v, offset), x.builderValue.v, isLoad = false
             ).push()
         }
 
@@ -200,8 +214,14 @@ object SbfTestDSL {
             ).push()
         }
 
-        data class BuilderLVal(val v: BuilderValue.Reg, val offset: Short) {
-            operator fun plus(off: Short) = BuilderLVal(v, (this.offset + off).toShort())
+        operator fun UnOp.invoke(arg: Any) {
+            check (arg is BuilderValue.Reg)
+            SbfInstruction.Un(this, arg.v).push()
+        }
+
+
+        data class BuilderLVal(val v: BuilderValue.Reg, val offset: Short, val width: Int = 8) {
+            operator fun plus(off: Short) = BuilderLVal(v, (this.offset + off).toShort(), width)
         }
 
         private fun binOp(op: BinOp, lhs: BuilderValue.Reg, rhs: Any, is64:Boolean = true) {
@@ -214,7 +234,7 @@ object SbfTestDSL {
                 is BuilderLVal ->
                     SbfInstruction.Mem(
                         Deref(
-                            8,
+                            x.width.toShort(),
                             x.v.v,
                             x.offset
                         ),
@@ -233,7 +253,7 @@ object SbfTestDSL {
         infix fun BuilderLVal.`=`(x: Any) {
             SbfInstruction.Mem(
                 Deref(
-                    8,
+                    this.width.toShort(),
                     Value.Reg(this.v.reg),
                     this.offset,
                 ),

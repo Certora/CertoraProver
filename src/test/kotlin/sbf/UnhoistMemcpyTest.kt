@@ -51,7 +51,7 @@ class UnhoistMemcpyTest {
 
         val absValAtExit = test01(sbfTypesFac, false)
         println("Abstract value at exit=$absValAtExit")
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+        val r0 = Value.Reg(SbfRegister.R0)
         Assertions.assertEquals(false, absValAtExit.getValue(r0).type() is SbfType.NumType)
     }
 
@@ -61,7 +61,7 @@ class UnhoistMemcpyTest {
 
         val absValAtExit = test01(sbfTypesFac, true)
         println("Abstract value at exit=$absValAtExit")
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+        val r0 = Value.Reg(SbfRegister.R0)
         Assertions.assertEquals(true, absValAtExit.getValue(r0).type() is SbfType.NumType)
     }
 
@@ -95,11 +95,11 @@ class UnhoistMemcpyTest {
          *   memcpy(r1,r2,32)
          *
          */
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r0 = Value.Reg(SbfRegister.R0)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test1")
         val l0 = Label.Address(1)
         val l1 = Label.Address(2)
@@ -218,10 +218,10 @@ class UnhoistMemcpyTest {
          *   memcpy(r1,r2,16)
          *   memcpy(r1,r2,32)
          */
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test2")
         val l0 = Label.Address(1)
         val l1 = Label.Address(2)
@@ -322,12 +322,12 @@ class UnhoistMemcpyTest {
          *   exit
          *
          */
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r4 = Value.Reg(SbfRegister.R4_ARG)
-        val r5 = Value.Reg(SbfRegister.R5_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r4 = Value.Reg(SbfRegister.R4)
+        val r5 = Value.Reg(SbfRegister.R5)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test3")
 
         val entry = Label.Address(1)

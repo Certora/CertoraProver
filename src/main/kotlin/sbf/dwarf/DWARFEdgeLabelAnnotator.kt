@@ -92,7 +92,7 @@ private typealias InsPtr = Pair<Label, Int>
  */
 
 private const val ALIGNMENT = 8
-private val STACKREG = Value.Reg(SbfRegister.R10_STACK_POINTER)
+private val STACKREG = Value.Reg(SbfRegister.R10)
 
 class DWARFEdgeLabelAnnotator(
     private val debugInformation: DebugSymbols,
@@ -739,7 +739,7 @@ fun List<DWARFOperation>.getRegisterAccess(register: SbfRegister): DWARFOperatio
         when (it) {
             is DWARFOperation.Register -> register.value == it.register.toByte()
             is DWARFOperation.RegisterOffset -> register.value == it.register.toByte()
-            is DWARFOperation.FrameOffset -> register == SbfRegister.R10_STACK_POINTER
+            is DWARFOperation.FrameOffset -> register == SbfRegister.R10
         }
     }
     if (filteredRes.size > 1) {
@@ -777,7 +777,7 @@ fun List<DWARFOperation>.splitOperationsInPieces(variableType: RustType?): Map<P
         }
     }
 
-    check(lastSplit.second <= variableType.getByteSize()) { "The size of the type in the dwarf operation list (${lastSplit.second}) exceeds the variable type size (variable type size: ${variableType.getByteSize()}) - operations list $this, $variableType " }
+    checkWarn(lastSplit.second <= variableType.getByteSize()) { "The size of the type in the dwarf operation list (${lastSplit.second}) exceeds the variable type size (variable type size: ${variableType.getByteSize()}) - operations list $this, $variableType " }
     //Calling store as Result one last time to persist the remaining part.
     storeAsResult(lastSplit.first, lastSplit.second, variableType.getByteSize() - lastSplit.second)
     return offsetToOperations

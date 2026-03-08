@@ -45,11 +45,11 @@ internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANo
     check(function != null) {"summarizeNativeInt does not support ${inst.name}"}
 
     // These symbols are created using 256-bit
-    val r1 = exprBuilder.mkVar(SbfRegister.R1_ARG).asSym()
-    val r2 = exprBuilder.mkVar(SbfRegister.R2_ARG).asSym()
-    val r3 = exprBuilder.mkVar(SbfRegister.R3_ARG).asSym()
-    val r4 = exprBuilder.mkVar(SbfRegister.R4_ARG).asSym()
-    val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
+    val r1 = exprBuilder.mkVar(SbfRegister.R1).asSym()
+    val r2 = exprBuilder.mkVar(SbfRegister.R2).asSym()
+    val r3 = exprBuilder.mkVar(SbfRegister.R3).asSym()
+    val r4 = exprBuilder.mkVar(SbfRegister.R4).asSym()
+    val r0 = exprBuilder.mkVar(SbfRegister.R0)
     val zero = exprBuilder.ZERO.asSym()
     val one  = exprBuilder.ONE.asSym()
 

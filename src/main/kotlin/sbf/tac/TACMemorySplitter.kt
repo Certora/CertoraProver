@@ -50,7 +50,7 @@ class DummyMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlag
                                                         TACMemSplitter.HavocMapBytes(listOf()))
             }
             SolanaFunction.SOL_MEMCMP -> {
-                val lenType = types.typeAtInstruction(locInst, SbfRegister.R3_ARG)
+                val lenType = types.typeAtInstruction(locInst, SbfRegister.R3)
                 if (lenType is SbfType.NumType) {
                     val len = lenType.value.toLongOrNull()
                     if (len != null) {
@@ -515,9 +515,9 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
             val (stackReg, nonStackReg) = if (isSrcStack) {
                 // memInfo.srcC corresponds to r2
                 // memInfo.dstC corresponds to r1
-                Pair(SbfRegister.R2_ARG, SbfRegister.R1_ARG)
+                Pair(SbfRegister.R2, SbfRegister.R1)
             }  else {
-                Pair(SbfRegister.R1_ARG, SbfRegister.R2_ARG)
+                Pair(SbfRegister.R1, SbfRegister.R2)
             }
             if (!stackC.isWordCompatible(length, wordSize)) {
                 TACMemSplitter.UnsupportedMemCmpInfo
@@ -850,8 +850,8 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
 
             val g = absVal.getPTAGraph()
             val scalars = absVal.getScalars()
-            val len = (scalars.getAsScalarValue(Value.Reg(SbfRegister.R3_ARG)).type() as? SbfType.NumType)?.value?.toLongOrNull()
-            val dstSc = g.getRegCell(Value.Reg(SbfRegister.R1_ARG))
+            val len = (scalars.getAsScalarValue(Value.Reg(SbfRegister.R3)).type() as? SbfType.NumType)?.value?.toLongOrNull()
+            val dstSc = g.getRegCell(Value.Reg(SbfRegister.R1))
             if (dstSc != null && len != null) {
                 if (dstSc.getNode() == g.getStack()) {
                     val overlapMap = getOverlapsFromStack(dstSc) {
@@ -881,7 +881,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
             private val absVal: MemoryDomain<TNum, TOffset, TFlags>
         ) : SummaryVisitor {
             private val sumFields = ArrayList<PTACallModifiedField<TFlags>>()
-            private val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+            private val r10 = Value.Reg(SbfRegister.R10)
             private val stackNode = absVal.getRegCell(r10)?.getNode()
 
             init {
@@ -923,7 +923,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
             locInst: LocatedSbfInstruction,
             absVal: MemoryDomain<TNum, TOffset, TFlags>
         ): PTACell<TFlags> {
-            val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+            val r10 = Value.Reg(SbfRegister.R10)
             val stackPtrSc = absVal.getRegCell(r10)
                 ?: throw TACTranslationError(
                     "memory partitioning failed at $locInst because cannot find a cell for r10"
@@ -1053,9 +1053,9 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
             val memInfo =
                 when (inst) {
                     is SbfInstruction.Call -> {
-                        val r1 = Value.Reg(SbfRegister.R1_ARG)
-                        val r2 = Value.Reg(SbfRegister.R2_ARG)
-                        val r3 = Value.Reg(SbfRegister.R3_ARG)
+                        val r1 = Value.Reg(SbfRegister.R1)
+                        val r2 = Value.Reg(SbfRegister.R2)
+                        val r3 = Value.Reg(SbfRegister.R3)
 
                         when (SolanaFunction.from(inst.name)) {
                             SolanaFunction.SOL_MEMCPY_TRUNC,

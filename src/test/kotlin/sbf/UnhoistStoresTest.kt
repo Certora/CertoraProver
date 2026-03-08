@@ -83,12 +83,12 @@ class UnhoistStoresTest {
 
 
          */
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r4 = Value.Reg(SbfRegister.R4_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r0 = Value.Reg(SbfRegister.R0)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r4 = Value.Reg(SbfRegister.R4)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test1")
 
         val l0 = Label.Address(1)
@@ -185,12 +185,12 @@ class UnhoistStoresTest {
 
 
          */
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r4 = Value.Reg(SbfRegister.R4_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r0 = Value.Reg(SbfRegister.R0)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r4 = Value.Reg(SbfRegister.R4)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test2")
 
         val l0 = Label.Address(1)
@@ -287,12 +287,12 @@ class UnhoistStoresTest {
 
 
          */
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r4 = Value.Reg(SbfRegister.R4_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r0 = Value.Reg(SbfRegister.R0)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r4 = Value.Reg(SbfRegister.R4)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test3")
 
         val l0 = Label.Address(1)

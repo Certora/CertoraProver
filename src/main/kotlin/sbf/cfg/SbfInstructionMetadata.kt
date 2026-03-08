@@ -75,7 +75,9 @@ object SbfMeta {
     val CVLR_RANGE = MetaKey<Range.Range>("cvlr.range")
     // contains source file and range information from debug symbols
     val SOURCE_SEGMENT = MetaKey<SourceSegment>("src_segment")
-
+    // the load of 8 bytes does match the bytes written by last store
+    // which was at the same offset but with width N
+    val MISMATCHED_LOAD = MetaKey<Int>("mismatched_load")
     // These keys have empty strings as values. The values are irrelevant
     val HINT_OPTIMIZED_WIDE_STORE =  MetaKey<Unit>("hint_optimized_wide_store")
     val MEMCPY_PROMOTION = MetaKey<Unit>("promoted_memcpy")
@@ -86,14 +88,13 @@ object SbfMeta {
     val UNHOISTED_LOAD = MetaKey<Unit>("unhoisted_load")
     val UNHOISTED_MEMCPY = MetaKey<Unit>("unhoisted_memcpy")
     val UNHOISTED_MEMCMP = MetaKey<Unit>("unhoisted_memcmp")
-    val UNHOISTED_STACK_POP = MetaKey<Unit>("unhoisted_stack_pop")
     val LOWERED_SELECT = MetaKey<Unit>("lowered_select")
     val REMOVED_MEMMOVE = MetaKey<Unit>("sol_memmove_")
     val LOWERED_ASSUME = MetaKey<Unit>("lowered_assume")
     val LOWERED_OR = MetaKey<Unit>("lowered_or")
     val UNREACHABLE_FROM_COI = MetaKey<Unit>("unreachable_from_coi")
     val SAFE_MATH = MetaKey<Unit>("safe_math")
-
+    val NARROWED_LOAD = MetaKey<Unit>("narrowed_load")
 }
 
 data class MetaKey<T>(val name: String)
@@ -114,12 +115,14 @@ fun toString(metaData: MetaData): String {
             SbfMeta.MEMCPY_TRUNC_PROMOTION,
             SbfMeta.MEMSET_PROMOTION,
             SbfMeta.UNHOISTED_STORE, SbfMeta.UNHOISTED_LOAD,
-            SbfMeta.UNHOISTED_MEMCPY, SbfMeta.UNHOISTED_MEMCMP, SbfMeta.UNHOISTED_STACK_POP,
+            SbfMeta.UNHOISTED_MEMCPY, SbfMeta.UNHOISTED_MEMCMP,
             SbfMeta.LOWERED_SELECT, SbfMeta.LOWERED_OR, SbfMeta.LOADED_AS_NUM_FOR_PTA, SbfMeta.REMOVED_MEMMOVE,
-            SbfMeta.SAFE_MATH, SbfMeta.SET_GLOBAL -> {
+            SbfMeta.SAFE_MATH, SbfMeta.SET_GLOBAL, SbfMeta.NARROWED_LOAD -> {
                 strB.append(" /*${k.name}*/")
             }
-            SbfMeta.CALL_ID, SbfMeta.INLINED_FUNCTION_NAME, SbfMeta.INLINED_FUNCTION_SIZE -> {
+            SbfMeta.CALL_ID,
+            SbfMeta.INLINED_FUNCTION_NAME, SbfMeta.INLINED_FUNCTION_SIZE,
+            SbfMeta.MISMATCHED_LOAD -> {
                 strB.append(" /*${k.name}=${v}*/")
             }
             SbfMeta.SBF_ADDRESS -> {

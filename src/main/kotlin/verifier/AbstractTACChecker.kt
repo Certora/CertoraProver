@@ -146,7 +146,7 @@ abstract class AbstractTACChecker {
                 .map(CoreToCoreTransformer(ReportTypes.INIT_VARS, DefaultValueInitializer::initVarsAtRoot))
                 .map(CoreToCoreTransformer(ReportTypes.FOLD_SPLIT_STORES) { HeuristicalFolding.foldSplitStores(it) })
                 .map(CoreToCoreTransformer(ReportTypes.REMOVE_UNUSED) {
-                    removeUnusedAssignments(it, expensive = false, it.destructiveOptimizations)
+                    removeUnusedAssignments(it, expensive = true)
                 })
                 .map(CoreToCoreTransformer(ReportTypes.SINK_OPTIMIZER) { SinkOptimizer.optimizeGraph(it) })
                 .ref

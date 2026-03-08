@@ -1448,7 +1448,9 @@ class CertoraBuildGenerator:
             if not self.context.strict_solc_optimizer and self.get_solc_via_ir_value(contract_file_path):
                 # The default optimizer steps (taken from libsolidity/interface/OptimiserSettings.h) but with the
                 # full inliner step removed
-                solc0_8_26_to_0_8_30 = ("dhfoDgvulfnTUtnIfxa[r]EscLMVcul[j]Trpeulxa[r]cLCTUca[r]LSsTFOtfDnca[r]" +
+                solc0_8_34_to_0_8_34 = ("dfDvulfnTUtnIfxa[r]EscLMVcul[j]Trpeulxa[r]cLvifMCTUca[r]LSsTFOtfDnca[r]"
+                                        "IulcscCTUtvifMx[scCTUt]TOntnfDIulvifMjmul[jul]VcTOculjmul")
+                solc0_8_26_to_0_8_33 = ("dhfoDgvulfnTUtnIfxa[r]EscLMVcul[j]Trpeulxa[r]cLCTUca[r]LSsTFOtfDnca[r]" +
                                         "IulcscCTUtx[scCTUt]TOntnfDIuljmul[jul]VcTOculjmul")
                 solc0_8_13_to_0_8_25 = "dhfoDgvulfnTUtnIf[xa[r]EscLMcCTUtTOntnfDIulLculVcul[j]T" + \
                                        "peulxa[rul]xa[r]cLgvifCTUca[r]LSsTFOtfDnca[r]Iulc]jmul[jul]VcTOculjmul"
@@ -1497,8 +1499,10 @@ class CertoraBuildGenerator:
                     yul_optimizer_steps = solc0_8_12
                 elif minor == 8 and 13 <= patch <= 25:
                     yul_optimizer_steps = solc0_8_13_to_0_8_25
-                elif minor == 8 and 26 <= patch <= 30:
-                    yul_optimizer_steps = solc0_8_26_to_0_8_30
+                elif minor == 8 and 26 <= patch <= 33:
+                    yul_optimizer_steps = solc0_8_26_to_0_8_33
+                elif minor == 8 and 34 <= patch <= 34:
+                    yul_optimizer_steps = solc0_8_34_to_0_8_34
                 assert yul_optimizer_steps is not None, \
                     'Yul Optimizer steps missing for requested Solidity version. Please contact Certora team.'
 
@@ -1592,12 +1596,12 @@ class CertoraBuildGenerator:
                                 "evm.bytecode.functionDebugData"]
             ast_selection = ["id", "ast"]
         elif compiler_collector_lang == CompilerLangVy():
-            # Hack: keep the "*" if we did not provide vyper_custom_std_json_in_map
+            sources_dict = {}
+            vyper_custom_std_json_in = None
+
             if self.context.vyper_custom_std_json_in_map:
                 main_contract_for_output_selection = contract_file_as_provided
-            sources_dict = {}
-            with open(contract_file_posix_abs) as f:
-                if self.context.vyper_custom_std_json_in_map and contract_file_as_provided in self.context.vyper_custom_std_json_in_map:
+                if contract_file_as_provided in self.context.vyper_custom_std_json_in_map:
                     """
                     If we're given a custom standard_json, we'll take from it the sources and
                     the search paths.
@@ -1609,18 +1613,36 @@ class CertoraBuildGenerator:
                     if we get more projects.
                     """
                     vyper_custom_std_json_in = self.context.vyper_custom_std_json_in_map[contract_file_as_provided]
-                    with open(vyper_custom_std_json_in) as custom:
-                        custom_json = json.load(custom)
-                        sources_dict = custom_json.get("sources", None)
-                        search_paths_arr = custom_json.get("settings", {}).get("search_paths", None)
-                        additional_asts = [x for x, _ in sources_dict.items() if x.endswith(".vy")]
-                if not sources_dict:
+            elif self.context.resolve_vyper_imports and compiler_collector.compiler_version >= (0, 4, 0):
+                main_contract_for_output_selection = contract_file_as_provided
+                """
+                If resolve_vyper_imports is enabled, we ask the vyper compiler to generate a standard_json for us.
+                """
+                compiler_ver_to_run = get_relevant_compiler(Path(contract_file_as_provided), self.context)
+                vyper_options = f"-f solc_json {contract_file_as_provided} --disable-sys-path"
+                for path in ((self.context.vyper_system_path or []) + (self.context.vyper_import_path or [])):
+                    vyper_options += f" -p {path}"
+                Util.run_compiler_cmd(f"{compiler_ver_to_run} {vyper_options}",
+                                      f"{contract_file_posix_abs.name}.std_json_generated.json",
+                                      wd=compile_wd)
+                vyper_custom_std_json_in = compiler_collector_lang.compilation_output_path(
+                    f"{contract_file_posix_abs.name}.std_json_generated.stdout.json")
+
+            if vyper_custom_std_json_in:
+                with open(vyper_custom_std_json_in) as custom:
+                    custom_json = json.load(custom)
+                    sources_dict = custom_json.get("sources", None)
+                    search_paths_arr = custom_json.get("settings", {}).get("search_paths", None)
+                    additional_asts = [x for x, _ in sources_dict.items() if x.endswith(".vy")]
+
+            if not sources_dict:
+                with open(contract_file_posix_abs) as f:
                     contents = f.read()
                     sources_dict = {str(contract_file_posix_abs): {"content": contents}}
-                output_selection = ["abi", "evm.bytecode", "evm.deployedBytecode", "evm.methodIdentifiers"]
-                if compiler_collector.compiler_version >= (0, 4, 4):
-                    output_selection += ["metadata", "evm.deployedBytecode.symbolMap"]
-                ast_selection = ["ast"]
+            output_selection = ["abi", "evm.bytecode", "evm.deployedBytecode", "evm.methodIdentifiers"]
+            if compiler_collector.compiler_version >= (0, 4, 4):
+                output_selection += ["metadata", "evm.deployedBytecode.symbolMap"]
+            ast_selection = ["ast"]
         else:
             # "non-compilable" language so no need to deal with it
             fatal_error(compiler_logger, "Expected only Solidity and Vyper as "
@@ -2980,8 +3002,13 @@ class CertoraBuildGenerator:
         corresponding to the namespaced types.
 
         Args:
-            original_file: Path to the Solidity file containing namespaced storage declarations
+            original_file: Path to the Solidity file containing namespaced storage declarations.
+                This may be a (transitivly) imported file rather than a user-specified target.
             ns_storage: Set of tuples (type_name, namespace) for each namespaced storage
+            compiler_version: The compiler version to use, already resolved from target_file
+            target_file: The user-specified file (from conf file) that imported original_file.
+                Used to resolve compilation settings (solc_optimize_map, solc_via_ir_map, etc.)
+                for the temporary harness file, since original_file may not have entries in those maps.
 
         Returns:
             NewStorageInfo: A tuple (fields, types) where:
@@ -3000,8 +3027,24 @@ class CertoraBuildGenerator:
             # directly can cause issues.
             tmp_file.write(f"import \"{original_file}\";\n\n")
             rel_path = os.path.relpath(tmp_file.name, Path.cwd())
-            if self.context.compiler_map:
-                self.context.compiler_map.update({rel_path: compiler_version}, last=False)
+            tmp_abs_path = Util.abs_posix_path(tmp_file.name)
+            # Add the temp file to all map attributes so that map lookups
+            # (solc_optimize_map, solc_via_ir_map, etc.) succeed during compilation.
+            # We resolve values from target_file (a user-specified file in context.file_paths)
+            # rather than original_file (which may be a transitive dependency not in any map).
+            # We store both relative and absolute path keys because different lookup sites
+            # normalize paths differently: get_relevant_compiler uses relative paths,
+            # while _handle_via_ir/_handle_optimize use absolute paths.
+            for map_attr in self.context.app.attr_class.all_map_attrs():
+                map_attr_value = getattr(self.context, map_attr, None)
+                if not map_attr_value:
+                    continue
+                attr_name = map_attr[:-len(Util.MAP_SUFFIX)]
+                target_value = Ctx.get_map_attribute_value(
+                    self.context, Path(target_file), attr_name
+                )
+                if target_value is not None:
+                    map_attr_value.update({rel_path: target_value, tmp_abs_path: target_value}, last=False)
             # Write the harness contract with dummy fields for each namespaced storage
             var_to_slot = storageExtension.write_harness_contract(tmp_file, harness_name, ns_storage)
             tmp_file.flush()

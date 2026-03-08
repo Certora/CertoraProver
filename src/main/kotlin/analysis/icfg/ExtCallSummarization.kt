@@ -341,6 +341,7 @@ object ExtCallSummarization {
     @Treapable
     data class CallSummaryReturnWriteInfo(@GeneratedBy(Allocator.Id.RETURN_SUMMARIES) val summaryId: Int, val offset: BigInteger) : AmbiSerializable, RemapperEntity<CallSummaryReturnWriteInfo>
 
+    @KSerializable
     @GenerateRemapper
     data class ReturnLinkingInfo(
         val byOffset: Map<BigInteger, CallGraphBuilder.CalledContract>,
@@ -348,6 +349,9 @@ object ExtCallSummarization {
     ) : Serializable, TransformableVarEntity<ReturnLinkingInfo>, RemapperEntity<ReturnLinkingInfo> {
         override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): ReturnLinkingInfo =
             copy(byOffset = byOffset.mapValues { it.value.transformSymbols(f) })
+
+        fun referencesAllocatedIds(ids: Set<Pair<Allocator.Id, Int>>): Boolean =
+            byOffset.values.any { it.referencesAllocatedIds(ids) }
     }
 
 

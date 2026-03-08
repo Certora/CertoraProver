@@ -19,9 +19,7 @@ package sbf.disassembler
 
 import sbf.callgraph.*
 import sbf.cfg.*
-import sbf.sbfLogger
 import org.jetbrains.annotations.TestOnly
-import datastructures.stdcollections.*
 
 /**
  * Translate SbfBytecode to SbfInstructions
@@ -120,8 +118,40 @@ private fun getBinValue(inst: SbfBytecode): Value {
 private fun makeBinAluInst(op: BinOp, bytecode: SbfBytecode, is64: Boolean) =
     SbfInstruction.Bin(op, Value.Reg(SbfRegister.getByValue(bytecode.dst)), getBinValue(bytecode), is64)
 
-private fun makeUnAluInst(op: UnOp, bytecode: SbfBytecode, is64: Boolean) =
-    SbfInstruction.Un(op, Value.Reg(SbfRegister.getByValue(bytecode.dst)), is64)
+private fun makeUnAluInst(op: UnOp, bytecode: SbfBytecode) =
+    SbfInstruction.Un(op, Value.Reg(SbfRegister.getByValue(bytecode.dst)))
+
+private fun getEndianSwapOp(bytecode: SbfBytecode): UnOp {
+    // Opcode for LE=0xd0 | 0x4 | 0x8
+    val LE = SbfInstructionCodes.INST_END.opcode
+        .or(SbfInstructionCodes.INST_CLS_ALU.opcode)
+        .or(SbfInstructionCodes.INST_END_LE.opcode).toByte()
+
+    // Opcode for BE= 0xd0 | 0x4 | 0
+    val BE = SbfInstructionCodes.INST_END.opcode
+        .or(SbfInstructionCodes.INST_CLS_ALU.opcode)
+        .or(SbfInstructionCodes.INST_END_BE.opcode).toByte()
+
+    return when (bytecode.opcode) {
+        BE -> {
+            when (bytecode.imm) {
+                16 -> UnOp.BE16
+                32 -> UnOp.BE32
+                64 -> UnOp.BE64
+                else -> throw DisassemblerError("Unsupported immediate ${bytecode.imm} for BE instruction")
+            }
+        }
+        LE -> {
+            when (bytecode.imm) {
+                16 -> UnOp.LE16
+                32 -> UnOp.LE32
+                64 -> UnOp.LE64
+                else -> throw DisassemblerError("Unsupported immediate ${bytecode.imm} for LE instruction")
+            }
+        }
+        else -> throw DisassemblerError("Unsupported opcode ${bytecode.opcode.toString(16)}.")
+    }
+}
 
 @TestOnly
 fun makeAluInst(bytecode: SbfBytecode, elf:  IElfFileView): SbfInstruction {
@@ -136,22 +166,21 @@ fun makeAluInst(bytecode: SbfBytecode, elf:  IElfFileView): SbfInstruction {
         0x5 -> makeBinAluInst(BinOp.AND, bytecode, is64)
         0x6 -> makeBinAluInst(BinOp.LSH, bytecode, is64)
         0x7 -> makeBinAluInst(BinOp.RSH, bytecode, is64)
-        0x8 -> makeUnAluInst(UnOp.NEG, bytecode, is64)
+        0x8 -> {
+            check(is64) { "Only 64-bit NEG instruction is supported" }
+            makeUnAluInst(UnOp.NEG, bytecode)
+        }
         0x9 -> makeBinAluInst(BinOp.MOD, bytecode, is64)
         0xa -> makeBinAluInst(BinOp.XOR, bytecode, is64)
         0xb -> makeBinAluInst(BinOp.MOV, bytecode, is64)
         0xc -> makeBinAluInst(BinOp.ARSH, bytecode, is64)
-        0xd -> {
-            // LE16/LE32/LE64/BE16/BE32/BE64
-            sbfLogger.warn{"unsupported LE/BE instruction: generated instead dst := havoc()"}
-            SbfInstruction.Havoc(Value.Reg(SbfRegister.getByValue(bytecode.dst)))
-        }
-        else -> throw DisassemblerError("invalid ALU instruction")
+        0xd -> makeUnAluInst(getEndianSwapOp(bytecode), bytecode)
+        else -> throw DisassemblerError("invalid ALU instruction -- opcode=${bytecode.opcode.toString(16)}")
     }
 
     // Sanity checks about R10
     val lhs = SbfRegister.getByValue(bytecode.dst)
-    if (lhs == SbfRegister.R10_STACK_POINTER) {
+    if (lhs == SbfRegister.R10) {
         when (useDynFrames) {
             false -> {
                 throw DisassemblerError(
@@ -181,13 +210,13 @@ fun makeLddw(inst: SbfBytecode, insts: List<SbfBytecode>, pc: Int): SbfInstructi
     if (pc >= insts.size - 1) {
         throw DisassemblerError("incomplete LDDW")
     }
-    if (inst.src != SbfRegister.R0_RETURN_VALUE.value && inst.src != SbfRegister.R1_ARG.value) {
+    if (inst.src != SbfRegister.R0.value && inst.src != SbfRegister.R1.value) {
         throw DisassemblerError("LDDW uses reserved registers")
     }
     if (inst.offset != 0.toShort()) {
         throw DisassemblerError("LDDW uses zero offset")
     }
-    if (inst.src == SbfRegister.R1_ARG.value) {
+    if (inst.src == SbfRegister.R1.value) {
         // magic number, meaning we're a per-process file descriptor defining the map.
         // (for details, look for BPF_PSEUDO_MAP_FD in the kernel)
         throw DisassemblerError("translation of LDDW failed because maps are not supported")
@@ -197,8 +226,8 @@ fun makeLddw(inst: SbfBytecode, insts: List<SbfBytecode>, pc: Int): SbfInstructi
                                     "with bytecode of size=${insts.size}"}
     val nextInst = insts[pc+1]
     if (nextInst.opcode.toInt() != 0 ||
-            nextInst.dst != SbfRegister.R0_RETURN_VALUE.value ||
-            nextInst.src != SbfRegister.R0_RETURN_VALUE.value ||
+            nextInst.dst != SbfRegister.R0.value ||
+            nextInst.src != SbfRegister.R0.value ||
             nextInst.offset.toInt() != 0 ) {
         throw DisassemblerError("invalid LDDW")
     }

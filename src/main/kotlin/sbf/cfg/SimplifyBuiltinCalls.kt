@@ -105,8 +105,8 @@ private fun fixSolMemcmp(cfg: MutableSbfCFG) {
         }
         for ((addedInsts, i) in insertionPoints.withIndex()) {
             b.add((i+1)+addedInsts,
-                    SbfInstruction.Mem(Deref(4, Value.Reg(SbfRegister.R4_ARG), 0),
-                                    Value.Reg(SbfRegister.R0_RETURN_VALUE), false))
+                    SbfInstruction.Mem(Deref(4, Value.Reg(SbfRegister.R4), 0),
+                                    Value.Reg(SbfRegister.R0), false))
         }
     }
 }
@@ -151,11 +151,11 @@ private fun renameCVTCall(call: SbfInstruction.Call): SbfInstruction? {
     if (cvtFunction != null) {
         when (cvtFunction) {
             CVTCore.ASSUME -> {
-                val cond = Condition(CondOp.EQ, Value.Reg(SbfRegister.R1_ARG), Value.Imm(1UL))
+                val cond = Condition(CondOp.EQ, Value.Reg(SbfRegister.R1), Value.Imm(1UL))
                 return SbfInstruction.Assume(cond, call.metaData)
             }
             CVTCore.ASSERT -> {
-                val cond = Condition(CondOp.NE, Value.Reg(SbfRegister.R1_ARG), Value.Imm(0UL))
+                val cond = Condition(CondOp.NE, Value.Reg(SbfRegister.R1), Value.Imm(0UL))
                 return SbfInstruction.Assert(cond, call.metaData)
             }
             else -> {

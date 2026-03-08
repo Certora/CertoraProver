@@ -37,7 +37,9 @@ import sbf.domains.*
 import sbf.tac.TACDebugView
 import vc.data.TACMeta.SBF_SOURCE_SEGMENT
 import vc.data.TACMetaInfo
+import vc.data.TACSymbol
 import vc.data.plusMeta
+import java.math.BigInteger
 
 /**
  * A list of labels that will be added to a CFG edge that will be translated to TAC Annotation Commands
@@ -242,7 +244,7 @@ sealed interface DWARFCfgEdgeLabel {
                 ops.toExpression { registerAccess, asStackValue ->
                     val register = Value.Reg(SbfRegister.getByValue(registerAccess.register()))
                     if (asStackValue) {
-                        if (registerAccess.register() == SbfRegister.R10_STACK_POINTER.value) {
+                        if (registerAccess.register() == SbfRegister.R10.value) {
                             if (stackLevel.frameBasePointer == null) {
                                 return@toExpression DWARFExpression.StringValue("Cannot compute information relative to frame base without frame base pointer given.")
                             }
@@ -307,7 +309,8 @@ sealed interface DWARFCfgEdgeLabel {
         val offsetIntoStruct: Offset,
         val operations: List<DWARFOperation>,
         val instruction: SbfInstruction,
-        val loadedValue: Value,
+        /** if instruction is a load then operand is the lhs, otherwise it is the stored value **/
+        val operand: Value,
         val persist: Boolean = true
     ) : DWARFCfgEdgeLabel {
         override fun toAnnotations(
@@ -321,9 +324,11 @@ sealed interface DWARFCfgEdgeLabel {
                 //Handle offset
                 //Handle asStackValue (second parameter)
                 //Handle R10 STACK_POINTER
-                val tacSymbol =
-                    DWARFExpression.ModelValue(dwarfView.getRegisterTACVariable(this.loadedValue as Value.Reg))
-                tacSymbol
+                val s = when(operand) {
+                    is Value.Imm -> TACSymbol.Const(BigInteger.valueOf(operand.v.toLong()))
+                    is Value.Reg -> dwarfView.getRegisterTACVariable(operand)
+                }
+                DWARFExpression.ModelValue(s)
             } ?: return emptyList()
 
             return listOf(

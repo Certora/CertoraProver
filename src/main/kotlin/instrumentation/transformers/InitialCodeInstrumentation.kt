@@ -186,6 +186,11 @@ object InitialCodeInstrumentation {
                 // for proper hooking over split storage variables in expression such as
                 // tacS!...:bv256 + 1, we need to lift those to tmp := tacS!...:bv256 and then use tmp instead
                 SplitStorageVarsHoister.transform(code)
+            }).mapIf(rule != null, CoreToCoreTransformer(ReportTypes.STRONG_INVARIANT_INLINER) { code ->
+                // inlines strong invariants
+                StrongInvariantInliner(scene, CVLCompiler(
+                    scene, cvl, code.name, code.symbolTable.globalScope
+                ), rule!!).transform(code)
             }).map(CoreToCoreTransformer(ReportTypes.INLINED_HOOKS) { code ->
                 // inline hooks' codes
                 HookInliner(scene, CVLCompiler(
@@ -203,11 +208,6 @@ object InitialCodeInstrumentation {
                 CVLToSimpleCompiler.finalizeStorageMovement(
                     code
                 )
-            }).mapIf(rule != null, CoreToCoreTransformer(ReportTypes.STRONG_INVARIANT_INLINER) { code ->
-                // inlines strong invariants
-                StrongInvariantInliner(scene, CVLCompiler(
-                    scene, cvl, code.name, code.symbolTable.globalScope
-                ), rule!!).transform(code)
             }).map(CoreToCoreTransformer(ReportTypes.REVERT_PATH_GENERATOR) {
                 if (Config.CvlFunctionRevert.get()) {
                     RevertPathGenerator.transform(it)

@@ -137,10 +137,10 @@ private object CpiReplacer {
     private fun assertFalse(msg: String): List<SbfInstruction> {
         return listOf(
             // R1 = 1
-            SbfInstruction.Bin(BinOp.MOV, Value.Reg(SbfRegister.R1_ARG), Value.Imm(1UL), is64 = true),
+            SbfInstruction.Bin(BinOp.MOV, Value.Reg(SbfRegister.R1), Value.Imm(1UL), is64 = true),
             // assert R1 == 0
             SbfInstruction.Assert(
-                Condition(CondOp.EQ, Value.Reg(SbfRegister.R1_ARG), right = Value.Imm(0UL)),
+                Condition(CondOp.EQ, Value.Reg(SbfRegister.R1), right = Value.Imm(0UL)),
                 MetaData(SbfMeta.COMMENT to msg)
             )
         )
