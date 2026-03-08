@@ -32,9 +32,9 @@ import analysis.opt.intervals.Interval.Companion.IFullBool
 import analysis.opt.intervals.Interval.Companion.ITrue
 import analysis.opt.intervals.Interval.CutAtPoint
 import datastructures.stdcollections.*
+import tac.Tag
 import utils.*
 import java.math.BigInteger
-import kotlin.collections.get
 import analysis.opt.intervals.Interval as I
 import analysis.opt.intervals.Intervals as S
 
@@ -454,8 +454,11 @@ value class Intervals private constructor(
         return S(smaller) to S(larger.reversed())
     }
 
-    fun isSurely2sNeg(modZm: ModZm) = isNotEmpty() && min.is2sNeg(modZm)
-    fun isSurely2sNonNeg(modZm: ModZm) = isNotEmpty() && max.is2sNonNeg(modZm)
+    fun isSurely2sNeg(modZm: ModZm = Tag.Bit256) = isNotEmpty() && min.is2sNeg(modZm)
+    fun isSurely2sNonNeg(modZm: ModZm = Tag.Bit256) = isNotEmpty() && max.is2sNonNeg(modZm)
+    fun isSurely2sPos(modZm: ModZm = Tag.Bit256) = 0 !in this && isSurely2sNonNeg(modZm)
+    fun isSurely2sNonPos(modZm: ModZm = Tag.Bit256) = isNotEmpty() &&
+        delete(0).let { it.isEmpty() || it.isSurely2sNeg(modZm) }
 
     /**
      * If the number of [I]'s is larger than [maxNumIntervals] then an overapproximation of `this` is returned that
@@ -482,7 +485,7 @@ value class Intervals private constructor(
     infix fun isLt(other : BigInteger) = isLt(other.asExtBig)
     infix fun isLe(other : BigInteger) = isLe(other.asExtBig)
     infix fun isGt(other : BigInteger) = isGt(other.asExtBig)
-    infix fun isGe(other : BigInteger) = isLe(other.asExtBig)
+    infix fun isGe(other : BigInteger) = isGe(other.asExtBig)
 
     fun isSLt(other: S, modZm: ModZm) = this.toMathInt(modZm) isLt other.toMathInt(modZm)
     fun isSLe(other: S, modZm: ModZm) = this.toMathInt(modZm) isLe other.toMathInt(modZm)

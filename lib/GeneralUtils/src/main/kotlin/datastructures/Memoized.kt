@@ -62,3 +62,13 @@ fun <T, U, V, R> memoized(reentrant : Boolean = false, f: (T, U, V) -> R): (T, U
     val memo = memoized<Triple<T, U, V>, R>(reentrant) { (t, u, v) -> f(t, u, v) }
     return { t, u, v -> memo(Triple(t, u, v)) }
 }
+
+/**
+Returns a memoized version of the function [f]. The memoized function will cache the results of previous calls and
+return the cached result for the same input on subsequent calls.
+ */
+fun <T, U, V, W, R> memoized(reentrant : Boolean = false, f: (T, U, V, W) -> R): (T, U, V, W) -> R {
+    data class Quadruple(val t :T, val u : U, val v : V, val w : W)
+    val memo = memoized<Quadruple, R>(reentrant) { (t, u, v, w) -> f(t, u, v, w) }
+    return { t, u, v, w -> memo(Quadruple(t, u, v, w)) }
+}
