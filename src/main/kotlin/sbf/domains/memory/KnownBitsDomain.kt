@@ -967,6 +967,9 @@ class ScalarKnownBitsDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> pr
     override fun getStackContent(offset: Long, width: Byte) =
         scalars.getStackContent(offset, width)
 
+    override fun mayStackBeInitialized(offset: Long, size: ULong) =
+        scalars.mayStackBeInitialized(offset, size)
+
     override fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg) =
         scalars.getAsScalarValueWithNumToPtrCast(reg)
 

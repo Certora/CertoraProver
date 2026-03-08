@@ -20,6 +20,11 @@ package sbf
 import sbf.cfg.*
 import sbf.testing.SbfTestDSL
 import org.junit.jupiter.api.*
+import sbf.disassembler.GlobalVariables
+import sbf.domains.MemorySummaries
+
+private val globals = GlobalVariables(DefaultElfFileView)
+private val memSummaries = MemorySummaries()
 
 class NarrowMaskedLoadsTest {
 
@@ -46,21 +51,25 @@ class NarrowMaskedLoadsTest {
 
     /**
      *  ```
-     *   r1 := *(u64 *) (r10 + -56)
+     *   *(u8 *) (r10 - 56) = ...
+     *   r1 := *(u64 *) (r10 -56)
      *   r1 = r1 and 255
      *   if (r1 == 0) ...
      *  ```
      *  should be transformed into
      *  ```
-     *   r1 := *(u8 *) (r10 + -56)
+     *   *(u8 *) (r10 - 56) =
+     *   r1 := *(u8 *) (r10 -56)
      *   if (r1 == 0) ...
      *  ```
      **/
     @Test
-    fun `simple load of 8 bytes masked by 0xFF`() {
+    fun `store of 1 byte + load of 8 bytes masked by 0xFF`() {
         val cfg = SbfTestDSL.makeCFG("entrypoint") {
             bb(0) {
                 BinOp.ADD(r10, 4096)
+                r2 = r10
+                r2[-56, 1] = 5
                 r1 = r10[-56]
                 BinOp.AND(r1, 255)
                 br(CondOp.NE(r1,0), 1, 2)
@@ -78,31 +87,72 @@ class NarrowMaskedLoadsTest {
 
 
         println("Before\n$cfg")
-        narrowMaskedLoads(cfg) { true }
+        narrowMaskedLoads(cfg, globals, memSummaries)
         println("After\n$cfg")
         Assertions.assertEquals(false, hasMaskInst(cfg))
         Assertions.assertEquals(true, hasOnlyLoadsOfWidth(cfg, 1))
     }
 
-
     /**
-     * ```
-     *   r1 := *(u64 *) (r10 + -56)
-     *   r1 = r1 and 4294967295
+     *  ```
+     *   *(u16 *) (r10 - 56) = ...
+     *   r1 := *(u64 *) (r10 -56)
+     *   r1 = r1 and 0x1
      *   if (r1 == 0) ...
-     * ```
-     * should be transformed into
-     *
-     * ```
-     *   r1 := *(u32 *) (r10 + -56)
+     *  ```
+     *  should be transformed into
+     *  ```
+     *   *(u16 *) (r10 - 56) =
+     *   r1 := *(u8 *) (r10 -56)
      *   if (r1 == 0) ...
-     * ```
+     *  ```
      **/
     @Test
-    fun `simple load of 8 bytes masked by 0xFFFF_FFFF`() {
+    fun `store of 2 bytes + load of 8 bytes masked by 0x1`() {
         val cfg = SbfTestDSL.makeCFG("entrypoint") {
             bb(0) {
                 BinOp.ADD(r10, 4096)
+                r2 = r10
+                r2[-56, 2] = 5
+                r1 = r10[-56]
+                BinOp.AND(r1, 1)
+                br(CondOp.NE(r1,0), 1, 2)
+            }
+            bb(1) {
+                goto (3)
+            }
+            bb(2) {
+                goto (3)
+            }
+            bb(3) {
+                exit()
+            }
+        }
+
+
+        println("Before\n$cfg")
+        narrowMaskedLoads(cfg, globals, memSummaries)
+        println("After\n$cfg")
+        Assertions.assertEquals(false, hasMaskInst(cfg))
+        Assertions.assertEquals(true, hasOnlyLoadsOfWidth(cfg, 1))
+    }
+
+    /**
+     *  ```
+     *   *(u16 *) (r10 - 56) = ...
+     *   r1 := *(u64 *) (r10 -56)
+     *   r1 = r1 and 4294967295
+     *   if (r1 == 0) ...
+     *  ```
+     *  should be not transformed
+     **/
+    @Test
+    fun `store of 2 bytes + load of 8 bytes masked by 0xFFFF_FFFF`() {
+        val cfg = SbfTestDSL.makeCFG("entrypoint") {
+            bb(0) {
+                BinOp.ADD(r10, 4096)
+                r2 = r10
+                r2[-56, 2] = 5
                 r1 = r10[-56]
                 BinOp.AND(r1, 4294967295)
                 br(CondOp.NE(r1,0), 1, 2)
@@ -120,14 +170,61 @@ class NarrowMaskedLoadsTest {
 
 
         println("Before\n$cfg")
-        narrowMaskedLoads(cfg) { true }
+        narrowMaskedLoads(cfg, globals, memSummaries)
+        println("After\n$cfg")
+        Assertions.assertEquals(true, hasMaskInst(cfg))
+    }
+
+
+
+    /**
+     * ```
+     *   *(u32 *) (r10 - 56) = ...
+     *   r1 := *(u64 *) (r10 -56)
+     *   r1 = r1 and 4294967295
+     *   if (r1 == 0) ...
+     * ```
+     * should be transformed into
+     *
+     * ```
+     *   *(u32 *) (r10 - 56) = ...
+     *   r1 := *(u32 *) (r10 -56)
+     *   if (r1 == 0) ...
+     * ```
+     **/
+    @Test
+    fun `store of 4 bytes + load of 8 bytes masked by 0xFFFF_FFFF`() {
+        val cfg = SbfTestDSL.makeCFG("entrypoint") {
+            bb(0) {
+                BinOp.ADD(r10, 4096)
+                r2 = r10
+                r2[-56, 4] = 5
+                r1 = r10[-56]
+                BinOp.AND(r1, 4294967295)
+                br(CondOp.NE(r1,0), 1, 2)
+            }
+            bb(1) {
+                goto (3)
+            }
+            bb(2) {
+                goto (3)
+            }
+            bb(3) {
+                exit()
+            }
+        }
+
+
+        println("Before\n$cfg")
+        narrowMaskedLoads(cfg, globals, memSummaries)
         println("After\n$cfg")
         Assertions.assertEquals(false, hasMaskInst(cfg))
         Assertions.assertEquals(true, hasOnlyLoadsOfWidth(cfg, 4))
     }
 
     /**
-     * ```
+     * ``
+     *   *(u8*) (r10 -56) = ...
      *   r1 = *(u64 *) (r10 -56)
      *   r1 += 1
      *   r1 = r1 and 255
@@ -136,10 +233,11 @@ class NarrowMaskedLoadsTest {
      * should not be transformed.
      **/
     @Test
-    fun `load of 8 bytes followed by updated and then masked by 0xFF`() {
+    fun `store of 1 byte + load of 8 bytes followed by updated and then masked by 0xFF`() {
         val cfg = SbfTestDSL.makeCFG("entrypoint") {
             bb(0) {
                 BinOp.ADD(r10, 4096)
+                r10[-56, 1] = 5
                 r1 = r10[-56]
                 BinOp.ADD(r1, 1)
                 BinOp.AND(r1, 255)
@@ -158,7 +256,7 @@ class NarrowMaskedLoadsTest {
 
 
         println("Before\n$cfg")
-        narrowMaskedLoads(cfg) { true }
+        narrowMaskedLoads(cfg, globals, memSummaries)
         println("After\n$cfg")
         Assertions.assertEquals(true, hasMaskInst(cfg))
         Assertions.assertEquals(true, hasOnlyLoadsOfWidth(cfg, 8))
@@ -166,7 +264,9 @@ class NarrowMaskedLoadsTest {
 
     /**
      * ```
-     *   r1 = *(u64 *) (r10 + -56)
+     *   *(u16 *) (r10 -56) = ...
+     *   *(u16 *) (r10 -256) = ..
+     *   r1 = *(u64 *) (r10 -56)
      *   r1 = r1 and 65535
      *   r2 = *(u64 *) (r10 -256)
      *   r2 = r2 and 65535
@@ -177,17 +277,21 @@ class NarrowMaskedLoadsTest {
      * should be transformed into:
      *
      * ```
-     *   r1 = *(u16 *) (r10 + -56)
+     *   *(u16 *) (r10 -56) = ...
+     *   *(u16 *) (r10 -256) = ..
+     *   r1 = *(u16 *) (r10 -56)
      *   r2 = *(u16 *) (r10 -256)
      *   r3 = r1 or r2
      *   if (r3 == 0) ...
      * ```
      **/
     @Test
-    fun `two loads of 8 bytes masked by 0xFFFF`() {
+    fun `two stores of 2 bytes + two loads of 8 bytes masked by 0xFFFF`() {
         val cfg = SbfTestDSL.makeCFG("entrypoint") {
             bb(0) {
                 BinOp.ADD(r10, 4096)
+                r10[-56, 2] = 0
+                r10[-256,2] = 0
                 r1 = r10[-56]
                 BinOp.AND(r1, 65535)
                 r2 = r10[-256]
@@ -209,10 +313,9 @@ class NarrowMaskedLoadsTest {
 
 
         println("Before\n$cfg")
-        narrowMaskedLoads(cfg) { true }
+        narrowMaskedLoads(cfg, globals, memSummaries)
         println("After\n$cfg")
         Assertions.assertEquals(false, hasMaskInst(cfg))
         Assertions.assertEquals(true, hasOnlyLoadsOfWidth(cfg, 2))
     }
-
 }

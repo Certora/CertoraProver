@@ -24,7 +24,6 @@ import sbf.disassembler.GlobalVariables
 import sbf.domains.*
 import kotlin.toULong
 
-
 /**
  *  Promote load-store pairs into `memcpy` instructions.
  */
@@ -53,6 +52,19 @@ fun promoteMemcpy(
  * Replace multiple load-store pairs and replace them with `memcpy` instructions.
  *
  * The transformation is **intra-block**.
+ *
+ * After each call to [applyRewrites], the instructions in the current block change, but the
+ * control flow structure of the CFG is preserved. Therefore:
+ *
+ * - [scalarAnalysis] remains valid throughout the entire transformation, since it only
+ *   provides invariants at the entry/exit of each block, which are unaffected by
+ *   intra-block instruction rewrites.
+ *
+ * - [AnalysisRegisterTypes] provides invariants at the instruction level and is therefore
+ *   invalidated whenever any instruction in a block changes. A new instance must be created
+ *   for each block, and its information is only valid until the next call to [applyRewrites]
+ *   or any change of an instruction (e.g., `replaceInstruction`).
+ *   Note that invariants for other (already processed) blocks remain valid.
  */
 @TestOnly
 fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteMemcpyIntraBlock(
@@ -65,24 +77,18 @@ fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteMemcpyIntraBloc
     where D: AbstractDomain<D>,
           D: ScalarValueProvider<TNum, TOffset> {
 
+    // Move memory loads closer to its use. It doesn't invalidate `scalarAnalysis` because the
+    // transformation is intra-block
     reorderLoads(cfg, scalarAnalysis)
 
-    /**
-     * After each call to [applyRewrites], the basic block changes.
-     * Thus, we must be careful not to use invalidated/obsolete type information.
-     *
-     * Since the transformation is intra-block, and it preserves semantics
-     * (replace load-store pairs with `memcpy`/`memcpy_trunc`/`memcpy_zext`), we can still use
-     * [scalarAnalysis] since it only contains the invariants that hold at the entry of the block.
-     *
-     * However, [AnalysisRegisterTypes] will collect information at the instruction level.
-     * Thus, `types` should NOT be used for answering queries about basic block `b`
-     * once `b` has changed. But information about other blocks is still valid.
-     */
-    val types = AnalysisRegisterTypes(scalarAnalysis)
     for (b in cfg.getMutableBlocks().values) {
-        val rewrites = mutableListOf<MemcpyRewrite>()
+        // A new instance of `AnalysisRegisterTypes` is created per block so that its memory can be freed
+        // after each block is processed. Note that `AnalysisRegisterTypes` lazily builds instruction-level
+        // invariants for a block on the first call to `typeAtInstruction()`, so only the invariants for
+        // the current block are generated at each loop iteration.
 
+        val types = AnalysisRegisterTypes(scalarAnalysis)
+        val rewrites = mutableListOf<MemcpyRewrite>()
         // (A) load and stores access **different** number of bytes
         rewrites.addAll(findWideningAndNarrowingRewritesIntraBlock(b, types, useDynFrames))
         // (B) load and stores access **same** number of bytes
@@ -94,7 +100,7 @@ fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteMemcpyIntraBloc
         // But next iterations of this loop can still use `types`
         applyRewrites(cfg, rewrites)
 
-        // (C) if we haven't changed the basic block (types is still valid) yet, we try next transformation.
+        // (C) if we haven't changed the basic block (`types` is still valid) yet, we try next transformation.
         //
         // Note that since we run several times this function, eventually we won't be able to
         // apply (A) and (B) so this code will be executable.
@@ -114,17 +120,15 @@ fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteMemcpyIntraBloc
             * However, we can promote the two pairs of load-store to two separate `memcpy` of 8 bytes each one.
             * To do that, we do another round where we search for single pairs of load-store.
             */
-            applyRewrites(
-                cfg,
-                findMemcpyRewritesIntraBlock(b, types, useDynFrames, maxNumOfPairs = 1)
-            )
+            @Suppress("NAME_SHADOWING")
+            val rewrites = findMemcpyRewritesIntraBlock(b, types, useDynFrames, maxNumOfPairs = 1)
+            applyRewrites(cfg, rewrites)
         }
 
         // Transforms some load instructions (by narrowing them) that were not involved
-        // in any of the memcpy promotions from before
-        narrowMaskedLoads(b, cfg) { loadInst ->
-            loadInst.isLoad &&
-                loadInst.metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null
+        // in any of the memcpy promotions from before.
+        narrowMaskedLoads(b,  scalarAnalysis) { loadInst ->
+            loadInst.isLoad && loadInst.metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null
         }
     }
 }

@@ -33,60 +33,61 @@ import sbf.domains.*
  * guess that the pointer analysis will check.
  */
 
-private const val NUM_ITERATIONS = 5
-private val sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
-
 fun splitWideStores(cfg: MutableSbfCFG,
                     globals: GlobalVariables,
                     memSummaries: MemorySummaries) {
-    var change = true
-    var i = 0
-    // see test03 in splitWideStores to understand why we might need to run the scalar analysis
-    // multiple times
-    while (change && i < NUM_ITERATIONS) {
-        val scalarAnalysis = GenericScalarAnalysis(
-            cfg,
-            globals,
-            memSummaries,
-            sbfTypesFac,
-            CFGTransformScalarDomFac()
-        )
-        change = splitWideStores(cfg, scalarAnalysis)
-        i++
-    }
+    val sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
+    val scalarAnalysis = GenericScalarAnalysis(
+        cfg,
+        globals,
+        memSummaries,
+        sbfTypesFac,
+        CFGTransformScalarDomFac()
+    )
+    splitWideStores(cfg, scalarAnalysis)
 }
-
 
 private fun <D, TNum, TOffset> splitWideStores(
     cfg: MutableSbfCFG,
     scalarAnalysis: IAnalysis<D>
-): Boolean
+)
 where TNum: INumValue<TNum>,
       TOffset: IOffset<TOffset>,
       D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
-    val scalarsAtInst = AnalysisRegisterTypes(scalarAnalysis)
-    var change = false
+    val types = AnalysisRegisterTypes(scalarAnalysis)
     for (block in cfg.getMutableBlocks().values) {
-        val narrowStores = ArrayList<Triple<Int, SbfInstruction.Mem, Long>>()
+        val wideStores = mutableListOf<WideStore>()
         // Identify the wide stores based on some heuristics
-        findSplitWideStoresOf16(block, scalarsAtInst, scalarAnalysis, narrowStores)
-        findSplitWideStoresOf64(block, scalarsAtInst, scalarAnalysis, narrowStores)
+        findSplitWideStoresOf16(block, types, wideStores)
+        findSplitWideStoresOf64(block, types, wideStores)
+
+        // Replace the original wide store with the same one but with some extra metadata
+        // This does not invalidate locInst's positions
+        wideStores.forEach { wideStore ->
+            block.replaceInstruction(wideStore.pos, wideStore.inst)
+        }
+
         // Replace the original wide-size store instruction into two store instructions of half-size each one.
         var addedInsts = 0
-        for ((i, storeInst, immVal) in narrowStores) {
+        for ((i, storeInst, immVal) in wideStores) {
             splitWideStore(block, i + addedInsts, storeInst, immVal)
             addedInsts++
         }
-        change = change or narrowStores.isNotEmpty()
     }
-    return change
+}
+
+private data class WideStore(
+    val pos: Int, // position of the store in the block
+    val inst: SbfInstruction.Mem, // the store instruction
+    val storedValue: Long // the stored value
+) {
+    init { check(!inst.isLoad) }
 }
 
 private fun <D, TNum, TOffset> findSplitWideStoresOf16(
-    block: MutableSbfBasicBlock, // mutable because we add metadata
-    scalarsAtInst: AnalysisRegisterTypes<D, TNum, TOffset>,
-    @Suppress("UNUSED_PARAMETER")scalarsAtBlock: IAnalysis<D>,
-    worklist: MutableList<Triple<Int, SbfInstruction.Mem, Long>>)
+    block: SbfBasicBlock,
+    types: AnalysisRegisterTypes<D, TNum, TOffset>,
+    wideStores: MutableList<WideStore>)
 where TNum: INumValue<TNum>,
       TOffset: IOffset<TOffset>,
       D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
@@ -98,24 +99,21 @@ where TNum: INumValue<TNum>,
         val inst = locInst.inst
         val pos = locInst.pos
         if (inst is SbfInstruction.Mem && !inst.isLoad && inst.access.width.toInt() == 2) {
-            val immVal = isStoreOfImmVal(locInst, scalarsAtInst)
+            val immVal = isStoreOfImmVal(locInst, types)
             if (immVal != null && magicNumbers.contains(immVal)) {
-                if (getStackAccess(locInst, scalarsAtInst) != null) {
-                    // We replace in-place the instruction to add new metadata
+                if (getStackAccess(locInst, types) != null) {
                     val newMetaData = inst.metaData.plus(SbfMeta.HINT_OPTIMIZED_WIDE_STORE())
                     val newInst = inst.copy(metaData = newMetaData)
-                    block.replaceInstruction(pos, newInst)
-                    worklist.add(Triple(pos, newInst, immVal))
+                    wideStores.add(WideStore(pos, newInst, immVal))
                 }
             }
         }
     }
 }
 private fun <D, TNum, TOffset> findSplitWideStoresOf64(
-    block: MutableSbfBasicBlock, // mutable because we add metadata
-    scalarsAtInst: AnalysisRegisterTypes<D, TNum, TOffset>,
-    scalarsAtBlock: IAnalysis<D>,
-    worklist: MutableList<Triple<Int, SbfInstruction.Mem, Long>>)
+    block: SbfBasicBlock,
+    types: AnalysisRegisterTypes<D, TNum, TOffset>,
+    wideStores: MutableList<WideStore>)
     where TNum: INumValue<TNum>,
           TOffset: IOffset<TOffset>,
           D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset>  {
@@ -126,26 +124,24 @@ private fun <D, TNum, TOffset> findSplitWideStoresOf64(
             val pos = locInst.pos
             if (inst is SbfInstruction.Mem && !inst.isLoad && inst.access.width.toInt() == 8) {
                 // store of 64 bits
-                val immVal = isStoreOfImmVal(locInst, scalarsAtInst)
+                val immVal = isStoreOfImmVal(locInst, types)
                 if (immVal != null) {
                     // store of 64 bits of an immediate value
-                    val stackAccess = getStackAccess(locInst, scalarsAtInst)
+                    val stackAccess = getStackAccess(locInst, types)
                     if (stackAccess != null) {
                         // stack store of 64 bits of an immediate value
                         /// check that at least in one sibling there is a store of an immediate value at the same offset
                         /// but with width=4. Note that we don't check for an actual store instruction but instead, we ask the
                         /// scalar domain if at the end of each block, the corresponding stack content has stored an immediate value.
                         if (inverseSiblings.any { inverseSibling ->
-                                val post = scalarsAtBlock.getPost(inverseSibling.getLabel())
+                                val post = types.analysis.getPost((inverseSibling.getLabel()))
                                 val x = post?.getStackContent(stackAccess.offset, 4.toByte())?.type()
                                 // Note that we don't need to know the exact number
                                 (x != null && x is SbfType.NumType<TNum, TOffset>)
                             }) {
-                            // We replace in-place the instruction to add new metadata
                             val newMetaData = inst.metaData.plus(SbfMeta.HINT_OPTIMIZED_WIDE_STORE())
                             val newInst = inst.copy(metaData = newMetaData)
-                            block.replaceInstruction(pos, newInst)
-                            worklist.add(Triple(pos, newInst, immVal))
+                            wideStores.add(WideStore(pos, newInst, immVal))
                         }
                     }
                 }
@@ -154,7 +150,7 @@ private fun <D, TNum, TOffset> findSplitWideStoresOf64(
     }
 }
 
-fun splitWideStore(block: MutableSbfBasicBlock, i: Int, inst: SbfInstruction.Mem, immVal: Long) {
+private fun splitWideStore(block: MutableSbfBasicBlock, i: Int, inst: SbfInstruction.Mem, immVal: Long) {
     check(!inst.isLoad) {"splitWideStore expects a store instruction "}
     check(inst.access.width.toInt() == 2 || inst.access.width.toInt() == 8)
     {"splitWideStore expects only stores of 2 or 8 bytes"}
@@ -180,50 +176,43 @@ fun splitWideStore(block: MutableSbfBasicBlock, i: Int, inst: SbfInstruction.Mem
 /** Return non-null if [locInst] is a store instruction and an immediate value is being stored **/
 private fun <D, TNum, TOffset> isStoreOfImmVal(
     locInst: LocatedSbfInstruction,
-    scalarsAtInst: AnalysisRegisterTypes<D, TNum, TOffset>): Long?
+    types: AnalysisRegisterTypes<D, TNum, TOffset>): Long?
     where TNum: INumValue<TNum>,
           TOffset: IOffset<TOffset>,
           D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
     val inst = locInst.inst
-    check(inst is SbfInstruction.Mem && !inst.isLoad) {"getStoredImmVal expects a store instruction"}
-    val value = inst.value
-    if (value is Value.Imm) {
-        return value.v.toLong()
+    check(inst is SbfInstruction.Mem && !inst.isLoad)
+    return when(val value = inst.value) {
+        is Value.Imm -> value.v.toLong()
+        is Value.Reg -> (types.typeAtInstruction(locInst, value.r) as? SbfType.NumType)?.value?.toLongOrNull()
     }
-
-    val valueType = scalarsAtInst.typeAtInstruction(locInst, (value as Value.Reg).r)
-    if (valueType is SbfType.NumType) {
-        return valueType.value.toLongOrNull()
-    }
-
-    return null
 }
 
 
-private data class StackAccess(val offset: Long, val width: Short)
+private data class StackAccess(
+    val offset: Long,
+    val width: Short
+)
 
 /** Return non-null if [locInst] is accessing to the stack **/
 private fun <D, TNum, TOffset> getStackAccess(
     locInst: LocatedSbfInstruction,
-    scalarsAtInst: AnalysisRegisterTypes<D, TNum, TOffset>): StackAccess?
+    types: AnalysisRegisterTypes<D, TNum, TOffset>): StackAccess?
     where TNum: INumValue<TNum>,
           TOffset: IOffset<TOffset>,
           D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
     val inst = locInst.inst
-    check(inst is SbfInstruction.Mem) {"getStackAccess expects a memory instruction"}
-    val typeDerefReg = scalarsAtInst.typeAtInstruction(locInst, inst.access.base)
-    if (typeDerefReg is SbfType.PointerType.Stack) {
-        val offset = typeDerefReg.offset.add(inst.access.offset.toLong()).toLongOrNull()
-        if (offset != null) {
-            return StackAccess(offset, inst.access.width)
-        }
-    }
-    return null
+    check(inst is SbfInstruction.Mem)
+    val baseRegTy = (types.typeAtInstruction(locInst, inst.access.base) as? SbfType.PointerType.Stack)
+        ?: return null
+    val resolvedOffset = baseRegTy.offset.add(inst.access.offset.toLong()).toLongOrNull()
+        ?: return null
+    return StackAccess(resolvedOffset, inst.access.width)
 }
 
 /** Return other immediate predecessors of the succesors of [block] **/
 private fun getInverseSiblings(block: SbfBasicBlock): List<SbfBasicBlock> {
-    val siblings = ArrayList<SbfBasicBlock>()
+    val siblings = mutableListOf<SbfBasicBlock>()
     for (succ in block.getSuccs())  {
         for (pred in succ.getPreds()) {
             if (pred != block) {

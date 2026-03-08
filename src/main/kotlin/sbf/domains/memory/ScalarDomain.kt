@@ -1627,6 +1627,11 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         }
     }
 
+    override fun mayStackBeInitialized(offset: Long, size: ULong): Boolean {
+        val interval = FiniteInterval.mkInterval(offset, size.toLong())
+        return (mayInitStack.intersects(interval))
+    }
+
     override fun setScalarValue(reg: Value.Reg, newVal: ScalarValue<TNum, TOffset>) {
         if (!isBottom()) {
             setRegister(reg, newVal)

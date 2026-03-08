@@ -753,13 +753,16 @@ class ScalarRegisterStackEqualityDomain<TNum: INumValue<TNum>, TOffset: IOffset<
 
     override fun toString() = "($scalars,equalities=$equalities)"
 
-    override fun getAsScalarValue(value: Value): ScalarValue<TNum, TOffset> {
-        return scalars.getAsScalarValue(value)
-    }
+    override fun getAsScalarValue(value: Value): ScalarValue<TNum, TOffset> =
+        scalars.getAsScalarValue(value)
 
-    override fun getStackContent(offset: Long, width: Byte): ScalarValue<TNum, TOffset> {
-       return scalars.getStackContent(offset, width)
-    }
+
+    override fun getStackContent(offset: Long, width: Byte): ScalarValue<TNum, TOffset> =
+       scalars.getStackContent(offset, width)
+
+
+    override fun mayStackBeInitialized(offset: Long, size: ULong) =
+        scalars.mayStackBeInitialized(offset, size)
 
     override fun getTypeFac() = scalars.getTypeFac()
 

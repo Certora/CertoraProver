@@ -1057,7 +1057,12 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
 
     override fun getAsScalarValue(value: Value) = scalars.getAsScalarValue(value)
 
-    override fun getStackContent(offset: Long, width: Byte) = scalars.getStackContent(offset, width)
+    override fun getStackContent(offset: Long, width: Byte) =
+        scalars.getStackContent(offset, width)
+
+    override fun mayStackBeInitialized(offset: Long, size: ULong) =
+        scalars.mayStackBeInitialized(offset, size)
+
 
     override fun getTypeFac() = scalars.getTypeFac()
 

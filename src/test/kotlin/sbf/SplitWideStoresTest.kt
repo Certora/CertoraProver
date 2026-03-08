@@ -326,6 +326,8 @@ class SplitWideStoresTest {
 
         val memSummaries = MemorySummaries()
         splitWideStores(cfg, globals, memSummaries)
+        // We need to run again splitWideStores to split all stores
+        splitWideStores(cfg, globals, memSummaries)
         println("After $cfg")
         Assertions.assertEquals(true, checkNoWideStores(cfg))
     }
