@@ -1167,7 +1167,7 @@ class MutableSbfCFG(private val name: String): SbfCFG {
                 }
 
                 fun instToDot(locInst: LocatedSbfInstruction, sb:StringBuilder) {
-                    val color = colorMap[locInst] ?: (locInst.inst as? SbfInstruction.Debug)?.let { "Cyan" }
+                    val color = colorMap[locInst] ?: (locInst.inst as? SbfInstruction.Debug)?.let { "Yellow" }
 
                     @Suppress("ForbiddenMethodCall")
                     locInst.inst.toString().split("\n").forEach {instLine ->
