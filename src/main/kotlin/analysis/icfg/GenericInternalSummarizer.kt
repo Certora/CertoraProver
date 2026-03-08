@@ -708,7 +708,7 @@ abstract class GenericInternalSummarizer<K, S,
                     // ignore keyword entries (tacM etc.) that are written within the summarized body.
                     // however, for some reason all stack variables are also annotated with the keyword entry "L"
                     // for "stack height" so explicitly ignore that...
-                    if(ent != null && ent.maybeTACKeywordOrdinal != TACKeyword.STACK_HEIGHT.ordinal) {
+                    if((ent != null && ent.maybeTACKeywordOrdinal != TACKeyword.STACK_HEIGHT.ordinal) || TACMeta.STORAGE_KEY in v.meta) {
                         continue
                     }
                     // is there an alias that exists at the entrance to the function? If so, use that.
