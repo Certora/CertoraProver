@@ -50,9 +50,9 @@ class TACNegTest {
         b1.add(SbfInstruction.Bin(BinOp.MOV, r2, Value.Imm(Long.MIN_VALUE.toULong()), true))
         b1.add(SbfInstruction.Bin(BinOp.MOV, r3, Value.Imm((-5L).toULong()), true))
         b1.add(SbfInstruction.Bin(BinOp.MOV, r4, Value.Imm(Long.MIN_VALUE.toULong() + 1U), true))
-        b1.add(SbfInstruction.Un(UnOp.NEG, r2, true))
-        b1.add(SbfInstruction.Un(UnOp.NEG, r3, true))
-        b1.add(SbfInstruction.Un(UnOp.NEG, r4, true))
+        b1.add(SbfInstruction.Un(UnOp.NEG, r2))
+        b1.add(SbfInstruction.Un(UnOp.NEG, r3))
+        b1.add(SbfInstruction.Un(UnOp.NEG, r4))
 
         b1.add(SbfInstruction.Bin(BinOp.MOV, r5, Value.Imm(Long.MIN_VALUE.toULong()), true))
         b1.add(SbfInstruction.Assert(Condition(CondOp.EQ, r2, r5)))

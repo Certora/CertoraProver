@@ -366,16 +366,24 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     }
 
     private fun translateUn(inst: SbfInstruction.Un): List<TACCmd.Simple> {
-        if (inst.op == UnOp.NEG) {
-            if (!inst.is64) {
-              throw TACTranslationError("TAC encoding of 32-bit $inst not supported")
+        val lhs = exprBuilder.mkVar(inst.dst)
+        return when (inst.op) {
+            UnOp.NEG -> {
+                val rhs = exprBuilder.mkUnExpr(UnOp.NEG, inst.dst)
+                listOf(assign(lhs, rhs))
             }
-            val lhs = exprBuilder.mkVar(inst.dst)
-            val rhs = exprBuilder.mkUnExpr(UnOp.NEG, inst.dst)
-            return listOf(assign(lhs, rhs))
-        } else {
-            // we don't support UnOp.BE16/32/64, UnOp.LE16/32/64
-            throw TACTranslationError("Unsupported $inst")
+            UnOp.BE16,
+            UnOp.BE32,
+            UnOp.BE64,
+            UnOp.LE16,
+            UnOp.LE32,
+            UnOp.LE64 ->  {
+                // We don't model precisely byte swap instructions
+                listOf(
+                    Debug.unsupported("Unsupported $inst: havoc lhs", listOf(lhs)),
+                    TACCmd.Simple.AssigningCmd.AssignHavocCmd(lhs)
+                )
+            }
         }
     }
 

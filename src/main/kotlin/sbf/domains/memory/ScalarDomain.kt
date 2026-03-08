@@ -397,7 +397,8 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                 // modular arithmetic
                 setRegister(stmt.dst, ScalarValue(sbfTypeFac.anyNum()))
             }
-            UnOp.BE16, UnOp.BE32, UnOp.BE64, UnOp.LE16, UnOp.LE32, UnOp.LE64 -> {
+            UnOp.BE16, UnOp.BE32, UnOp.BE64,
+            UnOp.LE16, UnOp.LE32, UnOp.LE64 -> {
                 analyzeByteSwapInst(stmt.dst)
             }
         }

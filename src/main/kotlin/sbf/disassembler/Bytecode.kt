@@ -38,6 +38,10 @@ enum class SbfInstructionCodes(val opcode: Int) {
     INST_SRC_IMM(0x00),
     INST_SRC_REG(0x08),
 
+    INST_END(0xd0),
+    INST_END_LE(0x00),
+    INST_END_BE(0x08),
+
     INST_SIZE_W(0x00),
     INST_SIZE_H(0x08),
     INST_SIZE_B(0x10),

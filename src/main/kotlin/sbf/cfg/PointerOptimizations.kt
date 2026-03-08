@@ -80,6 +80,8 @@ fun runPostSlicingOptimizations(prog: SbfCallGraph): SbfCallGraph {
         optEntryCFG.verify(false, "[after simplifyBools]")
         detectOverflowPatterns(optEntryCFG)
         optEntryCFG.verify(false, "[after markAddWithOverflow]")
+        simplifyByteSwapInsts(optEntryCFG)
+        optEntryCFG.verify(false, "[after simplifyByteSwapInsts]")
         optEntryCFG.normalize()
         optEntryCFG.verify(true, "after post-slicing optimizations")
         optEntryCFG

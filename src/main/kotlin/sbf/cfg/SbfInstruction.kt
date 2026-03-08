@@ -128,12 +128,12 @@ enum class UnOp {
 
     override fun toString(): String {
         return when(this) {
-            BE16 -> "htobe16"
-            BE32 -> "htobe32"
-            BE64 -> "htobe64"
-            LE16 -> "htole16"
-            LE32 -> "htole32"
-            LE64 -> "htole64"
+            BE16 -> "be16"
+            BE32 -> "be32"
+            BE64 -> "be64"
+            LE16 -> "le16"
+            LE32 -> "le32"
+            LE64 -> "le64"
             NEG  -> "neg"
         }
     }
@@ -398,16 +398,10 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
 
     data class Un(val op: UnOp,
                   val dst: Value.Reg,
-                  val is64: Boolean,
                   private val preDstType: SbfRegisterType? = null,
                   private val postDstType: SbfRegisterType? = null,
                   override val metaData: MetaData = MetaData())
         : SbfInstruction() {
-
-        init {
-            // to be lifted in the future
-            check(is64) {"only 64-bit unary instructions are supported"}
-        }
 
         override fun copyInst(metadata: MetaData) = copy(metaData = metadata)
         override val writeRegister: Set<Value.Reg>
@@ -418,11 +412,7 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
         override fun toString(): String {
             val sb = StringBuilder()
             sb.append("${TypedReg(dst, postDstType)}")
-            sb.append(if (!is64) {
-                " =32 "
-            } else {
-                " = "
-            })
+            sb.append(" = ")
             sb.append("$op(${TypedReg(dst,preDstType)})")
             sb.append(metadataToString())
             return sb.toString()

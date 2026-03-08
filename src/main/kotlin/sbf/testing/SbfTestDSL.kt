@@ -214,6 +214,11 @@ object SbfTestDSL {
             ).push()
         }
 
+        operator fun UnOp.invoke(arg: Any) {
+            check (arg is BuilderValue.Reg)
+            SbfInstruction.Un(this, arg.v).push()
+        }
+
 
         data class BuilderLVal(val v: BuilderValue.Reg, val offset: Short, val width: Int = 8) {
             operator fun plus(off: Short) = BuilderLVal(v, (this.offset + off).toShort(), width)

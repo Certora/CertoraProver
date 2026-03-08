@@ -2795,7 +2795,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         newSymC
                     })
             }
-            UnOp.BE16, UnOp.BE32, UnOp.BE64, UnOp.LE16, UnOp.LE32, UnOp.LE64 -> {
+            UnOp.BE16, UnOp.BE32, UnOp.BE64,
+            UnOp.LE16, UnOp.LE32, UnOp.LE64 -> {
                 forget(inst.dst)
             }
         }
