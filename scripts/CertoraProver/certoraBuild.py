@@ -2984,8 +2984,13 @@ class CertoraBuildGenerator:
         corresponding to the namespaced types.
 
         Args:
-            original_file: Path to the Solidity file containing namespaced storage declarations
+            original_file: Path to the Solidity file containing namespaced storage declarations.
+                This may be a (transitivly) imported file rather than a user-specified target.
             ns_storage: Set of tuples (type_name, namespace) for each namespaced storage
+            compiler_version: The compiler version to use, already resolved from target_file
+            target_file: The user-specified file (from conf file) that imported original_file.
+                Used to resolve compilation settings (solc_optimize_map, solc_via_ir_map, etc.)
+                for the temporary harness file, since original_file may not have entries in those maps.
 
         Returns:
             NewStorageInfo: A tuple (fields, types) where:
@@ -3004,8 +3009,24 @@ class CertoraBuildGenerator:
             # directly can cause issues.
             tmp_file.write(f"import \"{original_file}\";\n\n")
             rel_path = os.path.relpath(tmp_file.name, Path.cwd())
-            if self.context.compiler_map:
-                self.context.compiler_map.update({rel_path: compiler_version}, last=False)
+            tmp_abs_path = Util.abs_posix_path(tmp_file.name)
+            # Add the temp file to all map attributes so that map lookups
+            # (solc_optimize_map, solc_via_ir_map, etc.) succeed during compilation.
+            # We resolve values from target_file (a user-specified file in context.file_paths)
+            # rather than original_file (which may be a transitive dependency not in any map).
+            # We store both relative and absolute path keys because different lookup sites
+            # normalize paths differently: get_relevant_compiler uses relative paths,
+            # while _handle_via_ir/_handle_optimize use absolute paths.
+            for map_attr in self.context.app.attr_class.all_map_attrs():
+                map_attr_value = getattr(self.context, map_attr, None)
+                if not map_attr_value:
+                    continue
+                attr_name = map_attr[:-len(Util.MAP_SUFFIX)]
+                target_value = Ctx.get_map_attribute_value(
+                    self.context, Path(target_file), attr_name
+                )
+                if target_value is not None:
+                    map_attr_value.update({rel_path: target_value, tmp_abs_path: target_value}, last=False)
             # Write the harness contract with dummy fields for each namespaced storage
             var_to_slot = storageExtension.write_harness_contract(tmp_file, harness_name, ns_storage)
             tmp_file.flush()
