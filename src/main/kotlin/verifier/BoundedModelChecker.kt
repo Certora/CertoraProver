@@ -956,7 +956,7 @@ class BoundedModelChecker(
         suspend fun checkRecursive(
             parentRule: BMCRule,
             parentFuncs: FunctionSequence
-        ): TreapList<out RuleCheckResult> {
+        ): TreapList<RuleCheckResult> {
             if (failLimit > 0 && nSatResults.get() >= failLimit) {
                 // Hit the max number of errors that should be found. Bail out
                 return treapListOf()
