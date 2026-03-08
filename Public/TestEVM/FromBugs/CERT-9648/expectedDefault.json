@@ -1,0 +1,9 @@
+{
+	"rules": {
+		"sanity": {
+			"SUCCESS": [
+				"foo(address,address,uint256)"
+			]
+		}
+	}
+}

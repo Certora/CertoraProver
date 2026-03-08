@@ -103,6 +103,11 @@ object CallGraphBuilder {
     @Treapable
     sealed class CalledContract : AmbiSerializable, TransformableVarEntity<CalledContract>, UniqueIdEntity<CalledContract> {
 
+        /**
+            Returns true iff this object references any of the given allocated IDs.
+         */
+        abstract fun referencesAllocatedIds(ids: Set<Pair<Allocator.Id, Int>>): Boolean
+
         interface WithStorageReadId {
             val storageReadId: Int
         }
@@ -118,6 +123,7 @@ object CallGraphBuilder {
                 return this
             }
             override fun hashCode() = treapHashObject(this)
+            override fun referencesAllocatedIds(ids: Set<Pair<Allocator.Id, Int>>) = false
         }
 
         /**
@@ -131,6 +137,8 @@ object CallGraphBuilder {
             override fun mapId(f: (Any, Int, () -> Int) -> Int): CalledContract {
                 return copy(orig = orig.mapId(f))
             }
+
+            override fun referencesAllocatedIds(ids: Set<Pair<Allocator.Id, Int>>) = orig.referencesAllocatedIds(ids)
         }
 
         sealed interface WithContractId{
@@ -139,6 +147,8 @@ object CallGraphBuilder {
 
         @KSerializable
         sealed class FullyResolved : WithContractId, CalledContract() {
+
+            override fun referencesAllocatedIds(ids: Set<Pair<Allocator.Id, Int>>) = false
 
             @KSerializable
             data class ConstantAddress(
@@ -185,6 +195,7 @@ object CallGraphBuilder {
          */
         @KSerializable
         data class SymbolicInput(val inputArg: TACSymbol.Var?, val offset: BigInteger) : CalledContract() {
+            override fun referencesAllocatedIds(ids: Set<Pair<Allocator.Id, Int>>) = false
 
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): CalledContract = copy(inputArg = inputArg?.let(f))
 
@@ -199,11 +210,14 @@ object CallGraphBuilder {
          */
         @GenerateRemapper
         @KSerializable
-        data class SymbolicOutput(@GeneratedBy(Allocator.Id.CALL_SUMMARIES) val which: Int, val offset: BigInteger) : CalledContract(), RemapperEntity<CalledContract>
+        data class SymbolicOutput(@GeneratedBy(Allocator.Id.CALL_SUMMARIES) val which: Int, val offset: BigInteger) : CalledContract(), RemapperEntity<CalledContract> {
+            override fun referencesAllocatedIds(ids: Set<Pair<Allocator.Id, Int>>) = (Allocator.Id.CALL_SUMMARIES to which) in ids
+        }
 
         @KSerializable
         @GenerateRemapper
         data class InternalFunctionSummaryOutput(@GeneratedBy(Allocator.Id.INTERNAL_CALL_SUMMARY) val which: Int, val ordinal: Int): CalledContract(), RemapperEntity<CalledContract> {
+            override fun referencesAllocatedIds(ids: Set<Pair<Allocator.Id, Int>>) = (Allocator.Id.INTERNAL_CALL_SUMMARY to which) in ids
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): CalledContract {
                 return this
             }
@@ -211,19 +225,23 @@ object CallGraphBuilder {
 
         @GenerateRemapper
         @KSerializable
-        data class UnresolvedRead(@GeneratedBy(Allocator.Id.STORAGE_READ) override val storageReadId: Int) : CalledContract(), RemapperEntity<CalledContract>, WithStorageReadId
+        data class UnresolvedRead(@GeneratedBy(Allocator.Id.STORAGE_READ) override val storageReadId: Int) : CalledContract(), RemapperEntity<CalledContract>, WithStorageReadId {
+            override fun referencesAllocatedIds(ids: Set<Pair<Allocator.Id, Int>>) = (Allocator.Id.STORAGE_READ to storageReadId) in ids
+        }
 
         @KSerializable
         sealed class CreatedReference : CalledContract() {
-
             /** The call is to newly-created contract with an unknown address */
             @GenerateRemapper
             @KSerializable
-            data class Unresolved(@GeneratedBy(Allocator.Id.CONTRACT_CREATION) val createId: Int) : CreatedReference(), RemapperEntity<CalledContract>
+            data class Unresolved(@GeneratedBy(Allocator.Id.CONTRACT_CREATION) val createId: Int) : CreatedReference(), RemapperEntity<CalledContract> {
+                override fun referencesAllocatedIds(ids: Set<Pair<Allocator.Id, Int>>) = (Allocator.Id.CONTRACT_CREATION to createId) in ids
+            }
 
             /** The call is to a newly-created contract with address [tgtConntractId]*/
             @KSerializable
             data class Resolved(val tgtConntractId: BigInteger) : CreatedReference() {
+                override fun referencesAllocatedIds(ids: Set<Pair<Allocator.Id, Int>>) = false
                 override fun mapId(f: (Any, Int, () -> Int) -> Int): CalledContract {
                     return this
                 }

@@ -36,6 +36,7 @@ import instrumentation.transformers.CodeRemapper
 import instrumentation.transformers.CodeRemapper.BlockRemappingStrategy
 import instrumentation.transformers.CodeRemapper.CallIndexStrategy
 import instrumentation.transformers.CodeRemapper.IdRemapperGenerator.Companion.forId
+import kotlin.streams.*
 import log.*
 import tac.CallId
 import tac.MetaMap
@@ -799,6 +800,7 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
         }
         return consolidatedLoops
     }
+
     fun bmcUnroll(): CoreTACProgram {
         // If the code consists of a single block, and we assume block 0 has no loops, then there is nothing to do
         if (code.code.size == 1) {
@@ -826,165 +828,12 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
                 // here was also a loop head in the original set of loops (and thus is still a valid key here).
                 val unrollConst = calculatedUnrollConsts[loopToUnrollBasic.head]!!
 
-                /**
-                * If our loop body itself had a loop within it that has a complicated exit condition (such that [createUnrollCmds]
-                * returns null) then for that *inner* loop we unroll an extra time, which we wire up to a block that simply ends with
-                * an assume/assert false. This assume/assert false is a new *sink* in the control-flow graph (this will matter later).
-                *
-                * Compare this behavior to when [createUnrollCmds] returns a non-null sequence of commands. In that case, we insert
-                * an assumption on the condition variable of the jumpi command we identified as the loop exit condition,
-                * and then transform the conditional jump to an unconditional exit from the loop. In other words, we do *not*
-                * create a new sink, the assume/assert false command is inserted along the "regular" control flow.
-                *
-                * Recall all of this discussion is about the unrolling of the inner loop of the loop we are now currently unrolling.
-                * After each step of unrolling, we recompute loop bodies. However, in the first case, the (recomputed) loop
-                * body of the *outer* loop will *not* contain the final unrolling and assume/assert false sink in the loop body.
-                * Why? Recall that we compute loop bodies using "natural loops", i.e., a loop exists if there is a jump to a successor
-                * node such that the successor node dominates the source of the jump, a so called "backjump".
-                * Then, the "body" of the loop are those blocks reachable by traversing the CFG backwards from the backjump to
-                * the head of the loop. However, because the extra unrolling + assume/assert false created a sink, these
-                * commands/blocks are *not* reachable from the backjump, and are excluded from the loop body.
-                *
-                * So, what's the problem? For one, it creates very strange graphs. More pressingly, if the inner loop occurred
-                * within an external contract call, that call's id I is invalidated by the unrolling; each copy
-                * of the *outer* loop should get a fresh call id. However, this duplication and remapping is only done
-                * on the loop body which, as discussed above, does *not* include the extra unrolling + assume/assert false
-                * blocks. These blocks *will* contain references to I, which the loop unrolling validator will detect, and
-                * fail on.
-                *
-                * The solution is rather ad-hoc. We tag the extra assume/assert false commands with the [TACMeta.SYNTHETIC_LOOP_END]
-                * meta which includes the loop id for which it was introduced. When unrolling a loop L, for every already unrolled
-                * loop *head* within L (as indicated by a [TACMeta.START_LOOP] annotation), we look
-                * for commands tagged with [TACMeta.SYNTHETIC_LOOP_END] that have a matching loop id. For each such command,
-                * we check if there is a path back to the body of L. This path is checked to either revert, or *must* reach the synthetic loop end;
-                * in other words, the synthetic loop end command must post-dominate all blocks along the path, modulo
-                * reverts. If it does, then the chain of blocks reaching the synthetic loop end are considered to be part of the
-                * loop body of L. This is what the code below computes.
-                */
+                val extraBlocks = expandPathsToExtraBlocks(
+                    loopToUnrollBasic,
+                    findSyntheticLoopEndBlocks(loopToUnrollBasic) +
+                    findReturnBlocksWithAddressResolutionsInLoop(loopToUnrollBasic)
+                )
 
-                /**
-                * Find all loop ids of already unrolled loops within this loop.
-                */
-                val foundUnrolledLoops = loopToUnrollBasic.body.parallelStream().flatMap {
-                    code.analysisCache.graph.elab(it).commands.mapNotNull { ltac ->
-                        ltac.maybeAnnotation(START_LOOP)
-                    }.stream()
-                }.collect(Collectors.toSet())
-
-                /**
-                * Find all synthetic loop commands which aren't in the current loop body,
-                * but which match the loop id of unrolled loops within the body...
-                */
-                val extraBlocks = code.parallelLtacStream().filter {
-                    it.cmd.meta.get(TACMeta.SYNTHETIC_LOOP_END)?.let {
-                        it in foundUnrolledLoops
-                    } == true && it.ptr.block !in loopToUnrollBasic.body
-                }.flatMap { synthEndCmd ->
-                    /**
-                    * Now see if we can trace a path back to the loop body we're unrolling. This identifies an "offshoot" branch
-                    * that is logically part of the loop body, but isn't detected by the loop body detection
-                    */
-                    val graph = code.analysisCache.graph
-                    var inferredBranch : Pair<NBId, NBId>? = null
-                    val worklist = arrayDequeOf(synthEndCmd.ptr.block)
-                    val visited = mutableSetOf<NBId>()
-                    while(worklist.isNotEmpty()) {
-                        val curr = worklist.removeLast()
-                        if(!visited.add(curr)) {
-                            continue
-                        }
-                        for(p in graph.pred(curr)) {
-                            // we have looping code somehow
-                            if(graph.cache.domination.dominates(curr, p)) {
-                                return@flatMap Stream.empty()
-                            }
-                            if(p in loopToUnrollBasic.body) {
-                                val edge = p to curr
-                                /*
-                                Do we have a principle edge that enters our offshoot branch?
-                                */
-                                if(inferredBranch == null || inferredBranch == edge) {
-                                    if(inferredBranch == null) {
-                                        inferredBranch = edge
-                                    }
-                                    continue
-                                } else {
-                                    // no? Then bail
-                                    return@flatMap Stream.empty()
-                                }
-                            } else {
-                                // keep going backwards
-                                worklist.add(p)
-                            }
-                        }
-                    }
-                    /*
-                    If we didn't actually reach the loop body, something has gone wrong.
-                    */
-                    if(inferredBranch == null) {
-                        return@flatMap Stream.empty()
-                    }
-                    val branchStart = inferredBranch.second
-                    val validationWorklist = arrayDequeOf(branchStart)
-                    val dom = graph.cache.domination
-                    val toRet = mutableSetOf<NBId>()
-                    /*
-                    we found a principle edge from the loop body. Now verify that all paths starting from this edge
-                    must rejoin the loop body or reach the synthetic end block
-                    */
-                    while(validationWorklist.isNotEmpty()) {
-                        val curr = validationWorklist.removeLast()
-                        if(!toRet.add(curr)) {
-                            continue
-                        }
-                        if(curr == synthEndCmd.ptr.block) {
-                            /*
-                            This block (which was added while the BMC is still processing, is expected to be a sink. If it
-                            isn't, something has gone *very* wrong.
-
-                            NB: we could check this immediately at the top of this block, but choose to do it here as
-                            it fits with the rest of the validation
-                            */
-                            if(graph.succ(curr).isNotEmpty()) {
-                                return@flatMap Stream.empty()
-                            }
-                        /*
-                        AKA this is the dominance frontier of branchStart, and we are rejoining some other control flow.
-                        Ensure that the control flow we are rejoining is within the loop. NB this can happen for
-                        returns and reverts within the unrolled loop body.
-                        */
-                        } else if(!dom.dominates(branchStart, curr)) {
-                            if(curr !in loopToUnrollBasic.body) {
-                                return@flatMap Stream.empty()
-                            }
-                            continue
-                        } else {
-                            /*
-                            This is more of a sanity check. We are somehow back in the loop body while still having
-                            travelled what we *thought* was an "offshoot" branch but to get here we *had* to travel
-                            through the offshoot. I can't think of any plausible solidity pattern that could
-                            cause this, but let's be explicit in our assumptions.
-                            */
-                            if(curr in loopToUnrollBasic.body) {
-                                return@flatMap Stream.empty()
-                            }
-                            /*
-                            Expand our search
-                            */
-                            validationWorklist.addAll(graph.succ(curr))
-                        }
-                    }
-                    /*
-                    Then our validation is complete, and the blocks we visited during it are *exactly* the blocks we need
-                    to add to the loop body.
-
-                    Q: Couldn't you have done something with finding the closest ancestor in the dominance tree that
-                    is also in the loop body, and then finding the subtree of that ancestor?
-                    A: Maybe! But every time I try to be clever with dominance stuff I screw it up. This is less efficient
-                    but I'm more confident it is correct...
-                    */
-                    toRet.stream()
-                }.collect(Collectors.toSet())
                 val loopToUnroll = loopToUnrollBasic.copy(body = loopToUnrollBasic.body + extraBlocks)
                 val loopId = Allocator.getFreshId(Allocator.Id.LOOP)
                 val patching = annotateLoop(loopToUnroll, loopId)
@@ -994,6 +843,223 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
             loops = getNaturalLoops(code.analysisCache.graph)
         }
         return TACTypeChecker.checkProgram(code)
+    }
+
+    /**
+    * If our loop body itself had a loop within it that has a complicated exit condition (such that [createUnrollCmds]
+    * returns null) then for that *inner* loop we unroll an extra time, which we wire up to a block that simply ends with
+    * an assume/assert false. This assume/assert false is a new *sink* in the control-flow graph (this will matter later).
+    *
+    * Compare this behavior to when [createUnrollCmds] returns a non-null sequence of commands. In that case, we insert
+    * an assumption on the condition variable of the jumpi command we identified as the loop exit condition,
+    * and then transform the conditional jump to an unconditional exit from the loop. In other words, we do *not*
+    * create a new sink, the assume/assert false command is inserted along the "regular" control flow.
+    *
+    * Recall all of this discussion is about the unrolling of the inner loop of the loop we are now currently unrolling.
+    * After each step of unrolling, we recompute loop bodies. However, in the first case, the (recomputed) loop
+    * body of the *outer* loop will *not* contain the final unrolling and assume/assert false sink in the loop body.
+    * Why? Recall that we compute loop bodies using "natural loops", i.e., a loop exists if there is a jump to a successor
+    * node such that the successor node dominates the source of the jump, a so called "backjump".
+    * Then, the "body" of the loop are those blocks reachable by traversing the CFG backwards from the backjump to
+    * the head of the loop. However, because the extra unrolling + assume/assert false created a sink, these
+    * commands/blocks are *not* reachable from the backjump, and are excluded from the loop body.
+    *
+    * So, what's the problem? For one, it creates very strange graphs. More pressingly, if the inner loop occurred
+    * within an external contract call, that call's id I is invalidated by the unrolling; each copy
+    * of the *outer* loop should get a fresh call id. However, this duplication and remapping is only done
+    * on the loop body which, as discussed above, does *not* include the extra unrolling + assume/assert false
+    * blocks. These blocks *will* contain references to I, which the loop unrolling validator will detect, and
+    * fail on.
+    *
+    * The solution is rather ad-hoc. We tag the extra assume/assert false commands with the [TACMeta.SYNTHETIC_LOOP_END]
+    * meta which includes the loop id for which it was introduced. When unrolling a loop L, for every already unrolled
+    * loop *head* within L (as indicated by a [TACMeta.START_LOOP] annotation), we look
+    * for commands tagged with [TACMeta.SYNTHETIC_LOOP_END] that have a matching loop id. For each such command,
+    * we check if there is a path back to the body of L. This path is checked to either revert, or *must* reach the synthetic loop end;
+    * in other words, the synthetic loop end command must post-dominate all blocks along the path, modulo
+    * reverts. If it does, then the chain of blocks reaching the synthetic loop end are considered to be part of the
+    * loop body of L. This is what the code below computes.
+    */
+    private fun findSyntheticLoopEndBlocks(loopToUnroll: Loop): Set<NBId> {
+
+        /**
+        * Find all loop ids of already unrolled loops within this loop.
+        */
+        val foundUnrolledLoops = loopToUnroll.body.parallelStream().flatMap {
+            code.analysisCache.graph.elab(it).commands.mapNotNull { ltac ->
+                ltac.maybeAnnotation(START_LOOP)
+            }.stream()
+        }.collect(Collectors.toSet())
+
+        /**
+        * Find all synthetic loop commands which aren't in the current loop body,
+        * but which match the loop id of unrolled loops within the body...
+        */
+        return code.parallelLtacStream().filter {
+            it.cmd.meta.get(TACMeta.SYNTHETIC_LOOP_END)?.let {
+                it in foundUnrolledLoops
+            } == true && it.ptr.block !in loopToUnroll.body
+        }.map {
+            it.ptr.block
+        }.collect(Collectors.toSet())
+    }
+
+    /**
+        Finds return commands with annotations that refer to call summaries in the loop body, so that we can add those
+        return comments in unrolling of the loop body.
+
+        Consider this case:
+
+        ```
+        for (uint256 i = 0; i < count; i++) {
+            address a = bar.bar(i);
+            if (checkAddress(a)) {
+                return a;
+            }
+        }
+        ```
+
+        If we can't resolve the call to `bar`, then we will annotate the `return` with a RETURN_LINKING meta that
+        indicates that we are returning whatever address the summary of `bar` returns.
+
+        The block containing the return will likely not be considered part of the loop body, but we need to duplicate it
+        along with each unrolling of the loop to ensure that we are referencing the correct (unrolled) summary of `bar`.
+
+        Once we identify these blocks, we apply the same logic as described above for SYNTHETIC_LOOP_END blocks.
+     */
+    private fun findReturnBlocksWithAddressResolutionsInLoop(loop: Loop): Set<NBId> {
+        val summaryIdsInLoop = loop.body.parallelStream().flatMap {
+            code.analysisCache.graph.elab(it).commands.mapNotNull { lcmd ->
+                lcmd.snarrowOrNull<CallSummary>()?.let {
+                    Allocator.Id.CALL_SUMMARIES to it.summaryId
+                } ?: lcmd.snarrowOrNull<InternalCallSummary>()?.let {
+                    Allocator.Id.INTERNAL_CALL_SUMMARY to it.id
+                }
+            }.stream()
+        }.collect(Collectors.toSet())
+
+        return code.parallelLtacStream().filter { lcmd ->
+            lcmd.ptr.block !in loop.body && lcmd.cmd.meta.get(TACMeta.RETURN_LINKING)?.let { linkInfo ->
+                check(lcmd.cmd is TACCmd.Simple.ReturnCmd || lcmd.cmd is TACCmd.Simple.ReturnSymCmd) {
+                    "Non-return tagged with RETURN_LINKING: ${lcmd.cmd} with $linkInfo"
+                }
+                linkInfo.referencesAllocatedIds(summaryIdsInLoop)
+            } == true
+        }.map {
+            it.ptr.block
+        }.collect(Collectors.toSet())
+    }
+
+    /**
+        See [findSyntheticLoopEndBlocks].
+     */
+    private fun expandPathsToExtraBlocks(loopToUnroll: Loop, extraBlocks: Set<NBId>): Set<NBId> {
+        return extraBlocks.parallelStream().flatMap { extraBlock ->
+            /**
+            * Now see if we can trace a path back to the loop body we're unrolling. This identifies an "offshoot" branch
+            * that is logically part of the loop body, but isn't detected by the loop body detection
+            */
+            val graph = code.analysisCache.graph
+            var inferredBranch : Pair<NBId, NBId>? = null
+            val worklist = arrayDequeOf(extraBlock)
+            val visited = mutableSetOf<NBId>()
+            while(worklist.isNotEmpty()) {
+                val curr = worklist.removeLast()
+                if(!visited.add(curr)) {
+                    continue
+                }
+                for(p in graph.pred(curr)) {
+                    // we have looping code somehow
+                    if(graph.cache.domination.dominates(curr, p)) {
+                        return@flatMap Stream.empty()
+                    }
+                    if(p in loopToUnroll.body) {
+                        val edge = p to curr
+                        /*
+                        Do we have a principle edge that enters our offshoot branch?
+                        */
+                        if(inferredBranch == null || inferredBranch == edge) {
+                            if(inferredBranch == null) {
+                                inferredBranch = edge
+                            }
+                            continue
+                        } else {
+                            // no? Then bail
+                            return@flatMap Stream.empty()
+                        }
+                    } else {
+                        // keep going backwards
+                        worklist.add(p)
+                    }
+                }
+            }
+            /*
+            If we didn't actually reach the loop body, something has gone wrong.
+            */
+            if(inferredBranch == null) {
+                return@flatMap Stream.empty()
+            }
+            val branchStart = inferredBranch.second
+            val validationWorklist = arrayDequeOf(branchStart)
+            val dom = graph.cache.domination
+            val toRet = mutableSetOf<NBId>()
+            /*
+            we found a principle edge from the loop body. Now verify that all paths starting from this edge
+            must rejoin the loop body or reach the synthetic end block
+            */
+            while(validationWorklist.isNotEmpty()) {
+                val curr = validationWorklist.removeLast()
+                if(!toRet.add(curr)) {
+                    continue
+                }
+                if(curr == extraBlock) {
+                    /*
+                    This block (which was added while the BMC is still processing, is expected to be a sink. If it
+                    isn't, something has gone *very* wrong.
+
+                    NB: we could check this immediately at the top of this block, but choose to do it here as
+                    it fits with the rest of the validation
+                    */
+                    if(graph.succ(curr).isNotEmpty()) {
+                        return@flatMap Stream.empty()
+                    }
+                /*
+                AKA this is the dominance frontier of branchStart, and we are rejoining some other control flow.
+                Ensure that the control flow we are rejoining is within the loop. NB this can happen for
+                returns and reverts within the unrolled loop body.
+                */
+                } else if(!dom.dominates(branchStart, curr)) {
+                    if(curr !in loopToUnroll.body) {
+                        return@flatMap Stream.empty()
+                    }
+                    continue
+                } else {
+                    /*
+                    This is more of a sanity check. We are somehow back in the loop body while still having
+                    travelled what we *thought* was an "offshoot" branch but to get here we *had* to travel
+                    through the offshoot. I can't think of any plausible solidity pattern that could
+                    cause this, but let's be explicit in our assumptions.
+                    */
+                    if(curr in loopToUnroll.body) {
+                        return@flatMap Stream.empty()
+                    }
+                    /*
+                    Expand our search
+                    */
+                    validationWorklist.addAll(graph.succ(curr))
+                }
+            }
+            /*
+            Then our validation is complete, and the blocks we visited during it are *exactly* the blocks we need
+            to add to the loop body.
+
+            Q: Couldn't you have done something with finding the closest ancestor in the dominance tree that
+            is also in the loop body, and then finding the subtree of that ancestor?
+            A: Maybe! But every time I try to be clever with dominance stuff I screw it up. This is less efficient
+            but I'm more confident it is correct...
+            */
+            toRet.stream()
+        }.collect(Collectors.toSet())
     }
 
     private fun calculateUnrollConst(loop: Loop): Int {
