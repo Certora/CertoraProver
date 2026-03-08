@@ -691,10 +691,10 @@ fun test09() {
          *  Because one byte is read (written) twice the length of the memcpy is 32 instead of 33.
          *
          */
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
         val l0 = Label.Address(1)
         val b0 = cfg.getOrInsertBlock(l0)
@@ -833,7 +833,7 @@ fun test09() {
 
         val scalarAnalysisOld = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypesOld = AnalysisRegisterTypes(scalarAnalysisOld)
-        checkRegIsEqualAtAssert(cfg, regTypesOld, SbfRegister.R4_ARG, 0L)
+        checkRegIsEqualAtAssert(cfg, regTypesOld, SbfRegister.R4, 0L)
 
         println("Before transformation\n$cfg")
         ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
@@ -862,7 +862,7 @@ fun test09() {
 
         val scalarAnalysisOld = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypesOld = AnalysisRegisterTypes(scalarAnalysisOld)
-        checkRegIsEqualAtAssert(cfg, regTypesOld, SbfRegister.R4_ARG, 0L)
+        checkRegIsEqualAtAssert(cfg, regTypesOld, SbfRegister.R4, 0L)
 
         println("Before transformation\n$cfg")
         ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
@@ -874,7 +874,7 @@ fun test09() {
 
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
-        checkRegIsEqualAtAssert(cfg, regTypes, SbfRegister.R4_ARG, 0L)
+        checkRegIsEqualAtAssert(cfg, regTypes, SbfRegister.R4, 0L)
         Assertions.assertEquals(true, checkMemcpy(cfg))
     }
 
@@ -896,7 +896,7 @@ fun test09() {
 
         val scalarAnalysisOld = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypesOld = AnalysisRegisterTypes(scalarAnalysisOld)
-        checkRegIsEqualAtAssert(cfg, regTypesOld, SbfRegister.R4_ARG, 0L)
+        checkRegIsEqualAtAssert(cfg, regTypesOld, SbfRegister.R4, 0L)
 
         println("Before transformation\n$cfg")
         ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
@@ -946,7 +946,7 @@ fun test09() {
 
         val scalarAnalysisOld = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypesOld = AnalysisRegisterTypes(scalarAnalysisOld)
-        checkRegIsEqualAtAssert(cfg, regTypesOld, SbfRegister.R4_ARG, 0L)
+        checkRegIsEqualAtAssert(cfg, regTypesOld, SbfRegister.R4, 0L)
 
         println("Before transformation\n$cfg")
         ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
@@ -970,11 +970,11 @@ fun test09() {
          *  *(u64 *) (r7 + 3) := r3
          * ```
          */
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
         val r7 = Value.Reg(SbfRegister.R7)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
         val l0 = Label.Address(1)
         val b0 = cfg.getOrInsertBlock(l0)
@@ -1087,9 +1087,9 @@ fun test09() {
 
     @Test
     fun `narrowing store + memcpy of 16 bytes in same block`() {
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r0 = Value.Reg(SbfRegister.R0)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         cfg.setEntry(b1)

@@ -32,7 +32,7 @@ internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
 ): List<TACCmd.Simple> {
     when (nondetFn) {
         CVTNondet.NONDET_I8, CVTNondet.NONDET_I16, CVTNondet.NONDET_I32, CVTNondet.NONDET_I64 -> {
-            val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
+            val r0 = exprBuilder.mkVar(SbfRegister.R0)
             val n = when (nondetFn) {
                 CVTNondet.NONDET_I8  -> BigInteger.TWO.pow(8-1)
                 CVTNondet.NONDET_I16 -> BigInteger.TWO.pow(16-1)
@@ -56,7 +56,7 @@ internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
                 )
         }
         CVTNondet.NONDET_U8, CVTNondet.NONDET_U16, CVTNondet.NONDET_U32, CVTNondet.NONDET_U64, CVTNondet.NONDET_USIZE -> {
-            val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
+            val r0 = exprBuilder.mkVar(SbfRegister.R0)
             val n = when (nondetFn) {
                 CVTNondet.NONDET_U8  -> BigInteger.TWO.pow(8)
                 CVTNondet.NONDET_U16 -> BigInteger.TWO.pow(16)

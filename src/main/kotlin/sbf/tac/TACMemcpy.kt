@@ -28,11 +28,11 @@ context(SbfCFGToTAC<TNum, TOffset, TFlags>)
 internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> memcpyNonStackToNonStack(
     info: TACMemSplitter.NonStackMemTransferInfo
 ): List<TACCmd.Simple> {
-    val dstReg = exprBuilder.mkVar(SbfRegister.R1_ARG)
-    val srcReg = exprBuilder.mkVar(SbfRegister.R2_ARG)
+    val dstReg = exprBuilder.mkVar(SbfRegister.R1)
+    val srcReg = exprBuilder.mkVar(SbfRegister.R2)
     val len = info.length
     val lenS = if (len == null) {
-        exprBuilder.mkVar(SbfRegister.R3_ARG)
+        exprBuilder.mkVar(SbfRegister.R3)
     } else {
         exprBuilder.mkConst(len)
     }
@@ -55,8 +55,8 @@ internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
     val len = info.length
     val srcRange = info.source
     val dstRange = info.destination
-    val dstReg = exprBuilder.mkVar(SbfRegister.R1_ARG).asSym()
-    val srcReg = exprBuilder.mkVar(SbfRegister.R2_ARG).asSym()
+    val dstReg = exprBuilder.mkVar(SbfRegister.R1).asSym()
+    val srcReg = exprBuilder.mkVar(SbfRegister.R2).asSym()
     val zeroC = exprBuilder.ZERO.asSym()
 
     val cmds = mutableListOf<TACCmd.Simple>()
@@ -109,8 +109,8 @@ internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
 
     val dstRange = info.stack
     val len = info.length
-    val srcReg = exprBuilder.mkVar(SbfRegister.R2_ARG)
-    val dstReg = exprBuilder.mkVar(SbfRegister.R1_ARG).asSym()
+    val srcReg = exprBuilder.mkVar(SbfRegister.R2)
+    val dstReg = exprBuilder.mkVar(SbfRegister.R1).asSym()
     val zeroC = exprBuilder.ZERO.asSym()
 
     val cmds = mutableListOf<TACCmd.Simple>()
@@ -151,14 +151,14 @@ internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
 
     val srcRange = info.stack
     val len = info.length
-    val srcReg = exprBuilder.mkVar(SbfRegister.R2_ARG).asSym()
-    val dstReg = exprBuilder.mkVar(SbfRegister.R1_ARG)
+    val srcReg = exprBuilder.mkVar(SbfRegister.R2).asSym()
+    val dstReg = exprBuilder.mkVar(SbfRegister.R1)
     val zeroC = exprBuilder.ZERO.asSym()
 
     val cmds = mutableListOf<TACCmd.Simple>()
     cmds += Debug.startFunction("memcpy", "(dst=non-stack, src=Stack$srcRange, len=$len)")
     cmds += havocByteMapLocation((info.locationsToHavoc as TACMemSplitter.HavocMapBytes).vars, info.byteMap, exprBuilder.mkVar(
-        SbfRegister.R1_ARG))
+        SbfRegister.R1))
     // for each source byte we create an ite to resolve the actual byte and stores in the destination map
     for (i in 0 until len) {
         // create an ite that accesses to the right byte at the source

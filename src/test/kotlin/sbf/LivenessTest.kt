@@ -58,10 +58,10 @@ class LivenessTest {
         cfg.verify(true)
         val liveness = LivenessAnalysis(cfg)
         println("Result of liveness:\n${liveness}")
-        Assertions.assertEquals(true, liveness.isAliveAtEntry(Value.Reg(SbfRegister.R3_ARG), Label.Address(0)))
+        Assertions.assertEquals(true, liveness.isAliveAtEntry(Value.Reg(SbfRegister.R3), Label.Address(0)))
 
-        Assertions.assertEquals(false, liveness.isAliveAtEntry(Value.Reg(SbfRegister.R1_ARG), Label.Address(0)))
-        Assertions.assertEquals(false, liveness.isAliveAtEntry(Value.Reg(SbfRegister.R2_ARG), Label.Address(0)))
+        Assertions.assertEquals(false, liveness.isAliveAtEntry(Value.Reg(SbfRegister.R1), Label.Address(0)))
+        Assertions.assertEquals(false, liveness.isAliveAtEntry(Value.Reg(SbfRegister.R2), Label.Address(0)))
     }
 
     @Test
@@ -91,11 +91,11 @@ class LivenessTest {
         val liveness = LivenessAnalysis(cfg)
         println("Result of liveness:\n${liveness}")
 
-        Assertions.assertEquals(true, liveness.isAliveAtEntry(Value.Reg(SbfRegister.R1_ARG), Label.Address(1)))
-        Assertions.assertEquals(true, liveness.isAliveAtEntry(Value.Reg(SbfRegister.R2_ARG), Label.Address(1)))
+        Assertions.assertEquals(true, liveness.isAliveAtEntry(Value.Reg(SbfRegister.R1), Label.Address(1)))
+        Assertions.assertEquals(true, liveness.isAliveAtEntry(Value.Reg(SbfRegister.R2), Label.Address(1)))
 
-        Assertions.assertEquals(false, liveness.isAliveAtEntry(Value.Reg(SbfRegister.R1_ARG), Label.Address(0)))
-        Assertions.assertEquals(false, liveness.isAliveAtEntry(Value.Reg(SbfRegister.R2_ARG), Label.Address(0)))
+        Assertions.assertEquals(false, liveness.isAliveAtEntry(Value.Reg(SbfRegister.R1), Label.Address(0)))
+        Assertions.assertEquals(false, liveness.isAliveAtEntry(Value.Reg(SbfRegister.R2), Label.Address(0)))
 
     }
 

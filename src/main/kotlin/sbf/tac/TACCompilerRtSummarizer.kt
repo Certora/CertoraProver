@@ -47,9 +47,9 @@ open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset
         val function = CompilerRtFunction.from(inst.name) ?: return listOf()
         return when (function) {
             is CompilerRtFunction.SignedInteger64 -> {
-                val res = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
-                val arg1 = exprBuilder.mkVar(SbfRegister.R1_ARG)
-                val arg2 = exprBuilder.mkVar(SbfRegister.R2_ARG)
+                val res = exprBuilder.mkVar(SbfRegister.R0)
+                val arg1 = exprBuilder.mkVar(SbfRegister.R1)
+                val arg2 = exprBuilder.mkVar(SbfRegister.R2)
                 val summarizer = SummarizeSignedInteger64CompilerRt<TNum, TOffset, TFlags>()
                 val cmds = when (function.value) {
                     SignedInteger64CompilerRtFunction.DIVDI3 -> summarizer.summarizeDivdi3(res, arg1, arg2)
@@ -95,9 +95,9 @@ open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset
                 } + listOf(Debug.endFunction(inst.name))
             }
             is CompilerRtFunction.FP -> {
-                val res = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
-                val arg1 = exprBuilder.mkVar(SbfRegister.R1_ARG)
-                val arg2 = exprBuilder.mkVar(SbfRegister.R2_ARG)
+                val res = exprBuilder.mkVar(SbfRegister.R0)
+                val arg1 = exprBuilder.mkVar(SbfRegister.R1)
+                val arg2 = exprBuilder.mkVar(SbfRegister.R2)
                 val cmds = when (function.value) {
                     FPCompilerRtFunction.UNORDDF2 -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeUnorddf2(res, arg1, arg2)
                     FPCompilerRtFunction.ADDDF3 -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeAdddf3(res, arg1, arg2)
@@ -126,7 +126,7 @@ open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset
             inputArgs.add(exprBuilder.mkVar(SbfRegister.getByValue(i.toByte())) to SbfFuncArgInfo(SbfArgSort.SCALAR, true))
         }
         val fakeStartFuncAnnotation = SbfInlinedFuncStartAnnotation(inst.name, inst.name, id = -1, inputArgs, mockFor = null)
-        val fakeEndFuncAnnotation = SbfInlinedFuncEndAnnotation(inst.name, -1, exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE))
+        val fakeEndFuncAnnotation = SbfInlinedFuncEndAnnotation(inst.name, -1, exprBuilder.mkVar(SbfRegister.R0))
         return  listOf(Debug.startFunction(fakeStartFuncAnnotation)) +
             cmds +
             listOf(Debug.endFunction(fakeEndFuncAnnotation))

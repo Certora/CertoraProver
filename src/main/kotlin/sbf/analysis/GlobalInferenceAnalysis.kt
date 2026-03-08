@@ -303,11 +303,11 @@ private class GlobalInferenceAnalysis<D, TNum: INumValue<TNum>, TOffset: IOffset
                         SolanaFunction.SOL_MEMCPY_TRUNC,
                         SolanaFunction.SOL_MEMMOVE,
                         SolanaFunction.SOL_MEMCMP -> {
-                            inferAndAddGlobalVariable(locInst, Value.Reg(SbfRegister.R1_ARG))
-                            inferAndAddGlobalVariable(locInst, Value.Reg(SbfRegister.R2_ARG))
+                            inferAndAddGlobalVariable(locInst, Value.Reg(SbfRegister.R1))
+                            inferAndAddGlobalVariable(locInst, Value.Reg(SbfRegister.R2))
                         }
                         SolanaFunction.SOL_MEMSET -> {
-                            inferAndAddGlobalVariable(locInst, Value.Reg(SbfRegister.R1_ARG))
+                            inferAndAddGlobalVariable(locInst, Value.Reg(SbfRegister.R1))
                         }
                         else -> {
                             val calltraceFunction = CVTCalltrace.from(inst.name)

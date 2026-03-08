@@ -180,7 +180,7 @@ fun makeAluInst(bytecode: SbfBytecode, elf:  IElfFileView): SbfInstruction {
 
     // Sanity checks about R10
     val lhs = SbfRegister.getByValue(bytecode.dst)
-    if (lhs == SbfRegister.R10_STACK_POINTER) {
+    if (lhs == SbfRegister.R10) {
         when (useDynFrames) {
             false -> {
                 throw DisassemblerError(
@@ -210,13 +210,13 @@ fun makeLddw(inst: SbfBytecode, insts: List<SbfBytecode>, pc: Int): SbfInstructi
     if (pc >= insts.size - 1) {
         throw DisassemblerError("incomplete LDDW")
     }
-    if (inst.src != SbfRegister.R0_RETURN_VALUE.value && inst.src != SbfRegister.R1_ARG.value) {
+    if (inst.src != SbfRegister.R0.value && inst.src != SbfRegister.R1.value) {
         throw DisassemblerError("LDDW uses reserved registers")
     }
     if (inst.offset != 0.toShort()) {
         throw DisassemblerError("LDDW uses zero offset")
     }
-    if (inst.src == SbfRegister.R1_ARG.value) {
+    if (inst.src == SbfRegister.R1.value) {
         // magic number, meaning we're a per-process file descriptor defining the map.
         // (for details, look for BPF_PSEUDO_MAP_FD in the kernel)
         throw DisassemblerError("translation of LDDW failed because maps are not supported")
@@ -226,8 +226,8 @@ fun makeLddw(inst: SbfBytecode, insts: List<SbfBytecode>, pc: Int): SbfInstructi
                                     "with bytecode of size=${insts.size}"}
     val nextInst = insts[pc+1]
     if (nextInst.opcode.toInt() != 0 ||
-            nextInst.dst != SbfRegister.R0_RETURN_VALUE.value ||
-            nextInst.src != SbfRegister.R0_RETURN_VALUE.value ||
+            nextInst.dst != SbfRegister.R0.value ||
+            nextInst.src != SbfRegister.R0.value ||
             nextInst.offset.toInt() != 0 ) {
         throw DisassemblerError("invalid LDDW")
     }

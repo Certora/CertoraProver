@@ -83,7 +83,7 @@ where TNum: INumValue<TNum>,
         "normalizeMemcpy expects a memcpy instruction instead of $inst"
     }
 
-    val r3 = SbfRegister.R3_ARG
+    val r3 = SbfRegister.R3
     val len = types.typeAtInstruction(locInst, r3)
         .let { it as? SbfType.NumType }
         ?.value
@@ -94,14 +94,14 @@ where TNum: INumValue<TNum>,
 
     val dstMemAccess = normalizedMemAccess(
         locInst,
-        Value.Reg(SbfRegister.R1_ARG),
+        Value.Reg(SbfRegister.R1),
         0,
         len.toShort(),
         types
     )
     val srcMemAccess = normalizedMemAccess(
         locInst,
-        Value.Reg(SbfRegister.R2_ARG),
+        Value.Reg(SbfRegister.R2),
         0,
         len.toShort(),
         types
@@ -125,7 +125,7 @@ private fun <D, TNum, TOffset> normalizedMemAccess(
     val normalizedOffset = normalizeStackAccess(locInst, baseReg, offset, types)
     if (normalizedOffset != null) {
         return MemAccess(
-            SbfRegister.R10_STACK_POINTER,
+            SbfRegister.R10,
             normalizedOffset,
             width,
             MemAccessRegion.STACK
@@ -167,9 +167,9 @@ fun emitMemcpy(
             ValParam(Value.Imm(len))
         ),
         formalRegs = listOf(
-            Value.Reg(SbfRegister.R1_ARG),
-            Value.Reg(SbfRegister.R2_ARG),
-            Value.Reg(SbfRegister.R3_ARG)
+            Value.Reg(SbfRegister.R1),
+            Value.Reg(SbfRegister.R2),
+            Value.Reg(SbfRegister.R3)
         ),
         metadata,
         intrinsicsMetadata = SbfMeta.MEMCPY_PROMOTION()
@@ -200,9 +200,9 @@ fun emitMemcpyZExt(
             ValParam(Value.Imm(i))
         ),
         formalRegs = listOf(
-            Value.Reg(SbfRegister.R1_ARG),
-            Value.Reg(SbfRegister.R2_ARG),
-            Value.Reg(SbfRegister.R3_ARG)
+            Value.Reg(SbfRegister.R1),
+            Value.Reg(SbfRegister.R2),
+            Value.Reg(SbfRegister.R3)
         ),
         metadata,
         intrinsicsMetadata = SbfMeta.MEMCPY_ZEXT_PROMOTION()
@@ -233,9 +233,9 @@ fun emitMemcpyTrunc(
             ValParam(Value.Imm(i))
         ),
         formalRegs = listOf(
-            Value.Reg(SbfRegister.R1_ARG),
-            Value.Reg(SbfRegister.R2_ARG),
-            Value.Reg(SbfRegister.R3_ARG)
+            Value.Reg(SbfRegister.R1),
+            Value.Reg(SbfRegister.R2),
+            Value.Reg(SbfRegister.R3)
         ),
         metadata,
         intrinsicsMetadata = SbfMeta.MEMCPY_TRUNC_PROMOTION()
@@ -265,9 +265,9 @@ fun emitMemset(
             ValParam(Value.Imm(len))
         ),
         formalRegs = listOf(
-            Value.Reg(SbfRegister.R1_ARG),
-            Value.Reg(SbfRegister.R2_ARG),
-            Value.Reg(SbfRegister.R3_ARG)
+            Value.Reg(SbfRegister.R1),
+            Value.Reg(SbfRegister.R2),
+            Value.Reg(SbfRegister.R3)
         ),
         metadata,
         intrinsicsMetadata = SbfMeta.MEMSET_PROMOTION()
@@ -301,7 +301,7 @@ private data class ValParam(val value: Value): MemIntrParam()
  *   r3 := r8
  *   CVT_restore_scratch_registers
  * ```
- * @return list of instructions if enough scrath registers, otherwise null
+ * @return list of instructions if enough scratch registers, otherwise null
  **/
 private fun<T> emitMemIntrinsics(
     intrinsics: SolanaFunction,
@@ -313,12 +313,14 @@ private fun<T> emitMemIntrinsics(
     check(actualParams.size == formalRegs.size)
     check(actualParams.size in 3..4)
 
-    val scratchRegs = mutableListOf(
-        Value.Reg(SbfRegister.R6),
-        Value.Reg(SbfRegister.R7),
-        Value.Reg(SbfRegister.R8),
-        Value.Reg(SbfRegister.R9)
-    )
+    // We intentionally do not include r10
+    val scratchRegs = SbfRegister.registersToSaveOrRestore.mapNotNull {
+        if (it == SbfRegister.R10) {
+            null
+        } else {
+            Value.Reg(it)
+        }
+    }.toMutableList()
 
     // Remove available scratch registers if any of the actual parameters is a scratch register
     for (param in actualParams.filterIsInstance<PtrParam>()) {

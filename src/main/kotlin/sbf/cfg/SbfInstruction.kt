@@ -38,17 +38,17 @@ sealed class Value {
     data class Reg(val r: SbfRegister): Value(), Comparable<Reg> {
         override fun toString(): String {
             return when (r) {
-               SbfRegister.R0_RETURN_VALUE -> "r0"
-               SbfRegister.R1_ARG -> "r1"
-               SbfRegister.R2_ARG -> "r2"
-               SbfRegister.R3_ARG -> "r3"
-               SbfRegister.R4_ARG -> "r4"
-               SbfRegister.R5_ARG -> "r5"
+               SbfRegister.R0 -> "r0"
+               SbfRegister.R1 -> "r1"
+               SbfRegister.R2 -> "r2"
+               SbfRegister.R3 -> "r3"
+               SbfRegister.R4 -> "r4"
+               SbfRegister.R5 -> "r5"
                SbfRegister.R6 -> "r6"
                SbfRegister.R7 -> "r7"
                SbfRegister.R8 -> "r8"
                SbfRegister.R9 -> "r9"
-               SbfRegister.R10_STACK_POINTER -> "r10"
+               SbfRegister.R10 -> "r10"
            }
         }
 
@@ -314,7 +314,7 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
          * - push:  `add64 r10, -x`               (decrease stack pointer)
          */
         override fun isStackPush(useDynamicFrames: Boolean): Boolean {
-            val isLhsStackPtr = dst == Value.Reg(SbfRegister.R10_STACK_POINTER)
+            val isLhsStackPtr = dst == Value.Reg(SbfRegister.R10)
             val rhsAsImmVal =  (typedRhs.v as? Value.Imm)?.v?.toLong()
             return if (!useDynamicFrames) {
                 // increase stack pointer
@@ -329,11 +329,13 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
         /**
          * With static frames:
          * - Pop:  `sub64 r10, STACK_FRAME_SIZE` (decrease stack pointer)
-         * With dynamic frames:
+         * With dynamic frames and solana-platforms < v1.50:
          * - Pop:  `add64 r10, x`                (increase stack pointer)
+         *
+         * With solana-platforms >= v1.50 there is not more `add64 r10, x`, and instead it's done by SVM.
          */
         override fun isStackPop(useDynamicFrames: Boolean): Boolean {
-            val isLhsStackPtr = dst == Value.Reg(SbfRegister.R10_STACK_POINTER)
+            val isLhsStackPtr = dst == Value.Reg(SbfRegister.R10)
             val rhsAsImmVal =  (typedRhs.v as? Value.Imm)?.v?.toLong()
             return if (!useDynamicFrames) {
                 // decrease stack pointer
@@ -556,11 +558,11 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
         override fun isSatisfy() = isCore(CVTCore.SATISFY)
         override fun isSanity() = isCore(CVTCore.SANITY)
         override fun isAllocFn(): Boolean {
-                return ((name == "__rust_alloc" || name == "__rust_alloc_zeroed") || /* Rust alloc*/
+                return ((name == "__rust_alloc" || name == "__rust_alloc_zeroed" || name == "__rustc::__rust_alloc") || /* Rust alloc*/
                         (name == "malloc" || name == "calloc" ))                     /* C alloc */
         }
         override fun isDeallocFn(): Boolean {
-            return (name == "__rust_dealloc" || /* Rust dealloc */
+            return ((name == "__rust_dealloc" || name == "__rustc::__rust_dealloc") || /* Rust dealloc */
                     name == "free")              /* C dealloc */
         }
         override fun isExternalFn(): Boolean {
@@ -629,7 +631,7 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
                 return writeRegister(CVTFunction.from(name))
                     ?: (writeRegister(SolanaFunction.from(name))
                         ?: (writeRegister(CompilerRtFunction.from(name))
-                            ?: setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE))))
+                            ?: setOf(Value.Reg(SbfRegister.R0))))
             }
 
         private fun readRegisters(f: SolanaFunction?) =  f?.syscall?.readRegisters
@@ -655,7 +657,7 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
         override fun copyInst(metadata: MetaData) = copy(metaData = metadata)
 
         override val writeRegister: Set<Value.Reg>
-            get() = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE))
+            get() = setOf(Value.Reg(SbfRegister.R0))
         override val readRegisters: Set<Value.Reg>
             get() = SbfRegister.funArgRegisters.mapToSet { Value.Reg(it) } + setOf(callee)
 

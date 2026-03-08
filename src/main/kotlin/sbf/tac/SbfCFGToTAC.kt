@@ -94,7 +94,7 @@ fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFlags: IPTANodeFlags<TFl
 @Suppress("ForbiddenComment")
 internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>(
     private val cfg: SbfCFG,
-    private val globals: GlobalVariables,
+    val globals: GlobalVariables,
     private val memSummaries: MemorySummaries,
     val memoryAnalysis: MemoryAnalysis<TNum, TOffset, TFlags>?): TACDebugView {
     private val blockMap: MutableMap<Label, NBId> = mutableMapOf()
@@ -199,7 +199,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
 
     private fun addInitialPreconditions(): List<TACCmd.Simple> {
         val b = vFac.mkFreshBoolVar()
-        val r10 = exprBuilder.mkVar(SbfRegister.R10_STACK_POINTER)
+        val r10 = exprBuilder.mkVar(SbfRegister.R10)
 
         return listOf(
             assign(b,
@@ -419,7 +419,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     private fun translateExit(): List<TACCmd.Simple> {
         // In SBF, the exit command does not have parameter
         // Here we create a return instruction that returns r0
-        return listOf(TACCmd.Simple.ReturnSymCmd(exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)))
+        return listOf(TACCmd.Simple.ReturnSymCmd(exprBuilder.mkVar(SbfRegister.R0)))
     }
 
     private fun translateCond(cond: Condition, bitwidth: Short = 256): TACCmd.Simple.AssigningCmd {
@@ -556,7 +556,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     }
 
     private fun translateSatisfy(inst: SbfInstruction.Call): List<TACCmd.Simple> {
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r1 = Value.Reg(SbfRegister.R1)
         val condVar = vFac.mkFreshBoolVar()
         val cond = TACExpr.TernaryExp.Ite(
             TACExpr.BinRel.Eq(exprBuilder.mkExprSym(r1), TACExpr.zeroExpr),
@@ -656,7 +656,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         info : TACMemSplitter.MemTransferInfo
     ): List<TACCmd.Simple> {
         val inst = locInst.inst
-        val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
+        val r0 = exprBuilder.mkVar(SbfRegister.R0)
         val cmds = when (info) {
             is TACMemSplitter.UnsupportedMemTransferInfo -> {
                 // We couldn't generate TAC code for the memcpy instruction.
@@ -683,7 +683,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
             }
         }
 
-        return if (inst.writeRegister.contains(Value.Reg(SbfRegister.R0_RETURN_VALUE))) {
+        return if (inst.writeRegister.contains(Value.Reg(SbfRegister.R0))) {
             cmds + TACCmd.Simple.AssigningCmd.AssignHavocCmd(r0)
         } else {
             cmds
@@ -741,14 +741,14 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 }
                 listOf(
                     Debug.startFunction("memcmp"),
-                    TACCmd.Simple.AssigningCmd.AssignHavocCmd(exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)),
+                    TACCmd.Simple.AssigningCmd.AssignHavocCmd(exprBuilder.mkVar(SbfRegister.R0)),
                     Debug.endFunction("memcmp")
                 )
             }
             is TACMemSplitter.NonStackMemCmpInfo -> {
-                val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
-                val r1 = exprBuilder.mkVar(SbfRegister.R1_ARG)
-                val r2 = exprBuilder.mkVar(SbfRegister.R2_ARG)
+                val r0 = exprBuilder.mkVar(SbfRegister.R0)
+                val r1 = exprBuilder.mkVar(SbfRegister.R1)
+                val r2 = exprBuilder.mkVar(SbfRegister.R2)
 
                 val cmds = mutableListOf(Debug.startFunction("memcmp"))
                 // Read word-by word from the byte maps because there is no TAC instruction
@@ -762,7 +762,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 cmds
             }
             is TACMemSplitter.StackMemCmpInfo -> {
-                val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
+                val r0 = exprBuilder.mkVar(SbfRegister.R0)
                 val cmds = mutableListOf(
                     Debug.startFunction("memcmp", "(op1=Stack${info.op1Range}, op2=Stack${info.op2Range})")
                 )
@@ -771,7 +771,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 cmds
             }
             is TACMemSplitter.MixedRegionsMemCmpInfo -> {
-                val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
+                val r0 = exprBuilder.mkVar(SbfRegister.R0)
                 // scalars
                 val op1Vars = info.scalars
 
@@ -843,8 +843,8 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                     listOf(Debug.endFunction("memset"))
             }
         }
-        return if (locInst.inst.writeRegister.contains(Value.Reg(SbfRegister.R0_RETURN_VALUE))) {
-            cmds + TACCmd.Simple.AssigningCmd.AssignHavocCmd(exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE))
+        return if (locInst.inst.writeRegister.contains(Value.Reg(SbfRegister.R0))) {
+            cmds + TACCmd.Simple.AssigningCmd.AssignHavocCmd(exprBuilder.mkVar(SbfRegister.R0))
         } else {
             cmds
         }
@@ -891,7 +891,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 unreachable(inst)
             }
         } else if (inst.isAllocFn()) {
-            val size = (types.typeAtInstruction(locInst, SbfRegister.R1_ARG) as? SbfType.NumType)?.value?.toLongOrNull()
+            val size = (types.typeAtInstruction(locInst, SbfRegister.R1) as? SbfType.NumType)?.value?.toLongOrNull()
             val sizeOrDefault = if (size != null) {
                 size
             } else {
@@ -903,8 +903,8 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 throw TACTranslationError("${heapMemAlloc.name}::alloc expects non-zero, positive sizes")
             }
             return listOf(Debug.externalCall(inst)) +
-                   heapMemAlloc.alloc(exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE), sizeOrDefault.toULong()) +
-                   listOf(Calltrace.externalCall(inst, listOf(exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE))))
+                   heapMemAlloc.alloc(exprBuilder.mkVar(SbfRegister.R0), sizeOrDefault.toULong()) +
+                   listOf(Calltrace.externalCall(inst, listOf(exprBuilder.mkVar(SbfRegister.R0))))
         } else {
             val cvtFunction = CVTFunction.from(inst.name)
             if (cvtFunction != null) {
@@ -939,11 +939,11 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                                 }
                             }
                             CVTCore.NONDET_SOLANA_ACCOUNT_SPACE -> {
-                                val size = (types.typeAtInstruction(locInst, SbfRegister.R1_ARG) as? SbfType.NumType)?.value?.toLongOrNull()
+                                val size = (types.typeAtInstruction(locInst, SbfRegister.R1) as? SbfType.NumType)?.value?.toLongOrNull()
                                     ?: throw TACTranslationError("Cannot statically infer the size in $locInst")
                                 listOf(Debug.externalCall(inst)) +
-                                    accountsAlloc.alloc(exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE), size) +
-                                    listOf(Calltrace.externalCall(inst, listOf(exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE))))
+                                    accountsAlloc.alloc(exprBuilder.mkVar(SbfRegister.R0), size) +
+                                    listOf(Calltrace.externalCall(inst, listOf(exprBuilder.mkVar(SbfRegister.R0))))
                             }
                             CVTCore.ALLOC_SLICE ->
                                 summarizeAllocSlice(locInst)

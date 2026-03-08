@@ -78,10 +78,10 @@ data class MemSummaryArgument(val r: SbfRegister,
                               val allocatedSpace: ULong = 0UL,
                               val type: MemSummaryArgumentType) {
     init {
-        if (r > SbfRegister.R5_ARG) {
+        if (r > SbfRegister.R5) {
             throw MemorySummaryParseError("MemSummaryArgument: unexpected register $r")
         }
-        if (r == SbfRegister.R0_RETURN_VALUE) {
+        if (r == SbfRegister.R0) {
             if (width.toInt() != 0) {
                 throw MemorySummaryParseError("MemSummaryArgument: expected non-zero width $width for $r")
             }
@@ -104,7 +104,7 @@ data class MemSummaryArgument(val r: SbfRegister,
     }
 
     override fun toString(): String {
-        return if (r == SbfRegister.R0_RETURN_VALUE) {
+        return if (r == SbfRegister.R0) {
             "$r:$type"
         } else {
             "*u${width*8}($r+$offset):$type"
@@ -175,10 +175,10 @@ data class MemorySummaries(private val summaries: List<Pair<Regex, MemorySummary
             vis.noSummaryFound(locInst)
         } else {
             for (sumArg in summary.args) {
-                if (sumArg.r == SbfRegister.R0_RETURN_VALUE) {
+                if (sumArg.r == SbfRegister.R0) {
                     vis.processReturnArgument(locInst, sumArg.type)
                 } else {
-                    check(sumArg.r <= SbfRegister.R5_ARG) {"A summary can only refer to r1-r5"}
+                    check(sumArg.r <= SbfRegister.R5) {"A summary can only refer to r1-r5"}
                     vis.processArgument(locInst, sumArg.r, sumArg.offset, sumArg.width, sumArg.allocatedSpace, sumArg.type)
                 }
             }
@@ -238,7 +238,7 @@ data class MemorySummaries(private val summaries: List<Pair<Regex, MemorySummary
         fun readSpecFile(lines: List<String>, filename: String): MemorySummaries {
             fun parseRegister(str: String): SbfRegister {
                 val reg = SbfRegister.getByValue(str.toByte())
-                if (reg > SbfRegister.R5_ARG) {
+                if (reg > SbfRegister.R5) {
                     throw MemorySummaryParseError("can only use r0-r5")
                 }
                 return reg

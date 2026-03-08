@@ -73,7 +73,7 @@ class DataDepAnalysisTest {
             // Target is a register r3 at instruction 15
             val target = cfg.getBlock(Label.Address(0))?.getLocatedInstructions()?.get(15)
             check(target != null) { "Target instruction not found" }
-            val source = runDDAWithSingleSource(cfg, target, SbfRegister.R3_ARG)
+            val source = runDDAWithSingleSource(cfg, target, SbfRegister.R3)
             Assertions.assertEquals(true, source.pos == 5)
         }
 
@@ -118,7 +118,7 @@ class DataDepAnalysisTest {
 
         val target = cfg.getBlock(Label.Address(3))?.getLocatedInstructions()?.get(0)
         check(target != null) { "Target instruction not found" }
-        val source = runDDAWithSingleSource(cfg, target, SbfRegister.R4_ARG)
+        val source = runDDAWithSingleSource(cfg, target, SbfRegister.R4)
         Assertions.assertEquals(true, source.label == Label.Address(0) && source.pos == 2)
 
     }
@@ -153,7 +153,7 @@ class DataDepAnalysisTest {
 
         val target = cfg.getBlock(Label.Address(0))?.getLocatedInstructions()?.get(17)
         check(target != null) { "Target instruction not found" }
-        val source = runDDAWithSingleSource(cfg, target, SbfRegister.R4_ARG)
+        val source = runDDAWithSingleSource(cfg, target, SbfRegister.R4)
         Assertions.assertEquals(true, source.pos == 4)
     }
 
@@ -174,7 +174,7 @@ class DataDepAnalysisTest {
 
         val target = cfg.getBlock(Label.Address(0))?.getLocatedInstructions()?.get(5)
         check(target != null) { "Target instruction not found" }
-        val source = runDDAWithSingleSource(cfg, target, SbfRegister.R2_ARG)
+        val source = runDDAWithSingleSource(cfg, target, SbfRegister.R2)
         Assertions.assertEquals(true, source.pos == 0)
     }
 }

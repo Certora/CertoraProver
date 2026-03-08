@@ -97,9 +97,9 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
         }
 
 
-        val dstTy = registerTypes.typeAtInstruction(cmd, SbfRegister.R1_ARG)
-        val srcTy = registerTypes.typeAtInstruction(cmd, SbfRegister.R2_ARG)
-        val lenReg = SbfRegister.R3_ARG
+        val dstTy = registerTypes.typeAtInstruction(cmd, SbfRegister.R1)
+        val srcTy = registerTypes.typeAtInstruction(cmd, SbfRegister.R2)
+        val lenReg = SbfRegister.R3
 
         return when (dstTy) {
             is SbfType.PointerType.Stack -> {
@@ -158,12 +158,12 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
         if (SolanaFunction.from(inst.name) != SolanaFunction.SOL_MEMSET) {
             throw DDAError(msg = "$inst is not a memset")
         }
-        val lenTy = registerTypes.typeAtInstruction(cmd, SbfRegister.R3_ARG)
+        val lenTy = registerTypes.typeAtInstruction(cmd, SbfRegister.R3)
         if (lenTy !is SbfType.NumType) {
             throw DDAError(msg = "length is not statically known at $inst")
         }
         val len = lenTy.value.toLongOrNull() ?: throw DDAError(msg = "length is not statically known at $inst")
-        return when (val ptrTy = registerTypes.typeAtInstruction(cmd, SbfRegister.R1_ARG)) {
+        return when (val ptrTy = registerTypes.typeAtInstruction(cmd, SbfRegister.R1)) {
             is SbfType.PointerType.Stack -> {
                 val ptrStarts = ptrTy.offset.toLongList()
                 if (ptrStarts.isEmpty()) {
@@ -319,7 +319,7 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
                 inState.kill(lhsV)
             }
             is Value.Reg -> {
-                if (rhs.r == SbfRegister.R10_STACK_POINTER) {
+                if (rhs.r == SbfRegister.R10) {
                     inState.kill(lhsV)
                 } else {
                     val rhsV = RegisterVariable(rhs, vFac)
@@ -375,7 +375,7 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
         class DataDepSummaryVisitor(var state: DataDepsState): SummaryVisitor {
             override fun noSummaryFound(locInst: LocatedSbfInstruction) {}
             override fun processReturnArgument(locInst: LocatedSbfInstruction, type /*unused*/: MemSummaryArgumentType) {
-                state = state.kill(RegisterVariable(Value.Reg(SbfRegister.R0_RETURN_VALUE), vFac))
+                state = state.kill(RegisterVariable(Value.Reg(SbfRegister.R0), vFac))
             }
             override fun processArgument(locInst: LocatedSbfInstruction,
                                          reg: SbfRegister,
@@ -401,44 +401,36 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
     }
 
     private fun analyzeSaveScratchRegisters(inState: DataDepsState, inst: SbfInstruction.Call): DataDepsState {
-        val r6 = Value.Reg(SbfRegister.R6)
-        val r7 = Value.Reg(SbfRegister.R7)
-        val r8 = Value.Reg(SbfRegister.R8)
-        val r9 = Value.Reg(SbfRegister.R9)
-        val rhs6 = RegisterVariable(r6, vFac)
-        val rhs7 = RegisterVariable(r7, vFac)
-        val rhs8 = RegisterVariable(r8, vFac)
-        val rhs9 = RegisterVariable(r9, vFac)
+        val regsToSave = SbfRegister.registersToSaveOrRestore.map { Value.Reg(it) }
         val id = inst.metaData.getVal(SbfMeta.CALL_ID)
+
         return if (id != null) {
-            val lhs6 = ScratchRegisterVariable(id, r6, vFac)
-            val lhs7 = ScratchRegisterVariable(id, r7, vFac)
-            val lhs8 = ScratchRegisterVariable(id, r8, vFac)
-            val lhs9 = ScratchRegisterVariable(id, r9, vFac)
-            inState.flows(lhs6, rhs6).flows(lhs7, rhs7).flows(lhs8, rhs8).flows(lhs9, rhs9)
+            regsToSave.fold(inState) { acc, reg ->
+                acc.flows(
+                    from = ScratchRegisterVariable(id, reg, vFac),
+                    to = RegisterVariable(reg, vFac))
+            }
         } else {
-            inState.kill(rhs6).kill(rhs7).kill(rhs8).kill(rhs9)
+            regsToSave.fold(inState) { acc, reg ->
+                acc.kill(RegisterVariable(reg, vFac))
+            }
         }
     }
 
     private fun analyzeRestoreScratchRegisters(inState: DataDepsState, inst: SbfInstruction.Call): DataDepsState {
-        val r6 = Value.Reg(SbfRegister.R6)
-        val r7 = Value.Reg(SbfRegister.R7)
-        val r8 = Value.Reg(SbfRegister.R8)
-        val r9 = Value.Reg(SbfRegister.R9)
-        val lhs6 = RegisterVariable(r6, vFac)
-        val lhs7 = RegisterVariable(r7, vFac)
-        val lhs8 = RegisterVariable(r8, vFac)
-        val lhs9 = RegisterVariable(r9, vFac)
+        val regsToRestore = SbfRegister.registersToSaveOrRestore.map { Value.Reg(it) }
         val id = inst.metaData.getVal(SbfMeta.CALL_ID)
+
         return if (id != null) {
-            val rhs6 = ScratchRegisterVariable(id, r6, vFac)
-            val rhs7 = ScratchRegisterVariable(id, r7, vFac)
-            val rhs8 = ScratchRegisterVariable(id, r8, vFac)
-            val rhs9 = ScratchRegisterVariable(id, r9, vFac)
-            inState.flows(lhs6, rhs6).flows(lhs7, rhs7).flows(lhs8, rhs8).flows(lhs9, rhs9)
+            regsToRestore.fold(inState) { acc, reg ->
+                acc.flows(
+                    from = RegisterVariable(reg, vFac),
+                    to = ScratchRegisterVariable(id, reg, vFac))
+            }
         } else {
-            inState.kill(lhs6).kill(lhs7).kill(lhs8).kill(lhs9)
+            regsToRestore.fold(inState) { acc, reg ->
+                acc.kill(RegisterVariable(reg, vFac))
+            }
         }
     }
 
@@ -477,7 +469,7 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
                         }
                     }
                     is CVTFunction.Nondet ->
-                        inState.kill(RegisterVariable(Value.Reg(SbfRegister.R0_RETURN_VALUE), vFac))
+                        inState.kill(RegisterVariable(Value.Reg(SbfRegister.R0), vFac))
                     is CVTFunction.NativeInt,
                     is CVTFunction.U128Intrinsics,
                     is CVTFunction.I128Intrinsics,
@@ -566,7 +558,7 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
         class ProcessDataDepSummaryVisitor: SummaryVisitor {
             override fun noSummaryFound(locInst: LocatedSbfInstruction) {}
             override fun processReturnArgument(locInst: LocatedSbfInstruction, type: MemSummaryArgumentType) {
-                addSource(RegisterVariable(Value.Reg(SbfRegister.R0_RETURN_VALUE), vFac), locInst, inState)
+                addSource(RegisterVariable(Value.Reg(SbfRegister.R0), vFac), locInst, inState)
             }
             override fun processArgument(locInst: LocatedSbfInstruction,
                                          reg: SbfRegister, offset: Long, width: Byte,
@@ -603,7 +595,7 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
                 when (rhs) {
                     is Value.Imm -> addSource(lhs, cmd, inState)
                     is Value.Reg -> {
-                        if (rhs.r == SbfRegister.R10_STACK_POINTER) {
+                        if (rhs.r == SbfRegister.R10) {
                             // If `lhs := r10` then we don't propagate further, and we consider this assignment
                             // as a source.
                             addSource(lhs, cmd, inState)
@@ -687,7 +679,7 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
         }
 
         if (CVTNondet.from(inst.name) != null) {
-            addSource(Value.Reg(SbfRegister.R0_RETURN_VALUE), cmd, inState)
+            addSource(Value.Reg(SbfRegister.R0), cmd, inState)
             return
         }
 

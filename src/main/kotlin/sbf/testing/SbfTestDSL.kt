@@ -115,17 +115,17 @@ object SbfTestDSL {
     }
 
     class BlockBuilderScope {
-        var r0 by RegDelegate(BuilderValue.Reg(SbfRegister.R0_RETURN_VALUE))
-        var r1 by RegDelegate(BuilderValue.Reg(SbfRegister.R1_ARG))
-        var r2 by RegDelegate(BuilderValue.Reg(SbfRegister.R2_ARG))
-        var r3 by RegDelegate(BuilderValue.Reg(SbfRegister.R3_ARG))
-        var r4 by RegDelegate(BuilderValue.Reg(SbfRegister.R4_ARG))
-        var r5 by RegDelegate(BuilderValue.Reg(SbfRegister.R5_ARG))
+        var r0 by RegDelegate(BuilderValue.Reg(SbfRegister.R0))
+        var r1 by RegDelegate(BuilderValue.Reg(SbfRegister.R1))
+        var r2 by RegDelegate(BuilderValue.Reg(SbfRegister.R2))
+        var r3 by RegDelegate(BuilderValue.Reg(SbfRegister.R3))
+        var r4 by RegDelegate(BuilderValue.Reg(SbfRegister.R4))
+        var r5 by RegDelegate(BuilderValue.Reg(SbfRegister.R5))
         var r6 by RegDelegate(BuilderValue.Reg(SbfRegister.R6))
         var r7 by RegDelegate(BuilderValue.Reg(SbfRegister.R7))
         var r8 by RegDelegate(BuilderValue.Reg(SbfRegister.R8))
         var r9 by RegDelegate(BuilderValue.Reg(SbfRegister.R9))
-        var r10 by RegDelegate(BuilderValue.Reg(SbfRegister.R10_STACK_POINTER))
+        var r10 by RegDelegate(BuilderValue.Reg(SbfRegister.R10))
 
         sealed class BuilderValue {
             abstract val v: Value

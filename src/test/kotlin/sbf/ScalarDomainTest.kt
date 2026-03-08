@@ -127,7 +127,7 @@ class ScalarDomainTest {
         val b0 = cfg.getBlock(Label.Address(0))
         check (b0 != null)
         val addInst = b0.getLocatedInstructions().drop(1).first()
-        val type = regTypes.typeAtInstruction(addInst, SbfRegister.R1_ARG)
+        val type = regTypes.typeAtInstruction(addInst, SbfRegister.R1)
         Assertions.assertEquals(true, type is SbfType.NumType && type.value.toLongOrNull() == 5L)
     }
 
@@ -200,7 +200,7 @@ class ScalarDomainTest {
         val b0 = cfg.getBlock(Label.Address(0))
         check (b0 != null)
         val secondInst = b0.getLocatedInstructions().drop(1).first()
-        val secondType = regTypes.typeAtInstruction(secondInst, SbfRegister.R1_ARG)
+        val secondType = regTypes.typeAtInstruction(secondInst, SbfRegister.R1)
         println("$secondInst -> $secondType")
        // Assertions.assertEquals(true, secondType is SbfType.NumType && secondType.value.get() == 5L)
     }
@@ -228,7 +228,7 @@ class ScalarDomainTest {
         val b0 = cfg.getBlock(Label.Address(0))
         check (b0 != null)
         val secondInst = b0.getLocatedInstructions().drop(1).first()
-        val secondType = regTypes.typeAtInstruction(secondInst, SbfRegister.R1_ARG)
+        val secondType = regTypes.typeAtInstruction(secondInst, SbfRegister.R1)
         println("$secondInst -> $secondType")
         // Assertions.assertEquals(true, secondType is SbfType.NumType && secondType.value.get() == 5L)
     }
@@ -373,7 +373,7 @@ class ScalarDomainTest {
     @Test
     fun `callx is not supported`() {
 
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r1 = Value.Reg(SbfRegister.R1)
         val cfg = MutableSbfCFG("test")
         val b0 = cfg.getOrInsertBlock(Label.Address(0))
         cfg.setEntry(b0)
@@ -395,10 +395,10 @@ class ScalarDomainTest {
      */
     @Test
     fun `basic memcpy_zext`() {
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         cfg.setEntry(b1)
@@ -436,8 +436,8 @@ class ScalarDomainTest {
      */
     @Test
     fun `store of positive number of 1 byte and load of 1 byte`() {
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         cfg.setEntry(b1)
@@ -468,8 +468,8 @@ class ScalarDomainTest {
      */
     @Test
     fun `store of negative number of 1 byte and load of 1 byte`() {
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         cfg.setEntry(b1)
@@ -502,8 +502,8 @@ class ScalarDomainTest {
      */
     @Test
     fun `store of negative number of 1 byte and load of 1 byte with signed extension`() {
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         cfg.setEntry(b1)
@@ -538,10 +538,10 @@ class ScalarDomainTest {
      */
     @Test
     fun `basic memcpy_zext with negative number`() {
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         cfg.setEntry(b1)
@@ -631,10 +631,10 @@ class ScalarDomainTest {
      * assert(r2 == assertedVal)
      */
     private fun `narrowing store`(storedVal: ULong, assertedVal: ULong): MutableSbfCFG {
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r0 = Value.Reg(SbfRegister.R0)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         cfg.setEntry(b1)

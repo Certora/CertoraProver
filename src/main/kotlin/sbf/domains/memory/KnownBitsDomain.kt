@@ -544,13 +544,13 @@ class KnownBitsDomain(
                         return true
                     }
                     CVTCore.RESTORE_SCRATCH_REGISTERS -> {
-                        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
-                        val topStack = (scalars.getAsScalarValue(r10).type() as? SbfType.PointerType.Stack)
-                            ?.offset?.toLongOrNull()
-                        check(topStack != null){
-                            "r10 should point to a statically known stack offset"
-                        }
-                        base.restoreScratchRegisters(topStack, globalState.globals.elf.useDynamicFrames())
+                        base.restoreScratchRegisters()
+
+                        val r10 = Value.Reg(SbfRegister.R10)
+                        val topStack = checkNotNull(
+                            (scalars.getAsScalarValue(r10).type() as? SbfType.PointerType.Stack)?.offset?.toLongOrNull()
+                        )
+                        base.removeDeadStackFields(topStack, globalState.globals.elf.useDynamicFrames())
                         return true
                     }
                     else -> {}

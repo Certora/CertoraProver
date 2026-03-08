@@ -88,7 +88,6 @@ object SbfMeta {
     val UNHOISTED_LOAD = MetaKey<Unit>("unhoisted_load")
     val UNHOISTED_MEMCPY = MetaKey<Unit>("unhoisted_memcpy")
     val UNHOISTED_MEMCMP = MetaKey<Unit>("unhoisted_memcmp")
-    val UNHOISTED_STACK_POP = MetaKey<Unit>("unhoisted_stack_pop")
     val LOWERED_SELECT = MetaKey<Unit>("lowered_select")
     val REMOVED_MEMMOVE = MetaKey<Unit>("sol_memmove_")
     val LOWERED_ASSUME = MetaKey<Unit>("lowered_assume")
@@ -116,7 +115,7 @@ fun toString(metaData: MetaData): String {
             SbfMeta.MEMCPY_TRUNC_PROMOTION,
             SbfMeta.MEMSET_PROMOTION,
             SbfMeta.UNHOISTED_STORE, SbfMeta.UNHOISTED_LOAD,
-            SbfMeta.UNHOISTED_MEMCPY, SbfMeta.UNHOISTED_MEMCMP, SbfMeta.UNHOISTED_STACK_POP,
+            SbfMeta.UNHOISTED_MEMCPY, SbfMeta.UNHOISTED_MEMCMP,
             SbfMeta.LOWERED_SELECT, SbfMeta.LOWERED_OR, SbfMeta.LOADED_AS_NUM_FOR_PTA, SbfMeta.REMOVED_MEMMOVE,
             SbfMeta.SAFE_MATH, SbfMeta.SET_GLOBAL, SbfMeta.NARROWED_LOAD -> {
                 strB.append(" /*${k.name}*/")

@@ -67,10 +67,10 @@ class SplitWideStoresTest {
     	   The first 32 bits will be 1010 which in decimal is 10 and the second 32 bits are all zeros.
 
          */
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r0 = Value.Reg(SbfRegister.R0)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
 
         val l0 = Label.Address(1)
@@ -146,10 +146,10 @@ class SplitWideStoresTest {
     	        *(u32 *) (r2 + 4) := 10  /* hint.optimized_wide_store */
 
          */
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r0 = Value.Reg(SbfRegister.R0)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
 
         val l0 = Label.Address(0)
@@ -247,10 +247,10 @@ class SplitWideStoresTest {
               	*(u32 *) (r2 + 0) := 0   /* hint.optimized_wide_store */
     	        *(u32 *) (r2 + 4) := 10  /* hint.optimized_wide_store */
          */
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r0 = Value.Reg(SbfRegister.R0)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r10 = Value.Reg(SbfRegister.R10)
         val cfg = MutableSbfCFG("test")
 
         val l0 = Label.Address(0)

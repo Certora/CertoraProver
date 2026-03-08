@@ -185,7 +185,7 @@ class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffse
 private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getProgramIdBeforeInvoke(
     memoryDomain: MemoryDomain<TNum, TOffset, TFlags>
 ): ProgramId? {
-    val r2 = Value.Reg(SbfRegister.R2_ARG)
+    val r2 = Value.Reg(SbfRegister.R2)
     val pubkey = memoryDomain.getPubkey(r2, OFFSET_FROM_INSTRUCTION_TO_PROGRAM_ID.toLong()) ?: return null
     return ProgramId(pubkey.word0, pubkey.word1, pubkey.word2, pubkey.word3)
 }
@@ -200,7 +200,7 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
     discriminants: ProgramDiscriminants,
     memoryDomain: MemoryDomain<TNum, TOffset, TFlags>
 ): InvokeMock? {
-    val r2 = memoryDomain.getRegCell(Value.Reg(SbfRegister.R2_ARG))
+    val r2 = memoryDomain.getRegCell(Value.Reg(SbfRegister.R2))
     if (r2 == null) {
         cpiLog.warn { "Could not infer register cell associated with R2" }
         return null

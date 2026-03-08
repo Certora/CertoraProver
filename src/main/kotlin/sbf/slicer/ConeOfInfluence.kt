@@ -243,7 +243,7 @@ private object SemanticConeOfInfluence{
             // We use now the forward analysis to detect unreachability.
             // By asking the type of r10 we can tell if locInst becomes unreachable or not
             for (locInst in bb.getLocatedInstructions()) {
-               if (np.registerTypes.typeAtInstruction(locInst, SbfRegister.R10_STACK_POINTER).isBottom()) {
+               if (np.registerTypes.typeAtInstruction(locInst, SbfRegister.R10).isBottom()) {
                     bb.add(locInst.pos,  mkUnreachable("OUT-SCOI (using forward)"))
                     continue@outerloop
                 }

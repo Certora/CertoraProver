@@ -664,10 +664,15 @@ class StackStridePredicateDomain(
                         return true
                     }
                     CVTCore.RESTORE_SCRATCH_REGISTERS -> {
-                        val topStack = (scalars.getAsScalarValue(Value.Reg(SbfRegister.R10_STACK_POINTER)).type()
+
+                        base.restoreScratchRegisters()
+
+                        val newTopStack = checkNotNull(
+                            (scalars.getAsScalarValue(Value.Reg(SbfRegister.R10)).type()
                             as? SbfType.PointerType.Stack)?.offset?.toLongOrNull()
-                        check(topStack != null){ "r10 should point to a statically known stack offset"}
-                        base.restoreScratchRegisters(topStack, globalState.globals.elf.useDynamicFrames())
+                        )
+
+                        base.removeDeadStackFields(newTopStack, globalState.globals.elf.useDynamicFrames())
                         return true
 
                     }

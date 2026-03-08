@@ -57,46 +57,46 @@ enum class SolanaFunction(val syscall: ExternalFunction) {
         name = "abort")),
     SOL_LOG(ExternalFunction(
         name = "sol_log_",
-        readRegisters = setOf(Value.Reg(SbfRegister.R1_ARG), Value.Reg(SbfRegister.R2_ARG)))),
+        readRegisters = setOf(Value.Reg(SbfRegister.R1), Value.Reg(SbfRegister.R2)))),
     SOL_LOG_64(ExternalFunction(
         name = "sol_log_64_",
         readRegisters = listOf(
-            SbfRegister.R1_ARG, SbfRegister.R2_ARG,
-            SbfRegister.R3_ARG, SbfRegister.R4_ARG, SbfRegister.R5_ARG).map{ Value.Reg(it)}.toSet())),
+            SbfRegister.R1, SbfRegister.R2,
+            SbfRegister.R3, SbfRegister.R4, SbfRegister.R5).map{ Value.Reg(it)}.toSet())),
     SOL_LOG_COMPUTE_UNITS(ExternalFunction(
         name = "sol_log_compute_units_")),
     SOL_ALLOC_FREE(ExternalFunction(
         name = "sol_alloc_free_",
-        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
-        readRegisters = setOf(Value.Reg(SbfRegister.R1_ARG), Value.Reg(SbfRegister.R2_ARG)))),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0)),
+        readRegisters = setOf(Value.Reg(SbfRegister.R1), Value.Reg(SbfRegister.R2)))),
     SOL_PANIC(ExternalFunction(
         name = "sol_panic_",
         readRegisters = listOf(
-            SbfRegister.R1_ARG, SbfRegister.R2_ARG,
-            SbfRegister.R3_ARG, SbfRegister.R4_ARG).map{ Value.Reg(it)}.toSet())),
+            SbfRegister.R1, SbfRegister.R2,
+            SbfRegister.R3, SbfRegister.R4).map{ Value.Reg(it)}.toSet())),
     SOL_CREATE_PROGRAM_ADDRESS(ExternalFunction(
         name = "sol_create_program_address",
-        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0)),
         readRegisters = listOf(
-            SbfRegister.R1_ARG, SbfRegister.R2_ARG,
-            SbfRegister.R3_ARG, SbfRegister.R4_ARG).map{ Value.Reg(it)}.toSet())),
+            SbfRegister.R1, SbfRegister.R2,
+            SbfRegister.R3, SbfRegister.R4).map{ Value.Reg(it)}.toSet())),
     SOL_INVOKE_SIGNED_C(ExternalFunction(
         name = "sol_invoke_signed_c",
-        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0)),
         readRegisters = listOf(
-            SbfRegister.R1_ARG, SbfRegister.R2_ARG,
-            SbfRegister.R3_ARG, SbfRegister.R4_ARG, SbfRegister.R5_ARG).map{ Value.Reg(it)}.toSet())),
+            SbfRegister.R1, SbfRegister.R2,
+            SbfRegister.R3, SbfRegister.R4, SbfRegister.R5).map{ Value.Reg(it)}.toSet())),
     SOL_INVOKE_SIGNED_RUST(ExternalFunction(
         name = "sol_invoke_signed_rust",
-        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0)),
         readRegisters = listOf(
-            SbfRegister.R1_ARG, SbfRegister.R2_ARG,
-            SbfRegister.R3_ARG, SbfRegister.R4_ARG, SbfRegister.R5_ARG).map{ Value.Reg(it)}.toSet())),
+            SbfRegister.R1, SbfRegister.R2,
+            SbfRegister.R3, SbfRegister.R4, SbfRegister.R5).map{ Value.Reg(it)}.toSet())),
     SOL_MEMCPY(ExternalFunction(
         name = "sol_memcpy_",
-        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0)),
         readRegisters = listOf(
-            SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG).map{ Value.Reg(it)}.toSet())),
+            SbfRegister.R1, SbfRegister.R2, SbfRegister.R3).map{ Value.Reg(it)}.toSet())),
     /**
      * This is not an actual solana syscall, but it is convenient to pretend that it is.
      * ```
@@ -119,7 +119,7 @@ enum class SolanaFunction(val syscall: ExternalFunction) {
         name = "sol_memcpy_zext",
         writeRegister = setOf(),
         readRegisters = listOf(
-            SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG).map{ Value.Reg(it)}.toSet())),
+            SbfRegister.R1, SbfRegister.R2, SbfRegister.R3).map{ Value.Reg(it)}.toSet())),
     /**
      * This is not an actual solana syscall, but it is convenient to pretend that it is.
      * ```
@@ -140,61 +140,61 @@ enum class SolanaFunction(val syscall: ExternalFunction) {
         name = "sol_memcpy_trunc",
         writeRegister = setOf(),
         readRegisters = listOf(
-            SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG).map{ Value.Reg(it)}.toSet())),
+            SbfRegister.R1, SbfRegister.R2, SbfRegister.R3).map{ Value.Reg(it)}.toSet())),
     SOL_MEMMOVE(ExternalFunction(
         name = "sol_memmove_",
-        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0)),
         readRegisters = listOf(
-            SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG).map{ Value.Reg(it)}.toSet())),
+            SbfRegister.R1, SbfRegister.R2, SbfRegister.R3).map{ Value.Reg(it)}.toSet())),
     SOL_MEMSET(ExternalFunction(
         name = "sol_memset_",
-        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0)),
         readRegisters = listOf(
-            SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG).map{ Value.Reg(it)}.toSet())),
+            SbfRegister.R1, SbfRegister.R2, SbfRegister.R3).map{ Value.Reg(it)}.toSet())),
     SOL_MEMCMP(ExternalFunction(
         name = "sol_memcmp_",
-        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0)),
         readRegisters = listOf(
-            SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG).map{ Value.Reg(it)}.toSet())),
+            SbfRegister.R1, SbfRegister.R2, SbfRegister.R3).map{ Value.Reg(it)}.toSet())),
     SOL_GET_CLOCK_SYSVAR(ExternalFunction(
         name = "sol_get_clock_sysvar",
-        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
-        readRegisters = setOf(Value.Reg(SbfRegister.R1_ARG)))),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0)),
+        readRegisters = setOf(Value.Reg(SbfRegister.R1)))),
     // This is not an actual solana syscall but it is convenient to pretend that it is.
     SOL_SET_CLOCK_SYSVAR(ExternalFunction(
         name = "sol_set_clock_sysvar",
-        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
-        readRegisters = setOf(Value.Reg(SbfRegister.R1_ARG)))),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0)),
+        readRegisters = setOf(Value.Reg(SbfRegister.R1)))),
     SOL_CURVE_VALIDATE_POINT(ExternalFunction(
         name = "sol_curve_validate_point",
-        readRegisters = setOf(Value.Reg(SbfRegister.R1_ARG), Value.Reg(SbfRegister.R2_ARG)))),
+        readRegisters = setOf(Value.Reg(SbfRegister.R1), Value.Reg(SbfRegister.R2)))),
     SOL_CURVE_GROUP_OP(ExternalFunction(
         name = "sol_curve_group_op",
         readRegisters = listOf(
-            SbfRegister.R1_ARG, SbfRegister.R2_ARG,
-            SbfRegister.R3_ARG, SbfRegister.R4_ARG, SbfRegister.R5_ARG).map{ Value.Reg(it)}.toSet())),
+            SbfRegister.R1, SbfRegister.R2,
+            SbfRegister.R3, SbfRegister.R4, SbfRegister.R5).map{ Value.Reg(it)}.toSet())),
     SOL_GET_STACK_HEIGHT(ExternalFunction(
         name = "sol_get_stack_height",
-        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)))),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0)))),
     SOL_GET_PROCESSED_SIBLING_INSTRUCTION(ExternalFunction(
         name = "sol_get_processed_sibling_instruction",
         readRegisters = listOf(
-            SbfRegister.R1_ARG, SbfRegister.R2_ARG,
-            SbfRegister.R3_ARG, SbfRegister.R4_ARG, SbfRegister.R5_ARG).map{ Value.Reg(it)}.toSet())),
+            SbfRegister.R1, SbfRegister.R2,
+            SbfRegister.R3, SbfRegister.R4, SbfRegister.R5).map{ Value.Reg(it)}.toSet())),
     SOL_GET_RENT_SYSVAR(ExternalFunction(
         name = "sol_get_rent_sysvar",
-        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
-        readRegisters = setOf(Value.Reg(SbfRegister.R1_ARG)))),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0)),
+        readRegisters = setOf(Value.Reg(SbfRegister.R1)))),
     SOL_GET_FEES_SYSVAR(ExternalFunction(
         name = "sol_get_fees_sysvar",
-        readRegisters = setOf(Value.Reg(SbfRegister.R1_ARG)))),
+        readRegisters = setOf(Value.Reg(SbfRegister.R1)))),
     SOL_SET_RETURN_DATA(ExternalFunction(
         name = "sol_set_return_data",
-        readRegisters = setOf(Value.Reg(SbfRegister.R1_ARG), Value.Reg(SbfRegister.R2_ARG)))),
+        readRegisters = setOf(Value.Reg(SbfRegister.R1), Value.Reg(SbfRegister.R2)))),
     SOL_GET_RETURN_DATA(ExternalFunction(
         name = "sol_get_return_data",
         readRegisters = listOf(
-            SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG).map{ Value.Reg(it)}.toSet()));
+            SbfRegister.R1, SbfRegister.R2, SbfRegister.R3).map{ Value.Reg(it)}.toSet()));
 
     companion object: ExternalLibrary<SolanaFunction> {
         init {
@@ -232,20 +232,20 @@ enum class SolanaFunction(val syscall: ExternalFunction) {
                     // Syscalls that require summaries
                     SOL_GET_CLOCK_SYSVAR, SOL_SET_CLOCK_SYSVAR-> {
                         val summaryArgs = listOf(
-                            MemSummaryArgument(r = SbfRegister.R0_RETURN_VALUE, type = MemSummaryArgumentType.ANY),
-                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 0, width = 8, type = MemSummaryArgumentType.NUM),
-                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 8, width = 8, type = MemSummaryArgumentType.NUM),
-                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 16, width = 8, type = MemSummaryArgumentType.NUM),
-                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 24, width = 8, type = MemSummaryArgumentType.NUM),
-                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 32, width = 8, type = MemSummaryArgumentType.NUM))
+                            MemSummaryArgument(r = SbfRegister.R0, type = MemSummaryArgumentType.ANY),
+                            MemSummaryArgument(r = SbfRegister.R1, offset = 0, width = 8, type = MemSummaryArgumentType.NUM),
+                            MemSummaryArgument(r = SbfRegister.R1, offset = 8, width = 8, type = MemSummaryArgumentType.NUM),
+                            MemSummaryArgument(r = SbfRegister.R1, offset = 16, width = 8, type = MemSummaryArgumentType.NUM),
+                            MemSummaryArgument(r = SbfRegister.R1, offset = 24, width = 8, type = MemSummaryArgumentType.NUM),
+                            MemSummaryArgument(r = SbfRegister.R1, offset = 32, width = 8, type = MemSummaryArgumentType.NUM))
                         memSummaries.addSummary(f.syscall.name, MemorySummary(summaryArgs))
                     }
                     SOL_GET_RENT_SYSVAR -> {
                         val summaryArgs = listOf(
-                            MemSummaryArgument(r = SbfRegister.R0_RETURN_VALUE, type = MemSummaryArgumentType.ANY),
-                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 0, width = 8, type = MemSummaryArgumentType.NUM),   /* u64 */
-                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 8, width = 8, type = MemSummaryArgumentType.NUM),   /* f64 */
-                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 16, width = 1, type = MemSummaryArgumentType.NUM))  /* u8 */
+                            MemSummaryArgument(r = SbfRegister.R0, type = MemSummaryArgumentType.ANY),
+                            MemSummaryArgument(r = SbfRegister.R1, offset = 0, width = 8, type = MemSummaryArgumentType.NUM),   /* u64 */
+                            MemSummaryArgument(r = SbfRegister.R1, offset = 8, width = 8, type = MemSummaryArgumentType.NUM),   /* f64 */
+                            MemSummaryArgument(r = SbfRegister.R1, offset = 16, width = 1, type = MemSummaryArgumentType.NUM))  /* u8 */
                         memSummaries.addSummary(f.syscall.name, MemorySummary(summaryArgs))
                     }
 

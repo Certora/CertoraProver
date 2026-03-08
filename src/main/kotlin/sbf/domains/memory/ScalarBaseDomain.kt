@@ -126,9 +126,9 @@ class ScalarBaseDomain<ScalarValue>(
     /** registers r0-r10 **/
     private val registers: ArrayList<ScalarValue>,
     /**
-     * The "scratch stack" tracks the saving and restoring of scratch registers (r6–r9)
-     * across calls and returns: on a call, r6–r9 are pushed; on a return,
-     * the top four elements are popped and restored into r6–r9.
+     * The "scratch stack" tracks the saving and restoring of registers (r6–r10)
+     * across calls and returns: on a call, r6–r10 are pushed; on a return,
+     * the top five elements are popped and restored into r6–r10.
      *
      * Join, inclusion and widening expect scratch stacks with same depth. This is guaranteed structurally
      * by the WTO-based fixpoint: SBF enforces well-nested call/return pairs, so any loop either contains
@@ -358,7 +358,7 @@ class ScalarBaseDomain<ScalarValue>(
         return last
     }
 
-    private fun removeDeadStackFields(topStack: Long, useDynFrames: Boolean) {
+    fun removeDeadStackFields(topStack: Long, useDynFrames: Boolean) {
         val deadFields = ArrayList<ByteRange>()
         for ((k, _) in stack) {
             if (isDeadOffset(k.offset, topStack, useDynFrames)) {
@@ -371,34 +371,38 @@ class ScalarBaseDomain<ScalarValue>(
         }
     }
 
-    /** Transfer function for `__CVT_save_scratch_registers` **/
+    /**
+     * Transfer function for `__CVT_save_scratch_registers`
+     *
+     * Save all scratch registers r6-r9 and r10.
+     **/
     fun saveScratchRegisters() {
         check(!isBottom()) {"Unexpected saveScratchRegisters on bottom"}
 
-        // We push the scratch registers even if the abstract state is top
-        pushScratchReg(registers[6])
-        pushScratchReg(registers[7])
-        pushScratchReg(registers[8])
-        pushScratchReg(registers[9])
+        val regsToSave = SbfRegister.registersToSaveOrRestore
+        // We push r6-r10 even if the abstract state is top
+        for (r in regsToSave) {
+            pushScratchReg(registers[r.value.toInt()])
+        }
     }
 
     /**
-     *  Transfer function for `__CVT_restore_scratch_registers`
-     *  Invariant ensured by CFG construction: `r10` has been decremented already
+     *  Transfer function for `__CVT_restore_scratch_registers`.
+     *
+     *  Restore all scratch registers r6-r9 and r10.
      **/
-    fun restoreScratchRegisters(topStack: Long, useDynFrames: Boolean) {
+    fun restoreScratchRegisters() {
         check(!isBottom()) {"Unexpected restoreScratchRegisters on bottom"}
 
-        if (scratchRegisters.size < 4) {
+        val regsToRestore = SbfRegister.registersToSaveOrRestore
+        if (scratchRegisters.size < regsToRestore.size) {
             throw ScalarDomainError("The number of calls to save/restore scratch registers must match: $scratchRegisters")
         }
 
-        // We pop from the scratch stack even if the abstract state is top
-        setRegister(Value.Reg(SbfRegister.R9), popScratchReg())
-        setRegister(Value.Reg(SbfRegister.R8), popScratchReg())
-        setRegister(Value.Reg(SbfRegister.R7), popScratchReg())
-        setRegister(Value.Reg(SbfRegister.R6), popScratchReg())
-        removeDeadStackFields(topStack, useDynFrames)
+        // We pop r10-r6 even if the abstract state is top
+        for (r in regsToRestore.reversed()) {
+            setRegister(Value.Reg(r), popScratchReg())
+        }
     }
 
     fun stackIterator() = stack.map { it.key to it.value}.iterator()
@@ -519,10 +523,10 @@ class ScalarBaseDomain<ScalarValue>(
             D: ScalarValueProvider<TNum, TOffset>  {
         class ScalarPredicateSummaryVisitor: SummaryVisitor {
             override fun noSummaryFound(locInst: LocatedSbfInstruction) {
-                forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
+                forget(Value.Reg(SbfRegister.R0))
             }
             override fun processReturnArgument(locInst: LocatedSbfInstruction, type: MemSummaryArgumentType) {
-                forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
+                forget(Value.Reg(SbfRegister.R0))
             }
             override fun processArgument(locInst: LocatedSbfInstruction,
                                          reg: SbfRegister,
@@ -562,9 +566,9 @@ class ScalarBaseDomain<ScalarValue>(
                solanaFunction == SolanaFunction.SOL_MEMMOVE ||
                solanaFunction == SolanaFunction.SOL_MEMSET)
 
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val r1 = Value.Reg(SbfRegister.R1_ARG) // destination
-        val r3 = Value.Reg(SbfRegister.R3_ARG) // len
+        val r0 = Value.Reg(SbfRegister.R0)
+        val r1 = Value.Reg(SbfRegister.R1) // destination
+        val r3 = Value.Reg(SbfRegister.R3) // len
 
         if (stmt.writeRegister.contains(r0)) {
             forget(r0)

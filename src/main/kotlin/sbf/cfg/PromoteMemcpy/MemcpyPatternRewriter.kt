@@ -416,7 +416,7 @@ fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> findMemcpyRewritesInterBl
 
             // Skip if load and store are not in the same function
             // We check this but checking the value of r10 (stack top)
-            val r10 = SbfRegister.R10_STACK_POINTER
+            val r10 = SbfRegister.R10
             val stackTopAtLoad = types.typeAtInstruction(loadLocInst, r10)
             val stackTopAtStore= types.typeAtInstruction(locInst, r10)
             if (stackTopAtLoad != stackTopAtStore) {

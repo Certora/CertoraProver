@@ -68,7 +68,7 @@ class Rent(mkFreshIntVar: (prefix: String)-> TACSymbol.Var) {
         cmds += assign(v3,  burnPercent.asSym())
         cmds += inRange(v1, BigInteger.ZERO, BigInteger.valueOf(100))
         // Havoc r0
-        val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
+        val r0 = exprBuilder.mkVar(SbfRegister.R0)
         cmds += TACCmd.Simple.AssigningCmd.AssignHavocCmd(r0)
 
         cmds += Debug.endFunction("sol_get_rent_sysvar")

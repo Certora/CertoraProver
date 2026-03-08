@@ -22,7 +22,6 @@ import sbf.callgraph.SolanaFunction
 import sbf.cfg.*
 import sbf.disassembler.*
 import sbf.testing.SbfTestDSL
-import log.*
 import org.junit.jupiter.api.*
 
 /**
@@ -95,8 +94,8 @@ class SbfCFGTest  {
            goto 4
          */
 
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         val b2 = cfg.getOrInsertBlock(Label.Address(2))
@@ -146,8 +145,8 @@ class SbfCFGTest  {
            goto 4
 
     */
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         val b2 = cfg.getOrInsertBlock(Label.Address(2))
@@ -197,8 +196,8 @@ class SbfCFGTest  {
                goto 4
 
         */
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         val b2 = cfg.getOrInsertBlock(Label.Address(2))
@@ -246,8 +245,8 @@ class SbfCFGTest  {
                r2 := 0
                goto 2
         */
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
         val cfg = MutableSbfCFG("test")
         val b1 = cfg.getOrInsertBlock(Label.Address(1))
         val b2 = cfg.getOrInsertBlock(Label.Address(2))

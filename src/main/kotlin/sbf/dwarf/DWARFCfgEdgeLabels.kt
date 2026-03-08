@@ -244,7 +244,7 @@ sealed interface DWARFCfgEdgeLabel {
                 ops.toExpression { registerAccess, asStackValue ->
                     val register = Value.Reg(SbfRegister.getByValue(registerAccess.register()))
                     if (asStackValue) {
-                        if (registerAccess.register() == SbfRegister.R10_STACK_POINTER.value) {
+                        if (registerAccess.register() == SbfRegister.R10.value) {
                             if (stackLevel.frameBasePointer == null) {
                                 return@toExpression DWARFExpression.StringValue("Cannot compute information relative to frame base without frame base pointer given.")
                             }

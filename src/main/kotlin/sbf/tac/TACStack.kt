@@ -23,7 +23,6 @@ import sbf.disassembler.SbfRegister
 import sbf.domains.*
 import vc.data.*
 import java.math.BigInteger
-import datastructures.stdcollections.*
 
 /**
  * Emit TAC to model the load `*([base] + [o])`
@@ -106,7 +105,6 @@ internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
 
 /**
  * Return TAC expression `base + o == r10 + stackOffset`
- * Precondition: [stackOffset] is negative because stack grows downward.
  **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
 internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> pointsToStack(
@@ -114,13 +112,16 @@ internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
     o: TACExpr.Sym.Const,
     stackOffset: PTAOffset
 ): TACExpr {
-    val stackPtr = exprBuilder.mkVar(SbfRegister.R10_STACK_POINTER).asSym()
-    check(stackOffset <= 0) {"Precondition of pointsToStack failed"}
-    return exprBuilder.mkBinRelExp(
-        CondOp.EQ,
-        if (o.s.value == BigInteger.ZERO) { base } else { TACExpr.Vec.Add(listOf(base, o))},
+    val stackPtr = exprBuilder.mkVar(SbfRegister.R10).asSym()
+    val lhs = if (o.s.value == BigInteger.ZERO) { base } else { TACExpr.Vec.Add(listOf(base, o))}
+    val rhs = if (globals.elf.useDynamicFrames()) {
+        check(stackOffset >= 0) { "pointsToStack expects the stack to grow upwards" }
+        TACExpr.Vec.Add(listOf(stackPtr, exprBuilder.mkConst(stackOffset.v).asSym()))
+    } else {
+        check(stackOffset <= 0) { "pointsToStack expects the stack to grow downwards" }
         TACExpr.BinOp.Sub(stackPtr, exprBuilder.mkConst(-stackOffset.v).asSym())
-    )
+    }
+    return exprBuilder.mkBinRelExp(CondOp.EQ, lhs, rhs)
 }
 
 /**

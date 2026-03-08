@@ -98,27 +98,21 @@ class LivenessAnalysis(graph: SbfCFG) :
         @Suppress("UNUSED_PARAMETER")
         cmd: LocatedSbfInstruction
     ): LiveState {
-        val scratchRegs = setOf(
-            Value.Reg(SbfRegister.R6),
-            Value.Reg(SbfRegister.R7),
-            Value.Reg(SbfRegister.R8),
-            Value.Reg(SbfRegister.R9)
-        )
-
+        val regsToProcess = SbfRegister.registersToSaveOrRestore.map { Value.Reg(it) }.toSet()
         return  if (call.isRestoreScratchRegisters()) {
             // kill scratch registers and remember the live scratch registers at this point
             val newLiveScratchRegsAfterFunction =
-                inState.liveScratchRegsAfterFunction + (getFunctionId(call) to inState.registers.intersect(scratchRegs))
+                inState.liveScratchRegsAfterFunction + (getFunctionId(call) to inState.registers.intersect(regsToProcess))
             genAndKill(
                 inState.copy(
                     liveScratchRegsAfterFunction = newLiveScratchRegsAfterFunction
                 ),
                 setOf(),
-                scratchRegs
+                regsToProcess
             )
         } else {
             // Mark as alive only those scratch registers that are used after the function returns
-            val liveScratchRegs = inState.liveScratchRegsAfterFunction.getOrDefault(getFunctionId(call), scratchRegs)
+            val liveScratchRegs = inState.liveScratchRegsAfterFunction.getOrDefault(getFunctionId(call), regsToProcess)
             genAndKill(inState, liveScratchRegs, setOf())
         }
     }
@@ -132,8 +126,8 @@ class LivenessAnalysis(graph: SbfCFG) :
             transformScratchRegisterOp(inState, call, cmd)
         } else if (call.isAllocFn()) {
             genAndKill(inState,
-                gen = setOf(Value.Reg(SbfRegister.R1_ARG), Value.Reg(SbfRegister.R2_ARG)),
-                killed = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)))
+                gen = setOf(Value.Reg(SbfRegister.R1), Value.Reg(SbfRegister.R2)),
+                killed = setOf(Value.Reg(SbfRegister.R0)))
         } else if (SolanaFunction.from(call.name) != null ||
                    CVTFunction.from(call.name) != null ||
                    CompilerRtFunction.from(call.name) != null) {
@@ -161,7 +155,7 @@ class LivenessAnalysis(graph: SbfCFG) :
             is SbfInstruction.Call -> transformCall(inState, inst, cmd)
             // If intra-procedural we assume r0 is always alive
             is SbfInstruction.Exit ->
-                inState.copy(registers = inState.registers + setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)))
+                inState.copy(registers = inState.registers + setOf(Value.Reg(SbfRegister.R0)))
             else -> defaultTransformer(inState, cmd)
         }
     }

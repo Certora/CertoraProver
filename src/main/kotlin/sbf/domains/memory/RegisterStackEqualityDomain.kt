@@ -224,35 +224,29 @@ class RegisterStackEqualityDomain(
     }
 
     private fun saveScratchRegisters(): RegisterStackEqualityDomain {
-        // we always push scratch registers, even if the abstract state is top
-        return pushScratchReg(registers[Value.Reg(SbfRegister.R6)])
-            .pushScratchReg(registers[Value.Reg(SbfRegister.R7)])
-            .pushScratchReg(registers[Value.Reg(SbfRegister.R8)])
-            .pushScratchReg(registers[Value.Reg(SbfRegister.R9)])
+        // we always push scratch registers and r10, even if the abstract state is top
+        val regsToSave = SbfRegister.registersToSaveOrRestore
+
+        return regsToSave.fold(this) { acc, reg ->
+            acc.pushScratchReg(registers[Value.Reg(reg)])
+        }
     }
 
     private fun restoreScratchRegisters(): RegisterStackEqualityDomain {
-        if (scratchRegisters.size < 4) {
+        val regsToRestore = SbfRegister.registersToSaveOrRestore
+        val n = regsToRestore.size
+        if (scratchRegisters.size < n) {
             throw ScalarDomainError(
                 "The number of calls to save/restore scratch registers must match: $scratchRegisters"
             )
-        } else {
-            // we always pop scratch registers, even if the abstract state is top
-            val lastIdx = scratchRegisters.lastIndex
-
-            val tmp9 = scratchRegisters[lastIdx]
-            val tmp8 = scratchRegisters[lastIdx-1]
-            val tmp7 = scratchRegisters[lastIdx-2]
-            val tmp6 = scratchRegisters[lastIdx-3]
-
-            return popScratchReg().
-                   popScratchReg().
-                   popScratchReg().
-                   popScratchReg().
-                   setRegister(Value.Reg(SbfRegister.R9), tmp9).
-                   setRegister(Value.Reg(SbfRegister.R8), tmp8).
-                   setRegister(Value.Reg(SbfRegister.R7), tmp7).
-                   setRegister(Value.Reg(SbfRegister.R6), tmp6)
+        }
+        val lastIdx = scratchRegisters.lastIndex
+        // Collect saved values in the order they were pushed (r6, r7, r8, r9, r10)
+        val savedValues = regsToRestore.indices.map { i -> scratchRegisters[lastIdx - (n - 1 - i)] }
+        // Pop n scratch registers, then restore each register
+        val popped = regsToRestore.fold(this) { acc, _ -> acc.popScratchReg() }
+        return regsToRestore.zip(savedValues).fold(popped) { acc, (reg, value) ->
+            acc.setRegister(Value.Reg(reg), value)
         }
     }
 
@@ -264,7 +258,7 @@ class RegisterStackEqualityDomain(
           TOffset: IOffset<TOffset>,
           TScalarDomain: ScalarValueProvider<TNum, TOffset> {
         class ScalarSummaryVisitor(var state: RegisterStackEqualityDomain): SummaryVisitor {
-            val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+            val r0 = Value.Reg(SbfRegister.R0)
             override fun noSummaryFound(
                 @Suppress("UNUSED_PARAMETER") locInst: LocatedSbfInstruction
             ) {
@@ -306,9 +300,9 @@ class RegisterStackEqualityDomain(
         check(inst is SbfInstruction.Call)
 
 
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
+        val r0 = Value.Reg(SbfRegister.R0)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r3 = Value.Reg(SbfRegister.R3)
 
         val len: Long = when (SolanaFunction.from(inst.name)) {
             SolanaFunction.SOL_MEMCPY,

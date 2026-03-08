@@ -110,9 +110,9 @@ private fun findUnhoistMemFunCandidates(
 ) {
 
     val operands = listOf(
-        Value.Reg(SbfRegister.R1_ARG),
-        Value.Reg(SbfRegister.R2_ARG),
-        Value.Reg(SbfRegister.R3_ARG)
+        Value.Reg(SbfRegister.R1),
+        Value.Reg(SbfRegister.R2),
+        Value.Reg(SbfRegister.R3)
     )
     val writtenOperands = mutableSetOf<Value.Reg>()
 

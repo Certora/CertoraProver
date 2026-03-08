@@ -549,7 +549,7 @@ data class NPDomain<D, TNum, TOffset>(
         val inst = locInst.inst
         check(inst is SbfInstruction.Call)
 
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+        val r0 = Value.Reg(SbfRegister.R0)
         val inState = if (inst.writeRegister.contains(r0)) {
             havoc(RegisterVariable(r0, vFac))
         } else {
@@ -668,9 +668,9 @@ data class NPDomain<D, TNum, TOffset>(
         val solanaFn = SolanaFunction.from(inst.name)
         check(solanaFn == SolanaFunction.SOL_MEMCPY)
 
-        val r1 = SbfRegister.R1_ARG // dest
-        val r2 = SbfRegister.R2_ARG // src
-        val r3 = SbfRegister.R3_ARG // len
+        val r1 = SbfRegister.R1 // dest
+        val r2 = SbfRegister.R2 // src
+        val r3 = SbfRegister.R3 // len
 
         val (dstOffsets, srcOffset, len) = analyzeStackTransfer(locInst, r1, r2, r3, types)
             ?: return this
@@ -730,8 +730,8 @@ data class NPDomain<D, TNum, TOffset>(
         val solanaFn = SolanaFunction.from(inst.name)
         check(solanaFn == SolanaFunction.SOL_MEMSET || solanaFn == SolanaFunction.SOL_MEMMOVE)
 
-        val r1 = SbfRegister.R1_ARG  // ptr or dst
-        val r3 = SbfRegister.R3_ARG  // len
+        val r1 = SbfRegister.R1  // ptr or dst
+        val r3 = SbfRegister.R3  // len
 
         return havocStack(locInst, r1, r3, types)
     }
@@ -760,9 +760,9 @@ data class NPDomain<D, TNum, TOffset>(
         val solanaFunction = SolanaFunction.from(inst.name)
         check(solanaFunction == SolanaFunction.SOL_MEMCPY_ZEXT || solanaFunction == SolanaFunction.SOL_MEMCPY_TRUNC)
 
-        val r1 = SbfRegister.R1_ARG // dest
-        val r2 = SbfRegister.R2_ARG // src
-        val r3 = SbfRegister.R3_ARG // i
+        val r1 = SbfRegister.R1 // dest
+        val r2 = SbfRegister.R2 // src
+        val r3 = SbfRegister.R3 // i
 
         val (dstOffsets, _, i) = analyzeStackTransfer(locInst, r1, r2, r3, types)
             ?: return this
@@ -779,29 +779,19 @@ data class NPDomain<D, TNum, TOffset>(
             return this
         }
 
-        val r6 = Value.Reg(SbfRegister.R6)
-        val r7 = Value.Reg(SbfRegister.R7)
-        val r8 = Value.Reg(SbfRegister.R8)
-        val r9 = Value.Reg(SbfRegister.R9)
         val id = inst.metaData.getVal(SbfMeta.CALL_ID)
+        val regsToSave = SbfRegister.registersToSaveOrRestore.map { Value.Reg(it) }
+
         return if (id != null) {
-            val lhs6 = ScratchRegisterVariable(id, r6, vFac)
-            val rhs6 = RegisterVariable(r6, vFac)
-            val lhs7 = ScratchRegisterVariable(id, r7, vFac)
-            val rhs7 = RegisterVariable(r7, vFac)
-            val lhs8 = ScratchRegisterVariable(id, r8, vFac)
-            val rhs8 = RegisterVariable(r8, vFac)
-            val lhs9 = ScratchRegisterVariable(id, r9, vFac)
-            val rhs9 = RegisterVariable(r9, vFac)
-            substitute(lhs6, rhs6).
-            substitute(lhs7, rhs7).
-            substitute(lhs8, rhs8).
-            substitute(lhs9, rhs9)
+            regsToSave.fold(this) { acc, reg ->
+                acc.substitute(
+                    oldV = ScratchRegisterVariable(id, reg, vFac),
+                    newV = RegisterVariable(reg, vFac))
+            }
         } else {
-            havoc(RegisterVariable(r6, vFac)).
-            havoc(RegisterVariable(r7, vFac)).
-            havoc(RegisterVariable(r8, vFac)).
-            havoc(RegisterVariable(r9, vFac))
+            regsToSave.fold(this) { acc, reg ->
+                acc.havoc(RegisterVariable(reg, vFac))
+            }
         }
     }
 
@@ -813,29 +803,19 @@ data class NPDomain<D, TNum, TOffset>(
             return this
         }
 
-        val r6 = Value.Reg(SbfRegister.R6)
-        val r7 = Value.Reg(SbfRegister.R7)
-        val r8 = Value.Reg(SbfRegister.R8)
-        val r9 = Value.Reg(SbfRegister.R9)
         val id = inst.metaData.getVal(SbfMeta.CALL_ID)
+        val regsToRestore = SbfRegister.registersToSaveOrRestore.map { Value.Reg(it) }
+
         return if (id != null) {
-            val lhs6 = RegisterVariable(r6, vFac)
-            val rhs6 = ScratchRegisterVariable(id, r6, vFac)
-            val lhs7 = RegisterVariable(r7, vFac)
-            val rhs7 = ScratchRegisterVariable(id, r7, vFac)
-            val lhs8 = RegisterVariable(r8, vFac)
-            val rhs8 = ScratchRegisterVariable(id, r8, vFac)
-            val lhs9 = RegisterVariable(r9, vFac)
-            val rhs9 = ScratchRegisterVariable(id, r9, vFac)
-            substitute(lhs6, rhs6).
-            substitute(lhs7, rhs7).
-            substitute(lhs8, rhs8).
-            substitute(lhs9, rhs9)
+            regsToRestore.fold(this) { acc, reg ->
+                acc.substitute(
+                    oldV = RegisterVariable(reg, vFac),
+                    newV = ScratchRegisterVariable(id, reg, vFac))
+            }
         } else {
-            havoc(RegisterVariable(r6, vFac)).
-            havoc(RegisterVariable(r7, vFac)).
-            havoc(RegisterVariable(r8, vFac)).
-            havoc(RegisterVariable(r9, vFac))
+            regsToRestore.fold(this) { acc, reg ->
+                acc.havoc(RegisterVariable(reg, vFac))
+            }
         }
     }
 
@@ -899,7 +879,7 @@ data class NPDomain<D, TNum, TOffset>(
                     analyzeMemIntrinsics(locatedInst, vFac, registerTypes)
                 }
                 else -> {
-                    havoc(RegisterVariable(Value.Reg(SbfRegister.R0_RETURN_VALUE), vFac))
+                    havoc(RegisterVariable(Value.Reg(SbfRegister.R0), vFac))
                 }
             }
         }
@@ -1113,7 +1093,7 @@ data class NPDomain<D, TNum, TOffset>(
                 analyzeCall(locatedInst, vFac, registerTypes)
             }
             is SbfInstruction.CallReg -> {
-                havoc(RegisterVariable(Value.Reg(SbfRegister.R0_RETURN_VALUE), vFac))
+                havoc(RegisterVariable(Value.Reg(SbfRegister.R0), vFac))
             }
             is SbfInstruction.Havoc -> {
                 havoc(RegisterVariable(inst.dst, vFac))
@@ -1210,10 +1190,10 @@ data class NPDomain<D, TNum, TOffset>(
             override fun noSummaryFound(locInst: LocatedSbfInstruction) {
                 // Note that havocking r0 is not, in general, sound but without a summary
                 // we cannot do more.
-                absVal = absVal.havoc(RegisterVariable(Value.Reg(SbfRegister.R0_RETURN_VALUE), vFac))
+                absVal = absVal.havoc(RegisterVariable(Value.Reg(SbfRegister.R0), vFac))
             }
             override fun processReturnArgument(locInst: LocatedSbfInstruction, type /*unused*/: MemSummaryArgumentType) {
-                absVal = absVal.havoc(RegisterVariable(Value.Reg(SbfRegister.R0_RETURN_VALUE ), vFac))
+                absVal = absVal.havoc(RegisterVariable(Value.Reg(SbfRegister.R0 ), vFac))
             }
 
             override fun processArgument(locInst: LocatedSbfInstruction,

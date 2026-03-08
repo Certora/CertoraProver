@@ -81,9 +81,9 @@ class MemoryTest {
     fun test01() {
         println("====== TEST 1 =======")
 
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
+        val r10 = Value.Reg(SbfRegister.R10)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
 
         val absVal1 = createMemoryDomain()
         val stack1 = absVal1.getRegCell(r10)
@@ -163,10 +163,10 @@ class MemoryTest {
     @Test
     fun test2() {
         println("====== TEST 2 (JOIN)  =======")
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r4 = Value.Reg(SbfRegister.R4_ARG)
+        val r10 = Value.Reg(SbfRegister.R10)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r4 = Value.Reg(SbfRegister.R4)
 
         val absVal1 = createMemoryDomain()
         val stack1 = absVal1.getRegCell(r10)
@@ -277,10 +277,10 @@ class MemoryTest {
     @Test
     fun test3() {
         println("====== TEST 3 (JOIN) =======")
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r4 = Value.Reg(SbfRegister.R4_ARG)
+        val r10 = Value.Reg(SbfRegister.R10)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r4 = Value.Reg(SbfRegister.R4)
 
         val absVal1 = createMemoryDomain()
         val stack1 = absVal1.getRegCell(r10)
@@ -362,8 +362,8 @@ class MemoryTest {
     /** This test is expected to throw an exception **/
     fun test4() {
         println("====== TEST 4 =======")
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r10 = Value.Reg(SbfRegister.R10)
+        val r1 = Value.Reg(SbfRegister.R1)
 
 
         val absVal1 = createMemoryDomain()
@@ -435,8 +435,8 @@ class MemoryTest {
     @Test
     fun test5() {
         println("====== TEST 5 (JOIN) =======")
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r10 = Value.Reg(SbfRegister.R10)
+        val r1 = Value.Reg(SbfRegister.R1)
 
         val absVal1 = createMemoryDomain()
         val stack1 = absVal1.getRegCell(r10)
@@ -473,7 +473,7 @@ class MemoryTest {
     @Test
     fun test6() {
         println("====== TEST 6 (JOIN) =======")
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r10 = Value.Reg(SbfRegister.R10)
 
         val absVal1 = createMemoryDomain()
         val stack1 = absVal1.getRegCell(r10)
@@ -497,7 +497,7 @@ class MemoryTest {
     @Test
     fun test7() {
         println("====== TEST 7 (JOIN) =======")
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r10 = Value.Reg(SbfRegister.R10)
 
         val absVal1 = createMemoryDomain()
         val stack1 = absVal1.getRegCell(r10)
@@ -530,9 +530,9 @@ class MemoryTest {
     @Test
     fun test8() {
         println("====== TEST 8 (JOIN) =======")
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r10 = Value.Reg(SbfRegister.R10)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
 
         val absVal1 = createMemoryDomain()
         val stack1 = absVal1.getRegCell(r10)
@@ -574,8 +574,8 @@ class MemoryTest {
         n1.mkLink(4, 4, n2.createCell(8))
         n3.mkLink(0, 4, n2.createCell(4))
         n3.mkLink(4, 4, n4.createCell(0))
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
         g.setRegCell(r1, n1.createSymCell(0))
         g.setRegCell(r2, n3.createSymCell(4))
         println("\nBefore unification of $n1 and ($n3,0):\n$g")
@@ -599,8 +599,8 @@ class MemoryTest {
     fun test10() {
         println("====== TEST 10 (JOIN) =======")
         // In this example, we unify one stack with a node from the other graph which is not the stack.
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r10 = Value.Reg(SbfRegister.R10)
+        val r1 = Value.Reg(SbfRegister.R1)
 
         val absVal1 = createMemoryDomain()
         val stack1 = absVal1.getRegCell(r10)
@@ -642,7 +642,7 @@ class MemoryTest {
     // Check isWordCompatible function from PTACell
     @Test
     fun `test isWordCompatible function from PTACell`() {
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r10 = Value.Reg(SbfRegister.R10)
         val absVal = createMemoryDomain()
         val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
@@ -697,7 +697,7 @@ class MemoryTest {
         /**
          * If OptimisticPTAJoin is disabled then join(X,Y) = top if X is a pointer but Y is a number
          */
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r10 = Value.Reg(SbfRegister.R10)
 
         val absVal1 = createMemoryDomain()
         val stack1 = absVal1.getRegCell(r10)
@@ -706,8 +706,8 @@ class MemoryTest {
         stack1.getNode().mkLink(4040, 4, stack1.getNode().createCell(4036))
         // R1 points to something that looks like a dangling pointer
         // Note that the pointer domain doesn't know anything about R1 but the scalar domain does
-        absVal1.getScalars().setScalarValue(Value.Reg(SbfRegister.R1_ARG), ScalarValue(sbfTypesFac.toNum(4)))
-        absVal1.getPTAGraph().forget(Value.Reg(SbfRegister.R1_ARG))
+        absVal1.getScalars().setScalarValue(Value.Reg(SbfRegister.R1), ScalarValue(sbfTypesFac.toNum(4)))
+        absVal1.getPTAGraph().forget(Value.Reg(SbfRegister.R1))
 
         val absVal2 = createMemoryDomain()
         val stack2 = absVal2.getRegCell(r10)
@@ -715,7 +715,7 @@ class MemoryTest {
         stack2.getNode().setRead()
         stack2.getNode().mkLink(4040, 4, stack2.getNode().createCell(4036))
         // R1 points to (stack, 4040)
-        absVal2.getPTAGraph().setRegCell(Value.Reg(SbfRegister.R1_ARG), stack2.getNode().createSymCell(4040))
+        absVal2.getPTAGraph().setRegCell(Value.Reg(SbfRegister.R1), stack2.getNode().createSymCell(4040))
 
         sbfLogger.warn{"\nAbsVal1=$absVal1\nAbsVal2=$absVal2"}
         ConfigScope(DefactoSemantics, false).use {
@@ -723,7 +723,7 @@ class MemoryTest {
                 val absVal3 = absVal1.join(absVal2)
                 sbfLogger.warn { "absVal3 := join(absVal1, absVal2) --> \n$absVal3" }
                 // We should lose track of R1
-                Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1_ARG)) == null)
+                Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1)) == null)
             }
         }
     }
@@ -735,15 +735,15 @@ class MemoryTest {
          *  If OptimisticPTAJoin is enabled then join(X,Y) = X if X is a pointer and Y looks a dangling pointer.
          *  Using the scalar domain can know that Y is 4 (a small power-of-two)
          */
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r10 = Value.Reg(SbfRegister.R10)
 
         val absVal1 = createMemoryDomain()
         val stack1 = absVal1.getRegCell(r10)
         check(stack1 != null) { "memory domain cannot find the stack node" }
         stack1.getNode().setRead()
         stack1.getNode().mkLink(4040, 4, stack1.getNode().createCell(4036))
-        absVal1.getPTAGraph().forget(Value.Reg(SbfRegister.R1_ARG))
-        absVal1.getScalars().setScalarValue(Value.Reg(SbfRegister.R1_ARG), ScalarValue(sbfTypesFac.toNum(4)))
+        absVal1.getPTAGraph().forget(Value.Reg(SbfRegister.R1))
+        absVal1.getScalars().setScalarValue(Value.Reg(SbfRegister.R1), ScalarValue(sbfTypesFac.toNum(4)))
 
         val absVal2 = createMemoryDomain()
         val stack2 = absVal2.getRegCell(r10)
@@ -751,8 +751,8 @@ class MemoryTest {
         stack2.getNode().setRead()
         stack2.getNode().mkLink(4040, 4, stack2.getNode().createCell(4036))
         // R1 points to (stack, 4040)
-        absVal2.getPTAGraph().setRegCell(Value.Reg(SbfRegister.R1_ARG), stack2.getNode().createSymCell(4040))
-        absVal2.getScalars().setScalarValue(Value.Reg(SbfRegister.R1_ARG), ScalarValue(SbfType.PointerType.Stack(Constant(4040))))
+        absVal2.getPTAGraph().setRegCell(Value.Reg(SbfRegister.R1), stack2.getNode().createSymCell(4040))
+        absVal2.getScalars().setScalarValue(Value.Reg(SbfRegister.R1), ScalarValue(SbfType.PointerType.Stack(Constant(4040))))
 
         sbfLogger.warn{"\nAbsVal1=$absVal1\nAbsVal2=$absVal2"}
         ConfigScope(DefactoSemantics, false).use {
@@ -762,7 +762,7 @@ class MemoryTest {
                 val absVal4 = absVal2.join(absVal1)
                 sbfLogger.warn { "absVal4 := join(absVal2, absVal1) --> \n$absVal4" }
                 Assertions.assertEquals(true, absVal3.lessOrEqual(absVal4) && absVal4.lessOrEqual(absVal3))
-                Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1_ARG)) != null)
+                Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1)) != null)
             }
         }
     }
@@ -776,7 +776,7 @@ class MemoryTest {
          *
          *  This case should be treated in the same way that test14.
          */
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r10 = Value.Reg(SbfRegister.R10)
 
         val absVal1 = createMemoryDomain()
         val stack1 = absVal1.getRegCell(r10)
@@ -784,9 +784,9 @@ class MemoryTest {
         stack1.getNode().setRead()
         stack1.getNode().mkLink(4040, 4, stack1.getNode().createCell(4036))
 
-        absVal1.getScalars().forget(Value.Reg(SbfRegister.R1_ARG))
+        absVal1.getScalars().forget(Value.Reg(SbfRegister.R1))
         val integerNode = absVal1.getPTAGraph().mkIntegerNode()
-        absVal1.getPTAGraph().setRegCell(Value.Reg(SbfRegister.R1_ARG), integerNode.createSymCell(0))
+        absVal1.getPTAGraph().setRegCell(Value.Reg(SbfRegister.R1), integerNode.createSymCell(0))
 
         val absVal2 = createMemoryDomain()
         val stack2 = absVal2.getRegCell(r10)
@@ -794,8 +794,8 @@ class MemoryTest {
         stack2.getNode().setRead()
         stack2.getNode().mkLink(4040, 4, stack2.getNode().createCell(4036))
         // R1 points to (stack, 4040)
-        absVal2.getPTAGraph().setRegCell(Value.Reg(SbfRegister.R1_ARG), stack2.getNode().createSymCell(4040))
-        absVal2.getScalars().setScalarValue(Value.Reg(SbfRegister.R1_ARG), ScalarValue(SbfType.PointerType.Stack(Constant(4040))))
+        absVal2.getPTAGraph().setRegCell(Value.Reg(SbfRegister.R1), stack2.getNode().createSymCell(4040))
+        absVal2.getScalars().setScalarValue(Value.Reg(SbfRegister.R1), ScalarValue(SbfType.PointerType.Stack(Constant(4040))))
 
         sbfLogger.warn{"\nAbsVal1=$absVal1\nAbsVal2=$absVal2"}
         ConfigScope(DefactoSemantics, false).use {
@@ -805,7 +805,7 @@ class MemoryTest {
                 val absVal4 = absVal2.join(absVal1)
                 sbfLogger.warn { "absVal4 := join(absVal2, absVal1) --> \n$absVal4" }
                 Assertions.assertEquals(true, absVal3.lessOrEqual(absVal4) && absVal4.lessOrEqual(absVal3))
-                Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1_ARG)) != null)
+                Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1)) != null)
             }
         }
     }
@@ -814,7 +814,7 @@ class MemoryTest {
     @Test
     fun `pseudo-canonicalize (1)`() {
         println("====== TEST 16 pseudo-canonicalize =======")
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r10 = Value.Reg(SbfRegister.R10)
 
         val absVal1 = createMemoryDomain()
         val g1 = absVal1.getPTAGraph()
@@ -827,8 +827,8 @@ class MemoryTest {
         stack1.getNode().setRead()
         stack1.getNode().mkLink(4040, 4, n1.createCell(0))
         stack1.getNode().mkLink(4044, 4, n2.createCell(0))
-        g1.setRegCell(Value.Reg(SbfRegister.R2_ARG), stack1.getNode().createSymCell(4040))
-        g1.setRegCell(Value.Reg(SbfRegister.R3_ARG), stack1.getNode().createSymCell(4044))
+        g1.setRegCell(Value.Reg(SbfRegister.R2), stack1.getNode().createSymCell(4040))
+        g1.setRegCell(Value.Reg(SbfRegister.R3), stack1.getNode().createSymCell(4044))
         absVal1.getScalars().setStackContent(4040, 4,  ScalarValue(sbfTypesFac.toNum(0)))
         absVal1.getScalars().setStackContent(4044, 4,  ScalarValue(sbfTypesFac.toNum(0)))
 
@@ -859,7 +859,7 @@ class MemoryTest {
     @Test
     fun `pseudo-canonicalize (2)`() {
         println("====== TEST 17 pseudo-canonicalize=======")
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r10 = Value.Reg(SbfRegister.R10)
 
         val absVal1 = createMemoryDomain()
         val g1 = absVal1.getPTAGraph()
@@ -871,7 +871,7 @@ class MemoryTest {
         n2.setWrite()
         stack1.getNode().setRead()
         stack1.getNode().mkLink(4040, 8, n1.createCell(0))
-        g1.setRegCell(Value.Reg(SbfRegister.R2_ARG), stack1.getNode().createSymCell(4040))
+        g1.setRegCell(Value.Reg(SbfRegister.R2), stack1.getNode().createSymCell(4040))
         absVal1.getScalars().setStackContent(4040, 8,  ScalarValue(sbfTypesFac.toNum(0)))
 
         val absVal2 = createMemoryDomain()
@@ -900,9 +900,9 @@ class MemoryTest {
     @Test
     fun `select example`() {
         println("====== TEST 18 (SELECT) =======")
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r10 = Value.Reg(SbfRegister.R10)
 
         val absVal = createMemoryDomain()
         val g = absVal.getPTAGraph()
@@ -921,7 +921,7 @@ class MemoryTest {
         g.doSelect(
             LocatedSbfInstruction(Label.fresh(),
             0,
-            SbfInstruction.Select(r1, Condition(CondOp.EQ, Value.Reg(SbfRegister.R3_ARG), Value.Imm(0UL)), r1, r2)),
+            SbfInstruction.Select(r1, Condition(CondOp.EQ, Value.Reg(SbfRegister.R3), Value.Imm(0UL)), r1, r2)),
             ScalarDomain.makeTop(sbfTypesFac, GlobalState(globals, memSummaries))
         )
         println("\nAfter:\n$g")
@@ -947,7 +947,7 @@ class MemoryTest {
     fun `reconstruction from integer cells`() {
         println("====== TEST 19: reconstructFromIntegerCells =======")
 
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r10 = Value.Reg(SbfRegister.R10)
         val absVal = createMemoryDomain()
         val stack = absVal.getRegCell(r10)
         check(stack != null) { "memory domain cannot find the stack node" }
@@ -1025,7 +1025,7 @@ class MemoryTest {
             processor = null).getPost(Label.Address(0))
         println("$cfg\nResults=$results")
         check(results != null)
-        val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R2_ARG))
+        val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R2))
         check(sc != null)
         Assertions.assertEquals(true, sc.concretize().getOffset().v == 4088L)
     }
@@ -1054,7 +1054,7 @@ class MemoryTest {
             processor = null).getPost(Label.Address(0))
         println("$cfg\nResults=$results")
         check(results != null)
-        val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R2_ARG))
+        val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R2))
         check(sc != null)
         Assertions.assertEquals(true, sc.concretize().getOffset().v == 4088L)
     }
@@ -1103,7 +1103,7 @@ class MemoryTest {
             processor = null).getPost(Label.Address(5))
         println("$results")
         check(results != null)
-        val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R2_ARG))
+        val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R2))
         check(sc != null)
         Assertions.assertEquals(true, sc.getNode().flags.isMayStack)
     }
@@ -1154,7 +1154,7 @@ class MemoryTest {
             processor = null).getPost(Label.Address(5))
         println("$results")
         check(results != null)
-        val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG))
+        val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4))
         check(sc != null)
         Assertions.assertEquals(true, sc.getNode().flags.isMayStack)
     }
@@ -1163,12 +1163,12 @@ class MemoryTest {
     fun `materialization of stack`() {
         println("====== TEST 24: materialize stack (memcpy) =======")
 
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r4 = Value.Reg(SbfRegister.R4_ARG)
-        val r5 = Value.Reg(SbfRegister.R5_ARG)
+        val r10 = Value.Reg(SbfRegister.R10)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r4 = Value.Reg(SbfRegister.R4)
+        val r5 = Value.Reg(SbfRegister.R5)
         val absVal = createMemoryDomain()
         val stack = absVal.getRegCell(r10)
         check(stack != null) { "memory domain cannot find the stack node" }
@@ -1218,12 +1218,12 @@ class MemoryTest {
     fun `materialization of stack with memcpy followed by store`() {
         println("====== TEST 25: materialize stack (memcpy+store) =======")
 
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
-        val r4 = Value.Reg(SbfRegister.R4_ARG)
-        val r5 = Value.Reg(SbfRegister.R5_ARG)
+        val r10 = Value.Reg(SbfRegister.R10)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r4 = Value.Reg(SbfRegister.R4)
+        val r5 = Value.Reg(SbfRegister.R5)
 
         val absVal = createMemoryDomain()
         val stack = absVal.getRegCell(r10)
@@ -1342,7 +1342,7 @@ class MemoryTest {
             )
             println("$results")
             check(results != null)
-            val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG))
+            val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4))
             Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayExternal)
         }
     }
@@ -1388,7 +1388,7 @@ class MemoryTest {
             ).getPost((Label.Address(3)))
             println("$results")
             check(results != null)
-            val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG))
+            val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4))
             Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayInteger())
         }
     }
@@ -1529,11 +1529,11 @@ class MemoryTest {
                     ).getPost((Label.Address(3)))
                     println("$results")
                     check(results != null)
-                    results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG)).let { sc ->
+                    results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4)).let { sc ->
                         Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayInteger())
                     }
 
-                    results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R5_ARG)).let { sc ->
+                    results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R5)).let { sc ->
                         Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayInteger())
                     }
                 }
@@ -1634,7 +1634,7 @@ class MemoryTest {
                     ).getPost((Label.Address(3)))
                     println("$results")
                     check(results != null)
-                    val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG))
+                    val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4))
                     Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayInteger())
                 }
             }

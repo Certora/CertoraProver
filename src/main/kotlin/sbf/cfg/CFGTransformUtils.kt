@@ -38,7 +38,7 @@ fun <D, TNum, TOffset>
     return if (regType is SbfType.PointerType.Stack) {
         val regOffset = regType.offset.toLongOrNull() ?: return null
         val derefOffset = regOffset + offset
-        val r10 = SbfRegister.R10_STACK_POINTER
+        val r10 = SbfRegister.R10
         val r10Type = types.typeAtInstruction(locatedInst, r10)
         check(r10Type is SbfType.PointerType.Stack) { "normalizeStackAccess: scalar analysis lost track of r10 at $locatedInst (1)" }
         val stackPtr = r10Type.offset.toLongOrNull()

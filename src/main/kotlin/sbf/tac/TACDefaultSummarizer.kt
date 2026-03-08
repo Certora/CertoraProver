@@ -104,7 +104,7 @@ internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
 
         }
     }
-    cmds.add(TACCmd.Simple.AssigningCmd.AssignHavocCmd(exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)))
+    cmds.add(TACCmd.Simple.AssigningCmd.AssignHavocCmd(exprBuilder.mkVar(SbfRegister.R0)))
     if (memoryAnalysis?.memSummaries?.getSummary(inst.name) == null) {
         unsupportedCalls.add(inst.name)
     }

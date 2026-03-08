@@ -92,7 +92,7 @@ private typealias InsPtr = Pair<Label, Int>
  */
 
 private const val ALIGNMENT = 8
-private val STACKREG = Value.Reg(SbfRegister.R10_STACK_POINTER)
+private val STACKREG = Value.Reg(SbfRegister.R10)
 
 class DWARFEdgeLabelAnnotator(
     private val debugInformation: DebugSymbols,
@@ -739,7 +739,7 @@ fun List<DWARFOperation>.getRegisterAccess(register: SbfRegister): DWARFOperatio
         when (it) {
             is DWARFOperation.Register -> register.value == it.register.toByte()
             is DWARFOperation.RegisterOffset -> register.value == it.register.toByte()
-            is DWARFOperation.FrameOffset -> register == SbfRegister.R10_STACK_POINTER
+            is DWARFOperation.FrameOffset -> register == SbfRegister.R10
         }
     }
     if (filteredRes.size > 1) {

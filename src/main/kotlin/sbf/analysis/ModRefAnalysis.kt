@@ -286,9 +286,9 @@ class ModRefAnalysis<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>(
         solanaFunc: SolanaFunction
     ): Boolean {
 
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
 
         // If we don't know the length then we bail out
         val len = (types.typeAtInstruction(locInst, r3) as? SbfType.NumType)

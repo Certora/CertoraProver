@@ -79,7 +79,7 @@ private fun allUsesAreNumForPTA(loadInst: LocatedSbfInstruction,
                     if (isDead(nextUseLocInst, loadedRegisters, liveness, false)) {
                         return Pair(SbfMeta.LOADED_AS_NUM_FOR_PTA, false)
                     }
-                } else if (!(loadedReg.r >= SbfRegister.R6 && loadedReg.r <= SbfRegister.R9)) {
+                } else if (loadedReg.r !in SbfRegister.registersToSaveOrRestore) {
                     if (nextUseInst.isSaveScratchRegisters() || nextUseInst.isRestoreScratchRegisters()) {
                         nextPos = nextUseLocInst.pos + 1
                         continue@inner

@@ -209,7 +209,7 @@ private class Inliner(val entry: String,
 
         private fun createFrameAdjustment(op: BinOp) = SbfInstruction.Bin(
             op,
-            Value.Reg(SbfRegister.R10_STACK_POINTER),
+            Value.Reg(SbfRegister.R10),
             Value.Imm(frameSize),
             is64 = true
         )
@@ -376,6 +376,10 @@ private class Inliner(val entry: String,
                 )
                 continue
             }
+            if (callSite.isAllocFn() || callSite.isDeallocFn()) {
+                continue
+            }
+
             val clonedCalleeCFG = copy(calleeCFG)
             inlineFunction(clonedCalleeCFG, callStack, recursiveFunctions, nextDepth)
             sbfLogger.debug {

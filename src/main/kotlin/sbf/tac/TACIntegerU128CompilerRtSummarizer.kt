@@ -79,19 +79,19 @@ open class SummarizeIntegerU128CompilerRt<TNum : INumValue<TNum>, TOffset : IOff
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     internal fun getArgsFromU128BinaryCompilerRt(locInst: LocatedSbfInstruction): U128BinaryOperands? {
         val (resLow, resHigh, overflow) = getResFrom128(locInst) ?: return null
-        val xLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R2_ARG))
-        val xHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R3_ARG))
-        val yLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R4_ARG))
-        val yHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R5_ARG))
+        val xLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R2))
+        val xHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R3))
+        val yLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R4))
+        val yHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R5))
         return U128BinaryOperands(resLow.tacVar, resHigh.tacVar, overflow?.tacVar, xLowE, xHighE, yLowE, yHighE)
     }
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     internal fun getArgsFromU128ShiftCompilerRt(locInst: LocatedSbfInstruction): U128ShiftOperands? {
         val (resLow, resHigh, _) = getResFrom128(locInst) ?: return null
-        val xLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R2_ARG))
-        val xHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R3_ARG))
-        val shiftE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R4_ARG))
+        val xLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R2))
+        val xHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R3))
+        val shiftE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R4))
         return U128ShiftOperands(resLow.tacVar, resHigh.tacVar, xLowE, xHighE, shiftE)
     }
 }
