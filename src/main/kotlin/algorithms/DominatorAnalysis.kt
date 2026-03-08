@@ -233,3 +233,13 @@ fun SimpleDominanceAnalysis<NBId>.strictlyDominates(x : CmdPointer, y : CmdPoint
 fun SimpleDominanceAnalysis<NBId>.dominates(x : LTACCmd, y : LTACCmd) =
     dominates(x.ptr, y.ptr)
 
+// Infix versions of the above functions for better readability sometimes
+context(SimpleDominanceAnalysis<NBId>)
+@JvmName("dominates1")
+infix fun CmdPointer.dominates(y : CmdPointer) = dominates(this, y)
+context(SimpleDominanceAnalysis<NBId>)
+@JvmName("strictlyDominates1")
+infix fun CmdPointer.strictlyDominates(y : CmdPointer) = strictlyDominates(this, y)
+context(SimpleDominanceAnalysis<NBId>)
+@JvmName("dominates2")
+infix fun LTACCmd.dominates(y : LTACCmd) = dominates(this, y)
