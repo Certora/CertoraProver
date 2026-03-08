@@ -520,21 +520,35 @@ object Summarizer {
 
     /**
      * There are few dispatcher flows that reuse this flow here and need to decide which methods to inline. The flow _slightly_ diverges.
-     * The [analysis.icfg.Summarization.AppliedSummary.LateInliningDispatcher] is allowed to call several methods with different sighashes.
+     * The [Summarization.AppliedSummary.LateInliningDispatcher] is allowed to call several methods with different sighashes.
      * The dispatcher summary `_.foo() => DISPATCHER(...)` ([com.certora.certoraprover.cvl.CallSummary.Dispatcher])
-     * or [analysis.icfg.Summarization.AppliedSummary.Config.AutoDispatcher] strictly only allow
+     * or [Summarization.AppliedSummary.Config.AutoDispatcher] strictly only allow
      * a single sighash to be resolved. (A dispatcher summary can only be applied when the sighash is resolved uniquely.)
      *
-     * For the [analysis.icfg.Summarization.AppliedSummary.LateInliningDispatcher] this methods also filters
-     * out methods for which the inputs don't match (using [instrumentation.calls.CalldataEncoding.checkInputSizeForNonArgsOnly] and
-     * [instrumentation.calls.CalldataEncoding.checkInputSizeForArgsOnly]).
+     * For the [Summarization.AppliedSummary.LateInliningDispatcher] this methods also filters
+     * out methods for which the inputs don't match (using [CalldataEncoding.checkInputSizeForNonArgsOnly] and
+     * [CalldataEncoding.checkInputSizeForArgsOnly]).
      */
-    private fun getCalleeMethodsForDispatcherSummary(scene: IScene, callSumm: CallSummary, isLateInlininedDispatcher: Boolean): List<ITACMethod> {
+    private fun getCalleeMethodsForDispatcherSummary(scene: IScene, where: LTACCmdView<TACCmd.Simple.SummaryCmd>, isLateInlininedDispatcher: Boolean): List<ITACMethod> {
+        val callSumm = where.cmd.summ
+        require(callSumm is CallSummary) { "Expected $callSumm to be a ${CallSummary::javaClass.name}" }
         check(isLateInlininedDispatcher || callSumm.sigResolution.size == 1) {
             "Expected the sighash resolution of $callSumm to be of size 1 (got ${callSumm.sigResolution.size})"
         }
-        check(callSumm.sigResolution.none { it == null } ) {
-            "We don't support dispatcher summary on the fallback function"
+        if(callSumm.sigResolution.any { it == null }) {
+            val msg = "The signature resolution for a dispatcher summary resolved to a fallback function. This is unsupported."
+            CVTAlertReporter.reportAlert(
+                type = CVTAlertType.SUMMARIZATION,
+                severity = CVTAlertSeverity.ERROR,
+                jumpToDefinition = where.cmd.metaSrcInfo?.getSourceDetails(),
+                message = msg,
+                hint = "Check the location provided in this notification's 'jump to source'.",
+                url = CheckedUrl.SUMMARIES
+            )
+            throw CertoraException(
+                CertoraErrorType.UNSUPPORTED_SUMMARIZATION,
+                msg = msg
+            )
         }
         val resolution = (callSumm.callTarget.map {
             (it as? CallGraphBuilder.CalledContract.CreatedReference.Resolved)?.tgtConntractId
@@ -552,7 +566,7 @@ object Summarizer {
 
     /**
      * Depending on the caller and the [appliedSummary] type, inlines the callees
-     * for the DISPATCHER summary, for the [analysis.icfg.Summarization.AppliedSummary.Config.AutoDispatcher]
+     * for the DISPATCHER summary, for the [Summarization.AppliedSummary.Config.AutoDispatcher]
      * or for the [Summarization.AppliedSummary.LateInliningDispatcher]
      */
     fun inlineDispatcherSummary(
@@ -576,7 +590,7 @@ object Summarizer {
         val defaultHavocType =
             Havocer.resolveHavocType(scene, caller, callSumm, SpecCallSummary.HavocSummary.Auto(SpecCallSummary.SummarizationMode.UNRESOLVED_ONLY))
 
-        val calleeMethods = getCalleeMethodsForDispatcherSummary(scene, callSumm, appliedSummary is Summarization.AppliedSummary.LateInliningDispatcher).toMutableList()
+        val calleeMethods = getCalleeMethodsForDispatcherSummary(scene, where, appliedSummary is Summarization.AppliedSummary.LateInliningDispatcher).toMutableList()
         if (summ.useFallback) {
             calleeMethods.addAll(scene.getContracts()
                 .filter { contract ->
@@ -997,7 +1011,7 @@ object Summarizer {
          *
          * This ultimately delegates (haha) to the [inliningDecisionManager] manager's [InliningDecisionManager.shouldInline];
          * the information about the value of `thisAtCall` is extract from the call stack (reported by [stack]) using the
-         * [analysis.icfg.InterContractCallResolver.ThisInference.Infer]. Recall that this inference finds the "most recent"
+         * [InterContractCallResolver.ThisInference.Infer]. Recall that this inference finds the "most recent"
          * direct call in the callstack, and takes that to be the value of this.
          */
         fun shouldInline(where: LTACCmdView<TACCmd.Simple.SummaryCmd>, callee: ITACMethod): Boolean {
@@ -1062,7 +1076,7 @@ object Summarizer {
             is Summarization.AppliedSummary.Config.AutoDispatcher -> {
                 // There are 2 options: Either there are methods to inline here, in which case we want to use optimistic
                 // dispatcher, or there aren't any methods to inline and then we want to havoc (i.e. non-optimistic).
-                val optimistic = getCalleeMethodsForDispatcherSummary(scene, where.cmd.summ as CallSummary, false).isNotEmpty()
+                val optimistic = getCalleeMethodsForDispatcherSummary(scene, where, false).isNotEmpty()
                 return inlineDispatcherSummary(
                     scene,
                     caller,
@@ -1432,7 +1446,7 @@ object Summarizer {
                                 extcodesizeAssumptionVar,
                                 TACExpr.BinRel.Gt(
                                     extcodesizeLoad.cmd.lhs.asSym(),
-                                    TACSymbol.Zero.asSym()
+                                    Zero.asSym()
                                 )
                             ),
                             TACCmd.Simple.AssumeCmd(extcodesizeAssumptionVar, "extcodesizeAssumption")
