@@ -228,23 +228,31 @@ fun <D, TNum, TOffset> findWideningAndNarrowingRewritesIntraBlock(
           D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
 
     val rewrites = mutableListOf<MemcpyRewrite>()
-
     // used to find the definition of a value to be stored
-    val defLoads = mutableMapOf<SbfRegister, LocatedSbfInstruction>()
-
+    val defLoads = mutableMapOf<SbfRegister, Pair<LocatedSbfInstruction, ULong>>()
+    // a load can be paired with a stored if they are at the same stack depth
+    var curStackDepth = 0UL
     for (locInst in bb.getLocatedInstructions()) {
-        when(val inst = locInst.inst) {
-            is SbfInstruction.Mem -> {
+        val inst = locInst.inst
+        when {
+            inst.isSaveScratchRegisters() ->  curStackDepth++
+            inst.isRestoreScratchRegisters() -> curStackDepth--
+            inst is SbfInstruction.Mem -> {
                 when (inst.isLoad) {
                     true -> {
-                        defLoads[(inst.value as Value.Reg).r] = locInst
+                        defLoads[(inst.value as Value.Reg).r] = locInst to curStackDepth
                     }
                     false -> {
                         val value = inst.value
                         if (value !is Value.Reg) {
                             continue
                         }
-                        val loadInst = defLoads[value.r] ?: continue
+                        val (loadInst, stackDepth) = defLoads[value.r] ?: continue
+
+                        // We only pair load and stores at the same stack depth
+                        if (curStackDepth != stackDepth) {
+                            continue
+                        }
 
                         val loadedMemAccess = normalizeLoadOrStore(loadInst, types)
                         val storedMemAccess = normalizeLoadOrStore(locInst, types)
