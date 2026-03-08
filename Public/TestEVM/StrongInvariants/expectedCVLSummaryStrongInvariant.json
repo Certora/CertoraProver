@@ -1,0 +1,13 @@
+{
+	"rules": {
+		"strongInvariantCallingSolidityWithExternalCall": {
+			"Induction step (strong invariant): after external (non-view) methods and before unresolved calls": {
+				"Using general requirements": {
+					"SUCCESS": [
+						"shouldSucceed_beforeUnresolvedCall(address)"
+					]
+				}
+			}
+		}
+	}
+}
