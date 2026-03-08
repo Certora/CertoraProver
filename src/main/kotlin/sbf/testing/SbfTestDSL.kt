@@ -151,16 +151,30 @@ object SbfTestDSL {
 
         }
 
-
-        operator fun Any.get(offset: Short): BuilderLVal {
+        operator fun Any.get(offset: Short, width: Int = 8): BuilderLVal {
             check (this@get is BuilderValue.Reg)
-            return BuilderLVal(this@get, offset)
+            check (width == 1 || width == 2 || width == 4 || width == 8) {
+                "Memory access width must be 1, 2, 4, or 8 bytes, got $width"
+            }
+            return BuilderLVal(this@get, offset, width)
         }
 
+        // r[offset] = v defaults to 8 bytes (backward compatible)
         operator fun Any.set(offset: Short, x: Any) {
             check (this@set is BuilderValue.Reg)
             SbfInstruction.Mem(
                 Deref(8, this@set.v, offset), x.builderValue.v, isLoad = false
+            ).push()
+        }
+
+        // r[offset, width] = v selects the byte width explicitly
+        operator fun Any.set(offset: Short, width: Int, x: Any) {
+            check (this@set is BuilderValue.Reg)
+            check (width == 1 || width == 2 || width == 4 || width == 8) {
+                "Memory access width must be 1, 2, 4, or 8 bytes, got $width"
+            }
+            SbfInstruction.Mem(
+                Deref(width.toShort(), this@set.v, offset), x.builderValue.v, isLoad = false
             ).push()
         }
 
@@ -200,8 +214,9 @@ object SbfTestDSL {
             ).push()
         }
 
-        data class BuilderLVal(val v: BuilderValue.Reg, val offset: Short) {
-            operator fun plus(off: Short) = BuilderLVal(v, (this.offset + off).toShort())
+
+        data class BuilderLVal(val v: BuilderValue.Reg, val offset: Short, val width: Int = 8) {
+            operator fun plus(off: Short) = BuilderLVal(v, (this.offset + off).toShort(), width)
         }
 
         private fun binOp(op: BinOp, lhs: BuilderValue.Reg, rhs: Any, is64:Boolean = true) {
@@ -214,7 +229,7 @@ object SbfTestDSL {
                 is BuilderLVal ->
                     SbfInstruction.Mem(
                         Deref(
-                            8,
+                            x.width.toShort(),
                             x.v.v,
                             x.offset
                         ),
@@ -233,7 +248,7 @@ object SbfTestDSL {
         infix fun BuilderLVal.`=`(x: Any) {
             SbfInstruction.Mem(
                 Deref(
-                    8,
+                    this.width.toShort(),
                     Value.Reg(this.v.reg),
                     this.offset,
                 ),

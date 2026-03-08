@@ -21,10 +21,92 @@ import sbf.disassembler.*
 import sbf.cfg.*
 import sbf.support.*
 import datastructures.stdcollections.*
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.persistentListOf
 import sbf.callgraph.SolanaFunction
 
 /** For internal errors **/
 class ScalarDomainError(msg: String): SolanaInternalError("ScalarDomain error: $msg")
+
+/**
+ * Result of resolving a memory access (base register + offset) to concrete stack offsets.
+ **/
+sealed class StackAccessResolution {
+    /** The type of the base register is top (unknown) **/
+    object UnknownBase : StackAccessResolution()
+    /** The base register is not a stack pointer **/
+    object NonStack : StackAccessResolution()
+    /** The stack offset could not be resolved to a concrete value **/
+    object UnknownOffset : StackAccessResolution()
+    /** One or more concrete stack offsets **/
+    data class KnownOffsets(val offsets: List<Long>) : StackAccessResolution() {
+        init { check(offsets.isNotEmpty()) }
+    }
+}
+
+/**
+ * Resolves a memory access at [baseReg] + [offset] to concrete stack offsets,
+ * using [scalars] to look up the type of [baseReg].
+ **/
+fun <TNum, TOffset, D> resolveStackAccess(
+    baseReg: Value.Reg,
+    offset: Long,
+    scalars: D
+): StackAccessResolution
+where TNum: INumValue<TNum>,
+      TOffset: IOffset<TOffset>,
+      D: ScalarValueProvider<TNum, TOffset> {
+
+    val baseTy = scalars.getAsScalarValue(baseReg).type()
+    if (baseTy.isTop()) {
+        return StackAccessResolution.UnknownBase
+    }
+
+    val stackPtrTy = (baseTy as? SbfType.PointerType.Stack)
+        ?: return StackAccessResolution.NonStack
+
+    val stackTOffsets = stackPtrTy.offset.add(offset)
+    check(!stackTOffsets.isBottom())
+
+    return when {
+        stackTOffsets.isTop() -> StackAccessResolution.UnknownOffset
+        else -> {
+            val offsets = stackTOffsets.toLongList()
+            check(offsets.isNotEmpty())
+            StackAccessResolution.KnownOffsets(offsets)
+        }
+    }
+}
+
+// We define our own zip for PersistentList to avoid creating a new PersistentList from scratch
+// Hopefully, the number of elements that are transformed is small so that there are few changes
+// to the PersistentList
+fun <A> PersistentList<A>.zipToPersistent(
+    other: PersistentList<A>,
+    transform: (A, A) -> A
+): PersistentList<A> {
+    check(this.size == other.size)
+    val size = this.size
+    var result = this
+    for (i in 0 until size) {
+        result = result.set(i, transform(this[i], other[i]))
+    }
+    return result
+}
+
+// We define our own map for PersistentList to avoid creating a new PersistentList from scratch.
+// Hopefully, the number of elements that are transformed is small so that there are few changes
+// to the PersistentList
+fun <A> PersistentList<A>.mapToPersistent(
+    transform: (A) -> A
+): PersistentList<A> {
+    val size = this.size
+    var result = this
+    for (i in 0 until size) {
+        result = result.set(i, transform(this[i]))
+    }
+    return result
+}
 
 /**
  * Base class that contains lattice operations and some helpers to build scalar domains.
@@ -32,16 +114,34 @@ class ScalarDomainError(msg: String): SolanaInternalError("ScalarDomain error: $
  * This generic scalar domain consists of:
  *
  * - regular registers `r0,r1,...,r10` where each register is mapped to [ScalarValue]
- * - scratch registers where each register is mapped to [ScalarValue].
+ * - scratch stack where each register is mapped to [ScalarValue].
  *   This is a stack whose size is multiple of 4 which is the number of scratch registers.
  * - stack where each location is mapped to [ScalarValue]
  */
 class ScalarBaseDomain<ScalarValue>(
     private var isBot: Boolean, /* to represent error or unreachable state */
     private val sFac: IScalarValueFactory<ScalarValue>,
+    /** stack **/
     private var stack: StackEnvironment<ScalarValue>,
+    /** registers r0-r10 **/
     private val registers: ArrayList<ScalarValue>,
-    private val scratchRegisters: ArrayList<ScalarValue>
+    /**
+     * The "scratch stack" tracks the saving and restoring of scratch registers (r6–r9)
+     * across calls and returns: on a call, r6–r9 are pushed; on a return,
+     * the top four elements are popped and restored into r6–r9.
+     *
+     * Join, inclusion and widening expect scratch stacks with same depth. This is guaranteed structurally
+     * by the WTO-based fixpoint: SBF enforces well-nested call/return pairs, so any loop either contains
+     * no calls/returns or only matched ones, meaning the scratch stack depth is invariant at any loop head and
+     * hence at any join point.
+     *
+     * The only subtlety is that "top" must preserve the scratch stack as-is, so that join, inclusion, and widening
+     * can operate on two states with same stack depths. This is different from the usual case where "top" is a
+     * single element. Here, there are many "top" elements, one per scratch stack configuration.
+     *
+     * We do not use `PersistentStack` because some operations require to modify an arbitrary element in the stack.
+     */
+    private var scratchRegisters: PersistentList<ScalarValue>
 
 ) where ScalarValue: StackEnvironmentValue<ScalarValue> {
 
@@ -54,22 +154,26 @@ class ScalarBaseDomain<ScalarValue>(
         this(isBot = false, sFac,
             StackEnvironment.makeTop(),
             ArrayList(NUM_OF_SBF_REGISTERS),
-            arrayListOf()) {
+            persistentListOf()) {
         repeat(NUM_OF_SBF_REGISTERS) {
             registers.add(sFac.mkTop())
         }
     }
 
     companion object {
-        fun <ScalarValue: StackEnvironmentValue<ScalarValue>> makeBottom(sFac: IScalarValueFactory<ScalarValue>): ScalarBaseDomain<ScalarValue> {
+        fun <ScalarValue: StackEnvironmentValue<ScalarValue>> makeBottom(
+            sFac: IScalarValueFactory<ScalarValue>
+        ): ScalarBaseDomain<ScalarValue> {
             return ScalarBaseDomain(isBot = true, sFac,
                 StackEnvironment.makeBottom(),
                 arrayListOf(),
-                arrayListOf()
+                persistentListOf()
             )
         }
 
-        fun <ScalarValue: StackEnvironmentValue<ScalarValue>> makeTop(sFac: IScalarValueFactory<ScalarValue>): ScalarBaseDomain<ScalarValue> {
+        fun <ScalarValue: StackEnvironmentValue<ScalarValue>> makeTop(
+            sFac: IScalarValueFactory<ScalarValue>
+        ): ScalarBaseDomain<ScalarValue> {
             return ScalarBaseDomain(sFac)
         }
 
@@ -88,11 +192,8 @@ class ScalarBaseDomain<ScalarValue>(
 
     fun deepCopy(): ScalarBaseDomain<ScalarValue> {
         val outRegisters = ArrayList<ScalarValue>(NUM_OF_SBF_REGISTERS)
-        val outScratchRegs = ArrayList<ScalarValue>(scratchRegisters.size)
-
         registers.forEach { outRegisters.add(it) }
-        scratchRegisters.forEach { outScratchRegs.add(it) }
-        return ScalarBaseDomain(isBot, sFac, stack, outRegisters, outScratchRegs)
+        return ScalarBaseDomain(isBot, sFac, stack, outRegisters, scratchRegisters)
     }
 
     /** Lattice operations **/
@@ -105,7 +206,14 @@ class ScalarBaseDomain<ScalarValue>(
         isBot = true
         stack = StackEnvironment.makeBottom()
         registers.clear()
-        scratchRegisters.clear()
+        scratchRegisters = persistentListOf()
+    }
+
+    private fun setToTop(): ScalarBaseDomain<ScalarValue> {
+        val res = makeTop(sFac)
+        // Even if the abstract state is top, we need to copy the scratch stack.
+        res.scratchRegisters = scratchRegisters
+        return res
     }
 
     private fun joinOrWiden(
@@ -118,7 +226,7 @@ class ScalarBaseDomain<ScalarValue>(
         } else if (other.isBottom()) {
             deepCopy()
         } else if (isTop() || other.isTop()) {
-            makeTop(sFac)
+            setToTop()
         } else {
             if (scratchRegisters.size != other.scratchRegisters.size) {
                 throw ScalarDomainError("joinOrWiden failed because disagreement on the number of scratch registers")
@@ -128,10 +236,11 @@ class ScalarBaseDomain<ScalarValue>(
             registers.forEachIndexed { i, it ->
                 outRegisters.add(mergeRegister(it, other.registers[i]))
             }
-            val outScratchRegs = ArrayList<ScalarValue>(scratchRegisters.size)
-            scratchRegisters.forEachIndexed { i, it ->
-                outScratchRegs.add(mergeRegister(it, other.scratchRegisters[i]))
+
+            val outScratchRegs = scratchRegisters.zipToPersistent(other.scratchRegisters) {
+                x, y -> mergeRegister(x,y)
             }
+
             ScalarBaseDomain(isBot = false, sFac,
                 mergeStack(stack, other.stack),
                 outRegisters,
@@ -140,9 +249,11 @@ class ScalarBaseDomain<ScalarValue>(
         }
     }
 
-    fun join(other: ScalarBaseDomain<ScalarValue>) =  joinOrWiden(other, {x, y-> x.join(y)}, {x, y-> x.join(y)})
+    fun join(other: ScalarBaseDomain<ScalarValue>) =
+        joinOrWiden(other, {x, y-> x.join(y)}, {x, y-> x.join(y)})
 
-    fun widen(other: ScalarBaseDomain<ScalarValue>) = joinOrWiden(other, {x, y-> x.widen(y)}, {x, y-> x.widen(y)})
+    fun widen(other: ScalarBaseDomain<ScalarValue>) =
+        joinOrWiden(other, {x, y-> x.widen(y)}, {x, y-> x.widen(y)})
 
     fun lessOrEqual(other: ScalarBaseDomain<ScalarValue>): Boolean {
         if (other.isTop() || isBottom()) {
@@ -171,7 +282,7 @@ class ScalarBaseDomain<ScalarValue>(
         return true
     }
 
-    override fun toString(): String {
+    fun toString(includeScratchRegs: Boolean): String {
         return when {
             isBottom() -> "bottom"
             isTop() -> "top"
@@ -188,10 +299,16 @@ class ScalarBaseDomain<ScalarValue>(
                     "$reg->$scalarVal"
                 }
 
-                "(Regs={$regsString},ScratchRegs=$scratchRegisters,Stack=$stack)"
+                if (includeScratchRegs) {
+                    "(Regs={$regsString},Stack=$stack,ScratchStack=$scratchRegisters)"
+                } else {
+                    "(Regs={$regsString},Stack=$stack)"
+                }
             }
         }
     }
+
+    override fun toString(): String = toString(includeScratchRegs = true)
 
     /** helpers for transfer functions **/
 
@@ -227,14 +344,18 @@ class ScalarBaseDomain<ScalarValue>(
 
 
     private fun pushScratchReg(v: ScalarValue) {
-        scratchRegisters.add(v)
+        scratchRegisters = scratchRegisters.add(v)
     }
 
     private fun popScratchReg(): ScalarValue {
         if (scratchRegisters.isEmpty()) {
             throw ScalarDomainError("stack of scratch registers cannot be empty")
         }
-        return scratchRegisters.removeLast()
+
+        val lastIdx = scratchRegisters.lastIndex
+        val last = scratchRegisters[lastIdx]
+        scratchRegisters = scratchRegisters.removeAt(lastIdx)
+        return last
     }
 
     private fun removeDeadStackFields(topStack: Long, useDynFrames: Boolean) {
@@ -254,13 +375,13 @@ class ScalarBaseDomain<ScalarValue>(
     fun saveScratchRegisters() {
         check(!isBottom()) {"Unexpected saveScratchRegisters on bottom"}
 
-        if (!isTop()) {
-            pushScratchReg(registers[6])
-            pushScratchReg(registers[7])
-            pushScratchReg(registers[8])
-            pushScratchReg(registers[9])
-        }
+        // We push the scratch registers even if the abstract state is top
+        pushScratchReg(registers[6])
+        pushScratchReg(registers[7])
+        pushScratchReg(registers[8])
+        pushScratchReg(registers[9])
     }
+
     /**
      *  Transfer function for `__CVT_restore_scratch_registers`
      *  Invariant ensured by CFG construction: `r10` has been decremented already
@@ -268,17 +389,16 @@ class ScalarBaseDomain<ScalarValue>(
     fun restoreScratchRegisters(topStack: Long, useDynFrames: Boolean) {
         check(!isBottom()) {"Unexpected restoreScratchRegisters on bottom"}
 
-        if (!isTop()) {
-            if (scratchRegisters.size < 4) {
-                throw ScalarDomainError("The number of calls to save/restore scratch registers must match: $scratchRegisters")
-            } else {
-                setRegister(Value.Reg(SbfRegister.R9), popScratchReg())
-                setRegister(Value.Reg(SbfRegister.R8), popScratchReg())
-                setRegister(Value.Reg(SbfRegister.R7), popScratchReg())
-                setRegister(Value.Reg(SbfRegister.R6), popScratchReg())
-                removeDeadStackFields(topStack, useDynFrames)
-            }
+        if (scratchRegisters.size < 4) {
+            throw ScalarDomainError("The number of calls to save/restore scratch registers must match: $scratchRegisters")
         }
+
+        // We pop from the scratch stack even if the abstract state is top
+        setRegister(Value.Reg(SbfRegister.R9), popScratchReg())
+        setRegister(Value.Reg(SbfRegister.R8), popScratchReg())
+        setRegister(Value.Reg(SbfRegister.R7), popScratchReg())
+        setRegister(Value.Reg(SbfRegister.R6), popScratchReg())
+        removeDeadStackFields(topStack, useDynFrames)
     }
 
     fun stackIterator() = stack.map { it.key to it.value}.iterator()
@@ -320,7 +440,7 @@ class ScalarBaseDomain<ScalarValue>(
                 if (pred(oldVal)) {
                     val newVal = transformer(oldVal)
                     check(!newVal.isBottom()) {"unexpected bottom in updateScratchRegisters"}
-                    scratchRegisters[i] = newVal
+                    scratchRegisters = scratchRegisters.set(i, newVal)
                 }
             }
         }

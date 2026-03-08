@@ -221,6 +221,8 @@ data class Condition(val op: CondOp,
     fun negate() = copy(op = op.negate())
 }
 
+fun Condition.getRegIfUnaryCondition() = left.takeIf { right is Value.Imm }
+
 data class Deref(val width: Short,
                  val typedBase: TypedReg,
                  val offset: Short) {
