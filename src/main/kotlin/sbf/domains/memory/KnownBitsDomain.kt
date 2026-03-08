@@ -740,6 +740,10 @@ class KnownBitsDomain(
             TOffset: IOffset<TOffset>,
             ScalarDomain: ScalarValueProvider<TNum, TOffset> {
 
+        if (isBottom()) {
+            return
+        }
+
         val cond = when (val inst = locInst.inst) {
             is SbfInstruction.Assume -> { inst.cond }
             is SbfInstruction.Assert -> { inst.cond }
@@ -995,7 +999,7 @@ class ScalarKnownBitsDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> pr
         knownBits: KnownBitsDomain
     ) {
 
-        if (scalars.isBottom()) {
+        if (isBottom()) {
             return
         }
 
