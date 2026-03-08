@@ -37,8 +37,11 @@ import utils.Color.Companion.blue
 import utils.Color.Companion.yellow
 import vc.data.*
 import vc.data.TACCmd.Simple.AssigningCmd.AssignExpCmd
-import vc.data.tacexprutil.*
 import vc.data.tacexprutil.ExprUnfolder.Companion.unfoldToSingleVar
+import vc.data.tacexprutil.asConstOrNull
+import vc.data.tacexprutil.asVarOrNull
+import vc.data.tacexprutil.isConst
+import vc.data.tacexprutil.isVar
 import java.math.BigInteger
 
 private val logger: Logger = Logger(LoggerTypes.BYTEMAP_INLINER)
@@ -232,27 +235,34 @@ class BytemapInliner private constructor(
 
     private val careFor =
         memoized { origPtr: CmdPointer, origCareStart: Term, careLength: Term, careForInside: Boolean ->
-            fun recurse(ptr: CmdPointer, careStart: Term): R? {
+            // this is nicer as recursion, but we run into stack overflow.
+            var ptr = origPtr
+            var careStart = origCareStart
+            var result: R? = null
+            while (true) {
                 fun t(v: TACSymbol) = tf.expr(ptr, v.asSym())!!
                 fun singleDef(v: TACSymbol.Var) = def.defSitesOf(v, ptr).singleOrNull()
 
-                return object : ByteMapCmdHandler<R> {
-                    override fun simpleAssign(lhs: TACSymbol.Var, rhs: TACSymbol.Var) =
-                        singleDef(rhs)
-                            ?.let { recurse(it, careStart) }
-                            ?: R(ptr, rhs, careStart)
+                // The handler returns null to terminate the loop (when no single def site exists), otherwise it
+                // updates `ptr` to point to the next map definition to examine, potentially updating `careStart` as well.
+                // We speculatively set `result` at each iteration, assuming it might be the final answer; if traversing
+                // to a deeper definition site yields a better result, it will overwrite this value.
+                val cmdHandler = object : ByteMapCmdHandler<Unit?> {
+                    override fun simpleAssign(lhs: TACSymbol.Var, rhs: TACSymbol.Var): Unit? {
+                        result = R(ptr, rhs, careStart)
+                        return singleDef(rhs)?.let { ptr = it /* this implicitly returns Unit (non-null) */ }
+                    }
 
                     override fun store(
                         lhs: TACSymbol.Var,
                         rhsBase: TACSymbol.Var,
                         loc: TACSymbol,
                         value: TACSymbol
-                    ): R? {
+                    ) = run {
                         val inBounds = tf.isInside(t(loc), careStart, careLength)
-                        return runIf(inBounds == true && !careForInside || inBounds == false && careForInside) {
-                            singleDef(rhsBase)
-                                ?.let { recurse(it, careStart) }
-                                ?: R(ptr, rhsBase, careStart)
+                        runIf(inBounds == true && !careForInside || inBounds == false && careForInside) {
+                            result = R(ptr, rhsBase, careStart)
+                            singleDef(rhsBase)?.let { ptr = it }
                         }
                     }
 
@@ -263,7 +273,7 @@ class BytemapInliner private constructor(
                         srcMap: TACSymbol.Var,
                         dstMap: TACSymbol.Var,
                         length: TACSymbol
-                    ): R? {
+                    ) : Unit? {
                         val lengthTerm = tf.rhsTerm(ptr, length)!!
                         val srcOffsetTerm = tf.rhsTerm(ptr, srcOffset)!!
                         val dstOffsetTerm = tf.rhsTerm(ptr, dstOffset)!!
@@ -276,17 +286,23 @@ class BytemapInliner private constructor(
                                 // The data came from srcMap, but at a shifted offset.
                                 // Example: lhs := dstMap[100.. = srcMap[50..+64]], careStart=120, careLength=32
                                 // Result: data comes from srcMap at offset 70 (120-100+50)
-                                true -> singleDef(srcMap)
-                                    ?.let { recurse(it, careStart + srcOffsetTerm - dstOffsetTerm) }
-                                    ?: R(ptr, srcMap, careStart + srcOffsetTerm - dstOffsetTerm)
+                                true -> {
+                                    val newCareStart = careStart + srcOffsetTerm - dstOffsetTerm
+                                    result = R(ptr, srcMap, newCareStart)
+                                    singleDef(srcMap)?.let {
+                                        ptr = it
+                                        careStart = newCareStart
+                                    }
+                                }
 
                                 // Case 2: Our region doesn't intersect the longstore's destination range.
                                 // The data came from the base dstMap unchanged.
                                 // Example: lhs := dstMap[100.. = srcMap[50..+64]], careStart=200, careLength=32
                                 // Result: data comes from dstMap at offset 200
-                                false -> singleDef(dstMap)
-                                    ?.let { recurse(it, careStart) }
-                                    ?: R(ptr, dstMap, careStart)
+                                false -> {
+                                    result = R(ptr, dstMap, careStart)
+                                    singleDef(dstMap)?.let { ptr = it }
+                                }
 
                                 // Case 3: Partial overlap - can't determine statically.
                                 null -> null
@@ -297,15 +313,17 @@ class BytemapInliner private constructor(
                             // Example: lhs := dstMap[100.. = srcMap[50..+64]], careStart=80, careLength=100
                             // The store [100..164) is fully inside [80..180), so we can look at dstMap's definition.
                             runIf(tf.isContainedIn(dstOffsetTerm, lengthTerm, careStart, careLength) == true) {
-                                singleDef(dstMap)
-                                    ?.let { recurse(it, careStart) }
-                                    ?: R(ptr, dstMap, careStart)
+                                result = R(ptr, dstMap, careStart)
+                                singleDef(dstMap)?.let { ptr = it }
                             }
                         }
                     }
-                }.handle(g.toCommand(ptr))
+                }
+                if (cmdHandler.handle(g.toCommand(ptr)) == null) {
+                    break
+                }
             }
-            recurse(origPtr, origCareStart)
+            result
         }
 
 
@@ -551,6 +569,4 @@ class BytemapInliner private constructor(
             BytemapInliner(code, isInlineable, cheap).rewrite()
     }
 
-
 }
-

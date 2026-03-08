@@ -34,10 +34,22 @@ class OptimizeBytemapsTest : TACBuilderAuxiliaries() {
     private fun ls(dstMap: TACSymbol.Var, dstOffset: Int, srcMap: TACSymbol.Var, srcOffset: Int, length: Int = 0x40) =
         TACExpr.LongStore(dstMap.asSym(), dstOffset.asTACExpr, srcMap.asSym(), srcOffset.asTACExpr, length.asTACExpr)
 
-    private fun ls(dstMap: TACSymbol.Var, dstOffset: TACSymbol, srcMap: TACSymbol.Var, srcOffset: TACSymbol, length: TACSymbol) =
+    private fun ls(
+        dstMap: TACSymbol.Var,
+        dstOffset: TACSymbol,
+        srcMap: TACSymbol.Var,
+        srcOffset: TACSymbol,
+        length: TACSymbol
+    ) =
         TACExpr.LongStore(dstMap.asSym(), dstOffset.asSym(), srcMap.asSym(), srcOffset.asSym(), length.asSym())
 
-    private fun ls(dstMap: TACSymbol.Var, dstOffset: TACExpr, srcMap: TACSymbol.Var, srcOffset: TACExpr, length: TACExpr) =
+    private fun ls(
+        dstMap: TACSymbol.Var,
+        dstOffset: TACExpr,
+        srcMap: TACSymbol.Var,
+        srcOffset: TACExpr,
+        length: TACExpr
+    ) =
         TACExpr.LongStore(dstMap.asSym(), dstOffset, srcMap.asSym(), srcOffset, length)
 
     private fun s(map: TACSymbol.Var, offset: Int, value: TACSymbol.Var) =
@@ -65,27 +77,31 @@ class OptimizeBytemapsTest : TACBuilderAuxiliaries() {
         )
     }
 
+    private val TACProgramBuilder.BlockBuilder.checkR
+        get() = run {
+            val tempReadVar = bv256Var("tempReadVar")
+            val tempAssertVar = boolVar("tempAssertVar")
+            tempReadVar assign rM[b]
+            tempAssertVar assign Eq(tempReadVar.asSym(), Zero)
+            assert(tempAssertVar)
+        }
+
     private fun runAndCompare(
         progGen: TACProgramBuilder.BlockBuilder.() -> Unit,
         expectedGen: TACProgramBuilder.BlockBuilder.() -> Unit,
-        justExp: Boolean = false
+        justExp: Boolean = false,
+        skipConeOfInf: Boolean = false
     ) {
-        val tempReadVar = bv256Var("tempReadVar")
-        val tempAssertVar = boolVar("tempAssertVar")
         val prog = TACProgramBuilder {
             progGen()
-            tempReadVar assign rM[b]
-            tempAssertVar assign Eq(tempReadVar.asSym(), Zero)
-            assert(tempAssertVar)
+            checkR
         }
         val expected = TACProgramBuilder {
             expectedGen()
-            tempReadVar assign rM[b]
-            tempAssertVar assign Eq(tempReadVar.asSym(), Zero)
-            assert(tempAssertVar)
+            checkR
         }
         val result = BytemapInliner.go(prog.code, { false }, cheap = false)
-            .let { BytemapConeOfInf.go(it, FilteringFunctions.NoFilter) }
+            .let { if (skipConeOfInf) it else BytemapConeOfInf.go(it, FilteringFunctions.NoFilter) }
         // TACProgramPrinter.standard().print(result)
         if (justExp) {
             // Fold to one expression, because we want to ignore the names of the temp vars the optimizer generates.
@@ -363,9 +379,7 @@ class OptimizeBytemapsTest : TACBuilderAuxiliaries() {
                 havoc(hM)
                 jump(3) {
                     rM assign ls(iM, 0x200, aM, 0x120)
-                    a assign rM[b]
-                    x assign Eq(aS, Zero)
-                    assert(x)
+                    checkR
                 }
             }
             jump(2) {
@@ -380,9 +394,7 @@ class OptimizeBytemapsTest : TACBuilderAuxiliaries() {
                 jump(3) {
                     aM assign s(hM, 0x1a0, a)
                     rM assign ls(iM, 0x200, aM, 0x120)
-                    a assign rM[b]
-                    x assign Eq(aS, Zero)
-                    assert(x)
+                    checkR
                 }
             }
             jump(2) {
@@ -573,7 +585,13 @@ class OptimizeBytemapsTest : TACBuilderAuxiliaries() {
                 havoc(eM)
                 havoc(dM)
                 havoc(b)
-                bM assign ls(aM, 0x100.asTACExpr, eM, bS, 0x80.asTACExpr)  // bM has store at [0x100, 0x180) from src[b, b+0x80)
+                bM assign ls(
+                    aM,
+                    0x100.asTACExpr,
+                    eM,
+                    bS,
+                    0x80.asTACExpr
+                )  // bM has store at [0x100, 0x180) from src[b, b+0x80)
                 rM assign ls(dM, 0x0, bM, 0x120, 0x40)  // Reading from [0x120, 0x160) - fully contained
             },
             expectedGen = {
@@ -673,6 +691,94 @@ class OptimizeBytemapsTest : TACBuilderAuxiliaries() {
                 rM assign ls(aM, cS, dM, Zero, 0x100.asTACExpr)
             },
         )
+    }
+
+    // Test case: careFor off-by-one bug - first iteration terminal case
+    // This test demonstrates the bug where if singleDef returns null on the first iteration,
+    // the iterative careFor returns null instead of R(origPtr, rhs, origCareStart).
+    // Chain: cM := aM, where aM has two def sites (no single def)
+    // The recursive version would return R(at=ptr_cM, mapVar=aM, offset=0x100)
+    // The buggy iterative version returns null because result is never set
+    @Test
+    fun careForOffByOneFirstIteration() {
+        val prog = TACProgramBuilder {
+            jump(1) {
+                havoc(aM)
+                jump(3) {
+                    havoc(bM)
+                    cM assign aM  // cM := aM, where aM has two def sites
+                    rM assign ls(bM, 0x0, cM, 0x100, 0x40)
+                    checkR
+                }
+            }
+            jump(2) {
+                havoc(aM)  // Second def site for aM
+                jump(3)
+            }
+        }
+        val expected = TACProgramBuilder {
+            jump(1) {
+                havoc(aM)
+                jump(3) {
+                    havoc(bM)
+                    cM assign aM
+                    // Should be able to see through cM to aM even though aM has multiple defs
+                    rM assign ls(bM, 0x0, aM, 0x100, 0x40)
+                    checkR
+                }
+            }
+            jump(2) {
+                havoc(aM)
+                jump(3)
+            }
+        }
+        val result = BytemapInliner.go(prog.code, { false }, cheap = false)
+        assertSameProg(expected.code, result)
+    }
+
+    // Test case: careFor off-by-one bug - Nth iteration terminal case
+    // This test demonstrates the bug where the iterative careFor returns a result
+    // one level too shallow when singleDef returns null on the Nth iteration.
+    // Chain: cM := bM, bM := aM, where aM has two def sites
+    // The recursive version would return R(at=ptr_bM, mapVar=aM, offset=0x100)
+    // The buggy iterative version returns R(at=ptr_cM, mapVar=bM, offset=0x100)
+    @Test
+    fun careForOffByOneNthIteration() {
+        val prog = TACProgramBuilder {
+            jump(1) {
+                havoc(aM)
+                jump(3) {
+                    havoc(dM)
+                    bM assign aM  // bM := aM, where aM has two def sites
+                    cM assign bM  // cM := bM (single def)
+                    rM assign ls(dM, 0x0, cM, 0x100, 0x40)
+                    checkR
+                }
+            }
+            jump(2) {
+                havoc(aM)  // Second def site for aM
+                jump(3)
+            }
+        }
+        val expected = TACProgramBuilder {
+            jump(1) {
+                havoc(aM)
+                jump(3) {
+                    havoc(dM)
+                    bM assign aM
+                    cM assign bM
+                    // Should trace through cM -> bM -> aM
+                    rM assign ls(dM, 0x0, aM, 0x100, 0x40)
+                    checkR
+                }
+            }
+            jump(2) {
+                havoc(aM)
+                jump(3)
+            }
+        }
+        val result = BytemapInliner.go(prog.code, { false }, cheap = false)
+        assertSameProg(expected.code, result)
     }
 
 }
