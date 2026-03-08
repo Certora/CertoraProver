@@ -777,7 +777,7 @@ fun List<DWARFOperation>.splitOperationsInPieces(variableType: RustType?): Map<P
         }
     }
 
-    check(lastSplit.second <= variableType.getByteSize()) { "The size of the type in the dwarf operation list (${lastSplit.second}) exceeds the variable type size (variable type size: ${variableType.getByteSize()}) - operations list $this, $variableType " }
+    checkWarn(lastSplit.second <= variableType.getByteSize()) { "The size of the type in the dwarf operation list (${lastSplit.second}) exceeds the variable type size (variable type size: ${variableType.getByteSize()}) - operations list $this, $variableType " }
     //Calling store as Result one last time to persist the remaining part.
     storeAsResult(lastSplit.first, lastSplit.second, variableType.getByteSize() - lastSplit.second)
     return offsetToOperations
