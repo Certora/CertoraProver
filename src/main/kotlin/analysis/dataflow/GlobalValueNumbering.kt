@@ -112,35 +112,52 @@ class GlobalValueNumbering(graph: TACCommandGraph, val followIdentities: Boolean
     }
 
     /**
-     * Return the set of variables whose value at [target] is equal
-     * to the value [source].second has at [source].first
+        Represents the value of a set of equivalent variables at a program point.
+     */
+    inner class Value(val node: Node) {
+        override fun equals(other: Any?) = other is Value && this.node == other.node
+        override fun hashCode() = node.hashCode()
+
+        /** The set of program variables represented by this value */
+        val vars get() = node.vars.programVariables().toSet()
+
+        /** Find copies of the value before the given command */
+        fun copiesBefore(cmd: CmdPointer) = cmdIn[cmd]?.let { findCopies(it) }.orEmpty()
+        /** Find copies of the value after the given command */
+        fun copiesAfter(cmd: CmdPointer) = cmdOut[cmd]?.let { findCopies(it) }.orEmpty()
+
+        private fun findCopies(sedHere: StrongEquivalenceDAG): Set<TACSymbol.Var> {
+            val versioned = node.vars.versioned()
+            val copyNode = sedHere.classes.firstOrNull {
+                versioned.containsAny(it.vars.versioned())
+            } ?: return setOf()
+            return copyNode.vars.programVariables().toSet()
+        }
+    }
+
+    fun valueBefore(cmd: CmdPointer, f: TACSymbol.Var): Value? = cmdIn[cmd]?.getNode(f)?.let { Value(it) }
+    fun valueAfter(cmd: CmdPointer, f: TACSymbol.Var): Value? = cmdOut[cmd]?.getNode(f)?.let { Value(it) }
+
+    /**
+     * Return the set of variables whose value before [target] is equal
+     * to the value [source].second has before [source].first
      */
     override fun findCopiesAt(target: CmdPointer, source: Pair<CmdPointer, TACSymbol.Var>): Set<TACSymbol.Var> =
-            cmdIn[target]?.let { sedHere ->
-                cmdIn[source.first]?.let { sedWithXValue ->
-                    sedWithXValue.getNode(source.second)?.vars?.versioned()?.let { versioned ->
-                        sedHere.classes.firstOrNull {
-                            versioned.containsAny(it.vars.versioned())
-                        }?.vars?.programVariables()?.toSet()
-                    }.orEmpty()
-                }
-            }.orEmpty()
+        valueBefore(source.first, source.second)?.copiesBefore(target).orEmpty()
 
     /**
      * Return the set of variables whose values are equal to [f] before
      * executing the command at [cmd]
      */
-    override fun equivBefore(cmd: CmdPointer, f: TACSymbol.Var): Set<TACSymbol.Var> {
-        return cmdIn[cmd]?.getNode(f)?.vars?.programVariables()?.toSet().orEmpty()
-    }
+    override fun equivBefore(cmd: CmdPointer, f: TACSymbol.Var): Set<TACSymbol.Var> =
+        valueBefore(cmd, f)?.vars.orEmpty()
 
     /**
      * Return the set of variables whose values are equal to [f] after
      * executing the command at [cmd]
      */
-    override fun equivAfter(cmd: CmdPointer, f: TACSymbol.Var): Set<TACSymbol.Var> {
-        return cmdOut[cmd]?.getNode(f)?.vars?.programVariables()?.toSet().orEmpty()
-    }
+    override fun equivAfter(cmd: CmdPointer, f: TACSymbol.Var): Set<TACSymbol.Var> =
+        valueAfter(cmd, f)?.vars.orEmpty()
 
     /**
      * Project out the unversioned, i.e. program variables
