@@ -342,6 +342,51 @@ class EvmAttributes(AttrUtil.Attributes):
         )
     )
 
+    RESOLVE_VYPER_IMPORTS = AttrUtil.AttributeDefinition(
+        arg_type=AttrUtil.AttrArgType.BOOLEAN,
+        help_msg="Whether to resolve Vyper imports (Vyper >= 4 only)",
+        default_desc="Vyper contracts are assumed not to use the import system",
+        argparse_args={
+            "action": AttrUtil.STORE_TRUE
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.SOLIDITY_COMPILER
+        )
+    )
+
+    VYPER_IMPORT_PATH = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_dir,
+        arg_type=AttrUtil.AttrArgType.LIST,
+        help_msg="Additional paths to search for Vyper imports (Vyper >= 4 only)",
+        default_desc="Only the Python system path will be searched",
+        argparse_args={
+            'nargs': AttrUtil.MULTIPLE_OCCURRENCES,
+            'action': AttrUtil.APPEND
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.NEW_SECTION
+        )
+    )
+
+    VYPER_SYSTEM_PATH = AttrUtil.AttributeDefinition(
+        arg_type=AttrUtil.AttrArgType.LIST,
+        help_msg="The system path to pass to Vyper (Vyper >= 4 only); typically automatically populated",
+        default_desc="Use the current Python system path",
+        argparse_args={
+            'nargs': AttrUtil.MULTIPLE_OCCURRENCES,
+            'action': AttrUtil.APPEND
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.NEW_SECTION
+        )
+    )
+
     VYPER_CUSTOM_STD_JSON_IN_MAP = AttrUtil.AttributeDefinition(
         arg_type=AttrUtil.AttrArgType.MAP,
         attr_validation_func=Vf.validate_vyper_custom_std_json_in_map,
@@ -2033,6 +2078,7 @@ class SolanaProverAttributes(CommonAttributes, InternalUseAttributes, BackendAtt
 ATTRIBUTES_CLASS: Optional[Type[AttrUtil.Attributes]] = None
 
 ARG_FLAG_LIST_ATTRIBUTES = ['prover_args', 'java_args']
+DUPLICATES_ALLOWED_LIST_ATTRIBUTES = [*ARG_FLAG_LIST_ATTRIBUTES, 'vyper_system_path']
 
 
 def get_attribute_class() -> Type[AttrUtil.Attributes]:

@@ -1596,12 +1596,12 @@ class CertoraBuildGenerator:
                                 "evm.bytecode.functionDebugData"]
             ast_selection = ["id", "ast"]
         elif compiler_collector_lang == CompilerLangVy():
-            # Hack: keep the "*" if we did not provide vyper_custom_std_json_in_map
+            sources_dict = {}
+            vyper_custom_std_json_in = None
+
             if self.context.vyper_custom_std_json_in_map:
                 main_contract_for_output_selection = contract_file_as_provided
-            sources_dict = {}
-            with open(contract_file_posix_abs) as f:
-                if self.context.vyper_custom_std_json_in_map and contract_file_as_provided in self.context.vyper_custom_std_json_in_map:
+                if contract_file_as_provided in self.context.vyper_custom_std_json_in_map:
                     """
                     If we're given a custom standard_json, we'll take from it the sources and
                     the search paths.
@@ -1613,18 +1613,36 @@ class CertoraBuildGenerator:
                     if we get more projects.
                     """
                     vyper_custom_std_json_in = self.context.vyper_custom_std_json_in_map[contract_file_as_provided]
-                    with open(vyper_custom_std_json_in) as custom:
-                        custom_json = json.load(custom)
-                        sources_dict = custom_json.get("sources", None)
-                        search_paths_arr = custom_json.get("settings", {}).get("search_paths", None)
-                        additional_asts = [x for x, _ in sources_dict.items() if x.endswith(".vy")]
-                if not sources_dict:
+            elif self.context.resolve_vyper_imports and compiler_collector.compiler_version >= (0, 4, 0):
+                main_contract_for_output_selection = contract_file_as_provided
+                """
+                If resolve_vyper_imports is enabled, we ask the vyper compiler to generate a standard_json for us.
+                """
+                compiler_ver_to_run = get_relevant_compiler(Path(contract_file_as_provided), self.context)
+                vyper_options = f"-f solc_json {contract_file_as_provided} --disable-sys-path"
+                for path in ((self.context.vyper_system_path or []) + (self.context.vyper_import_path or [])):
+                    vyper_options += f" -p {path}"
+                Util.run_compiler_cmd(f"{compiler_ver_to_run} {vyper_options}",
+                                      f"{contract_file_posix_abs.name}.std_json_generated.json",
+                                      wd=compile_wd)
+                vyper_custom_std_json_in = compiler_collector_lang.compilation_output_path(
+                    f"{contract_file_posix_abs.name}.std_json_generated.stdout.json")
+
+            if vyper_custom_std_json_in:
+                with open(vyper_custom_std_json_in) as custom:
+                    custom_json = json.load(custom)
+                    sources_dict = custom_json.get("sources", None)
+                    search_paths_arr = custom_json.get("settings", {}).get("search_paths", None)
+                    additional_asts = [x for x, _ in sources_dict.items() if x.endswith(".vy")]
+
+            if not sources_dict:
+                with open(contract_file_posix_abs) as f:
                     contents = f.read()
                     sources_dict = {str(contract_file_posix_abs): {"content": contents}}
-                output_selection = ["abi", "evm.bytecode", "evm.deployedBytecode", "evm.methodIdentifiers"]
-                if compiler_collector.compiler_version >= (0, 4, 4):
-                    output_selection += ["metadata", "evm.deployedBytecode.symbolMap"]
-                ast_selection = ["ast"]
+            output_selection = ["abi", "evm.bytecode", "evm.deployedBytecode", "evm.methodIdentifiers"]
+            if compiler_collector.compiler_version >= (0, 4, 4):
+                output_selection += ["metadata", "evm.deployedBytecode.symbolMap"]
+            ast_selection = ["ast"]
         else:
             # "non-compilable" language so no need to deal with it
             fatal_error(compiler_logger, "Expected only Solidity and Vyper as "
