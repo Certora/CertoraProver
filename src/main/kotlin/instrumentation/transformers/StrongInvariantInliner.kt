@@ -17,9 +17,9 @@
 
 package instrumentation.transformers
 
+import analysis.CmdPointer
 import analysis.CommandWithRequiredDecls.Companion.withDecls
 import analysis.LTACCmd
-import analysis.MutableCommandWithRequiredDecls
 import analysis.icfg.Havocer
 import analysis.icfg.MetaKeyPairDetector
 import analysis.icfg.SummaryStack
@@ -37,6 +37,7 @@ import tac.DataField
 import utils.*
 import vc.data.*
 import vc.data.ParametricInstantiation.Companion.toSimple
+import vc.data.TACCmd.Simple.AssigningCmd.AssignExpCmd
 import vc.data.TACMeta.CVL_ASSUME_INVARIANT_CMD_START
 import java.util.stream.Collectors
 
@@ -228,22 +229,21 @@ class StrongInvariantInliner(val scene: IScene, val cvlCompiler: CVLCompiler, va
      * Returns a mapping from CVL parameter to the set of TAC variables the parameter creates.
      */
     private fun CoreTACProgram.cvlAccessPathToTACVariable() = this.parallelLtacStream()
-        .mapNotNull { it.maybeAnnotation(CVLCompiler.Companion.TraceMeta.VariableDeclaration.META_KEY) }
-        .collect(Collectors.toSet()).flatMap { p ->
-            when (p.type) {
+        .mapNotNull { it.ptr `to?` it.maybeAnnotation(CVLCompiler.Companion.TraceMeta.VariableDeclaration.META_KEY) }
+        .collect(Collectors.toSet()).flatMap { (ptr, varDecl) ->
+            when (varDecl.type) {
                 is CVLCompiler.Companion.TraceMeta.DeclarationType.Parameter -> {
-                    when (p.v) {
+                    when (varDecl.v) {
                         is CVLCompiler.Companion.TraceMeta.ValueIdentity.CVLVar -> listOf()
-                        is CVLCompiler.Companion.TraceMeta.ValueIdentity.TACVar -> listOf(CVLAccessPath(p.type, listOf()) to p.v.t)
-                    } + (p.fields?.map { CVLAccessPath(p.type, it.key) to it.value } ?: listOf())
+                        is CVLCompiler.Companion.TraceMeta.ValueIdentity.TACVar -> listOf(CVLAccessPath(varDecl.type, listOf()) to VarDeclAt(varDecl.v.t,ptr))
+                    } + (varDecl.fields?.map { CVLAccessPath(varDecl.type, it.key) to VarDeclAt(it.value, ptr) } ?: listOf())
                 }
 
                 else -> listOf()
             }
-        }.associate {
-            it.first to it.second
-        }
+        }.groupBy({ it.first },{ it.second } )
 
+    private data class VarDeclAt(val variable: TACSymbol.Var, val ptr: CmdPointer)
     /**
      * @param codeBeforeInlining The CoreTACprogram before inlining (think of it as the TACProgram of the weak invariant)
      * @param codeToBeInlined The CoreTACProgram that should be inlined at external unresolved call (i.e. the sequence of
@@ -269,25 +269,26 @@ class StrongInvariantInliner(val scene: IScene, val cvlCompiler: CVLCompiler, va
      * Note that this is a workaround as we re-compile the invariant from scratch which yields to new variables being allocated.
      */
     private fun createParameterAssignment(codeBeforeInlining: CoreTACProgram, codeToBeInlined: CoreTACProgram): CoreTACProgram {
-        val originalCodeParams = codeBeforeInlining.cvlAccessPathToTACVariable()
+        val originalCodeParams = codeBeforeInlining.cvlAccessPathToTACVariable().mapValues { (_, v) -> (v.uniqueOrNull() ?: error("Found multiple declaration in the original program"))}
         val inlinedCodeParams = codeToBeInlined.cvlAccessPathToTACVariable()
         // intersect CVL display names of both TAC programs and associate the variables to them.
         val result = (originalCodeParams.keys intersect inlinedCodeParams.keys).associateWith { declParam ->
             (originalCodeParams[declParam]!! to inlinedCodeParams[declParam]!!)
         }
 
-        val mutRes = MutableCommandWithRequiredDecls<TACCmd.Simple>()
-
-        result.forEachEntry { entry ->
-            val originalParam = entry.value.first
-            val inlinedParam = entry.value.second
-
-            val assign = TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                inlinedParam,
-                originalParam
-            )
-            mutRes.extend(listOf(assign))
+        return codeToBeInlined.patching() { p ->
+            result.forEachEntry { entry ->
+                val originalParam = entry.value.first
+                val inlinedParam = entry.value.second
+                inlinedParam.forEach { param ->
+                    val assign = AssignExpCmd(
+                        param.variable,
+                        originalParam.variable.toTACExpr()
+                    )
+                    p.addVarDecl(originalParam.variable)
+                    p.addAfter(param.ptr, listOf(assign))
+                }
+            }
         }
-        return codeToBeInlined.prependToBlock0(mutRes.toCommandWithRequiredDecls())
     }
 }
