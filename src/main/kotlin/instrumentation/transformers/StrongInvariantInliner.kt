@@ -39,6 +39,7 @@ import vc.data.*
 import vc.data.ParametricInstantiation.Companion.toSimple
 import vc.data.TACCmd.Simple.AssigningCmd.AssignExpCmd
 import vc.data.TACMeta.CVL_ASSUME_INVARIANT_CMD_START
+import vc.data.tacexprutil.asVar
 import java.util.stream.Collectors
 
 
@@ -271,23 +272,28 @@ class StrongInvariantInliner(val scene: IScene, val cvlCompiler: CVLCompiler, va
     private fun createParameterAssignment(codeBeforeInlining: CoreTACProgram, codeToBeInlined: CoreTACProgram): CoreTACProgram {
         val originalCodeParams = codeBeforeInlining.cvlAccessPathToTACVariable().mapValues { (_, v) -> (v.uniqueOrNull() ?: error("Found multiple declaration in the original program"))}
         val inlinedCodeParams = codeToBeInlined.cvlAccessPathToTACVariable()
-        // intersect CVL display names of both TAC programs and associate the variables to them.
-        val result = (originalCodeParams.keys intersect inlinedCodeParams.keys).associateWith { declParam ->
-            (originalCodeParams[declParam]!! to inlinedCodeParams[declParam]!!)
-        }
 
-        return codeToBeInlined.patching() { p ->
-            result.forEachEntry { entry ->
-                val originalParam = entry.value.first
-                val inlinedParam = entry.value.second
-                inlinedParam.forEach { param ->
-                    val assign = AssignExpCmd(
+        // intersect CVL display names of both TAC programs
+        val result = (originalCodeParams.keys intersect inlinedCodeParams.keys).map { declParam ->
+            (originalCodeParams[declParam]!! to inlinedCodeParams[declParam]!!)
+        }.flatMap { el ->
+            val originalParam = el.first
+            val inlinedParam = el.second
+            inlinedParam.map { param ->
+                param.ptr to
+                    // Create the assignment from the original param of the invariant that comes from [codeBeforeInlining]
+                    // to the parameter of the invariant that is inlined via [codeToBeInlined].
+                    AssignExpCmd(
                         param.variable,
-                        originalParam.variable.toTACExpr()
+                        originalParam.variable
                     )
-                    p.addVarDecl(originalParam.variable)
-                    p.addAfter(param.ptr, listOf(assign))
-                }
+            }
+        }.groupBy({ it.first }, { it.second })
+
+        return codeToBeInlined.patching { p ->
+            result.forEachEntry { entry ->
+                p.addVarDecls(entry.value.mapToSet { it.rhs.asVar })
+                p.addAfter(entry.key, entry.value)
             }
         }
     }
