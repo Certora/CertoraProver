@@ -26,7 +26,6 @@ import report.calltrace.altReprsInTreeView
 import report.calltrace.formatter.AlternativeRepresentations
 import report.calltrace.formatter.AlternativeRepresentations.Representations
 import report.calltrace.formatter.AlternativeRepresentations.Representations.Pretty
-import report.calltrace.formatter.CallTraceValueFormatter
 import report.calltrace.printer.CallTracePrettyPrinter
 import report.calltrace.sarif.SarifBuilder.Companion.mkSarif
 import report.putJsonArray
@@ -93,8 +92,6 @@ class Sarif internal constructor(val pieces: List<String>, val args: List<Arg>):
         runIf(pieces.size == 2 && args.size == 1 && pieces.all { it.isEmpty() }) {
             args.first()
         }
-
-    fun asArgOrUnknown() = asArg() ?: CallTraceValueFormatter.unknownArg()
 
     /** Analogous logic to [toString], for use in [CallTracePrettyPrinter] */
     fun prettyPrint(): String {

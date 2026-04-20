@@ -59,17 +59,17 @@ internal class ValueFormattingJob(val tacValueIn: TACValue,
      * or such). Discussion: https://www.notion.so/certora/Formatted-value-representations-WIP-174fe5c14fd380bba775e08063af1fb8?d=174fe5c14fd380729f68001cb30cac3d#174fe5c14fd380bda91cd54709853eb8
      * See also [PrettyRep], on the `truncatable` topic.
      */
-    internal fun run(): Pair<RepresentationsMap, Boolean>  {
+    internal fun run(): Pair<RepresentationsMap, Boolean>?  {
         var tv = tacValueIn
 
         val contractName = computeContractName(tv)
 
         tv = undoBoolReplacement(tv)
 
-        val (tacValuePrettyPrint, truncatableImmut) = computePrettyRepresentation(tv)
-        var truncatable = truncatableImmut
+        val prettyRep = computePrettyRepresentation(tv) ?: return null
+        var truncatable = prettyRep.truncatable
 
-        val alternativeRepresentations = AlternativeRepresentations.computeRepresentations(tv, tacValuePrettyPrint, type)
+        val alternativeRepresentations = AlternativeRepresentations.computeRepresentations(tv, prettyRep.tacValuePrettyPrint, type)
 
         // wrap things up //
 
@@ -103,20 +103,17 @@ internal class ValueFormattingJob(val tacValueIn: TACValue,
     }
 
     /**
-     * The output of [computePrettyRepresentation].
+     * The output of [computePrettyRepresentation], if the type supports this.
      *
      * @param tacValuePrettyPrint is a nice representation of the given [TACValue] (e.g. short hands for large numbers,
-     *   [undoRightPadding] for `bytes` and more..); not all sub types of [TACValue] have such a nice representation, so
-     *   this may be `null`.
+     *   [undoRightPadding] for `bytes` and more..)
      * @param truncatable indicates whether the string in [tacValuePrettyPrint] may be truncated by the front end;
      *   truncation means turning something like `0x1234132512351` into `0x12...51` or so; we currently only allow this
      *   for hex values like this example value (this flag will appear as is in [Sarif.Arg])
      * */
-    private data class PrettyRep(val tacValuePrettyPrint: String?, val truncatable: Boolean)
+    private data class PrettyRep(val tacValuePrettyPrint: String, val truncatable: Boolean)
 
-    private fun computePrettyRepresentation(tv: TACValue): PrettyRep {
-        /** Prints a value based on its [TACValue]. Set [ValueFormattingJob.tacValuePrettyPrint]. */
-
+    private fun computePrettyRepresentation(tv: TACValue): PrettyRep? {
         fun ValueMeta.Enum.format(ordinal: BigInteger): String {
             /** We're using the value emitted from the SMT as an array index, so we must validate it */
             val nameOfLiteral = ordinal.toIntOrNull()?.let { idx -> elements.getOrNull(idx) }
@@ -183,7 +180,12 @@ internal class ValueFormattingJob(val tacValueIn: TACValue,
 
             else -> null
         }
-        return PrettyRep(tacValuePrettyPrinted, truncatable)
+
+        return if (tacValuePrettyPrinted != null) {
+            PrettyRep(tacValuePrettyPrinted, truncatable)
+        } else {
+            null
+        }
     }
 
     /**
@@ -289,9 +291,8 @@ object AlternativeRepresentations {
 
     private data class OptionalDescription(val description: String, val condition: (ValueMeta?) -> Boolean)
 
-    fun computeRepresentations(tv: TACValue, tacValuePrettyPrint: String?, type: FormatterType.Value<*>): RepresentationsMap {
-        checkWarn(tacValuePrettyPrint != null) { "tacValuePrettyPrint needs to be set at this point, but is `null`" }
-        val default = RepresentationsMap(Representations.Pretty to tacValuePrettyPrint!!)
+    fun computeRepresentations(tv: TACValue, tacValuePrettyPrint: String, type: FormatterType.Value<*>): RepresentationsMap {
+        val default = RepresentationsMap(Representations.Pretty to tacValuePrettyPrint)
         return when (type) {
             is FormatterType.Value.Unknown -> default
             is FormatterType.Value.CVL,

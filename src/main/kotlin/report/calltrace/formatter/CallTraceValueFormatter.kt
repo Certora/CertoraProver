@@ -101,8 +101,15 @@ class CallTraceValueFormatter(
 
 
     fun valueToSarif(tv: TACValue, type: FormatterType.Value<*>, tooltip: String): Sarif {
-        val (values, truncatable) = ValueFormattingJob(tv, type, addrToContract, model).run()
-        return Sarif.Arg(values, tooltip, type.toTypeString(), truncatable).asSarif
+        val result = ValueFormattingJob(tv, type, addrToContract, model).run()
+        return if (result != null) {
+            val (values, truncatable) = result
+            Sarif.Arg(values, tooltip, type.toTypeString(), truncatable).asSarif
+        } else {
+            // we silently swallow the unformat-ability of the value.
+            // might be worth fixing this at some point.
+            unknown()
+        }
     }
 
     fun functionToSarif(tv: TACValue, type: FormatterType.Function<*>, tooltip: String): Sarif {
