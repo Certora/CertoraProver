@@ -405,6 +405,9 @@ object Havocer {
         caller: BigInteger,
         callSummary: CallSummary
     ): HavocType {
+        if (Config.HavocAllByDefault.get() && callSummary.callType != TACCallType.STATIC) {
+            return HavocType.All
+        }
         return when (callSummary.callType) {
             TACCallType.STATIC -> HavocType.Static
             TACCallType.REGULAR_CALL,

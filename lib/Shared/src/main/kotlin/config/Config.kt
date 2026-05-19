@@ -1505,6 +1505,14 @@ object Config {
             "Choose whether return value havocs are assuming returnsize is call's requested outsize (unsound!) [default: false]"
         )
     ) {}
+    val HavocAllByDefault = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "havocAllByDefault",
+            true,
+            "When enabled, use HAVOC_ALL for all non-STATIC external calls by default. [default: false]"
+        )
+    ) {}
     val OptimisticExtcodesize = object : ConfigType.BooleanCmdLine(
         true,
         Option(
