@@ -271,7 +271,11 @@ class ParallelPool private constructor(forkJoinPool: ForkJoinPool, internal val 
         private val GLOBAL_TIMERS_THREAD_COUNT = System.getProperty("cvt.timer.threads")?.toIntOrNull() ?: 1
         private val SCOPED_ALLOC_CLOSE_DELAY = System.getProperty("cvt.scoped.alloc.close.delay")?.toLongOrNull() ?: 10
 
-        private val globalTimers = Executors.newScheduledThreadPool(GLOBAL_TIMERS_THREAD_COUNT)
+        private val globalTimers = Executors.newScheduledThreadPool(GLOBAL_TIMERS_THREAD_COUNT) {
+            Executors.defaultThreadFactory().newThread(it).also { thread ->
+                thread.isDaemon = true
+            }
+        }
 
         fun <T: Closeable, R, U> allocInScope(k: ResourceKey<T, U>, mk: (U) -> T, f: (T) -> R) : R {
             val t = Thread.currentThread()
