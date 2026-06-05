@@ -63,7 +63,25 @@ enum class SbfInstructionCodes(val opcode: Int) {
             INST_SRC_IMM.opcode or
             INST_SIZE_DW.opcode), // Special
 
-    INST_OP_JA(INST_CLS_JMP.opcode or 0x00)
+    INST_OP_JA(INST_CLS_JMP.opcode or 0x00),
+
+    INST_SIZE_1B(0x20),
+    INST_SIZE_2B(0x30),
+    INST_SIZE_4B(0x80),
+    INST_SIZE_8B(0x90),
+
+    INST_OP_LD_1B_REG(INST_CLS_ALU.opcode or INST_SRC_REG.opcode or INST_SIZE_1B.opcode),
+    INST_OP_LD_2B_REG(INST_CLS_ALU.opcode or INST_SRC_REG.opcode or INST_SIZE_2B.opcode),
+    INST_OP_LD_4B_REG(INST_CLS_ALU.opcode or INST_SRC_REG.opcode or INST_SIZE_4B.opcode),
+    INST_OP_LD_8B_REG(INST_CLS_ALU.opcode or INST_SRC_REG.opcode or INST_SIZE_8B.opcode),
+    INST_OP_ST_1B_IMM(INST_CLS_ALU64.opcode or INST_SRC_IMM.opcode or INST_SIZE_1B.opcode),
+    INST_OP_ST_2B_IMM(INST_CLS_ALU64.opcode or INST_SRC_IMM.opcode or INST_SIZE_2B.opcode),
+    INST_OP_ST_4B_IMM(INST_CLS_ALU64.opcode or INST_SRC_IMM.opcode or INST_SIZE_4B.opcode),
+    INST_OP_ST_8B_IMM(INST_CLS_ALU64.opcode or INST_SRC_IMM.opcode or INST_SIZE_8B.opcode),
+    INST_OP_ST_1B_REG(INST_CLS_ALU64.opcode or INST_SRC_REG.opcode or INST_SIZE_1B.opcode),
+    INST_OP_ST_2B_REG(INST_CLS_ALU64.opcode or INST_SRC_REG.opcode or INST_SIZE_2B.opcode),
+    INST_OP_ST_4B_REG(INST_CLS_ALU64.opcode or INST_SRC_REG.opcode or INST_SIZE_4B.opcode),
+    INST_OP_ST_8B_REG(INST_CLS_ALU64.opcode or INST_SRC_REG.opcode or INST_SIZE_8B.opcode)
 }
 
 enum class SbfRegister(val value: Byte) {

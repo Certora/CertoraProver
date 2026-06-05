@@ -637,7 +637,9 @@ class StackStridePredicateDomain(
                     }
                 }
             }
-            BinOp.MUL, BinOp.DIV, BinOp.MOD,
+            BinOp.RSUB,
+            BinOp.MUL, BinOp.DIV, BinOp.SDIV, BinOp.MOD, BinOp.SREM,
+            BinOp.UHMUL, BinOp.SHMUL,
             BinOp.OR, BinOp.AND, BinOp.XOR,
             BinOp.LSH, BinOp.RSH, BinOp.ARSH -> forget(inst.dst)
         }

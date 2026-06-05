@@ -63,6 +63,17 @@ object SolanaConfig {
         )
     ) {}
 
+    val RawTac = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "solanaRawTac",
+            true,
+            "Lift Solana SBF/SBPF bytecode to TAC without requiring CVLR rules, asserts, satisfy statements, " +
+                "or source code. In this mode, -solanaEntrypoint is optional; if omitted, the ELF entry address is used. " +
+                "[default: false]"
+        )
+    ) {}
+
 
     // Disassembling options
     val StackFrameSize = object : ConfigType.IntCmdLine(

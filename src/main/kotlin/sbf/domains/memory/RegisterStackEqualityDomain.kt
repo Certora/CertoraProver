@@ -195,8 +195,9 @@ class RegisterStackEqualityDomain(
                     is Value.Imm -> forget(listOf(lhs))
                 }
             }
-            BinOp.ADD, BinOp.SUB,
-            BinOp.MUL, BinOp.DIV, BinOp.MOD,
+            BinOp.ADD, BinOp.SUB, BinOp.RSUB,
+            BinOp.MUL, BinOp.DIV, BinOp.SDIV, BinOp.MOD, BinOp.SREM,
+            BinOp.UHMUL, BinOp.SHMUL,
             BinOp.OR, BinOp.AND, BinOp.XOR,
             BinOp.LSH, BinOp.RSH, BinOp.ARSH -> {
                 forget(listOf(lhs))

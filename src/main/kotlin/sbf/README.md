@@ -13,7 +13,7 @@ Solana-specific variant of eBPF (extended Berkeley Packet
 Filter)—which are encoded in ELF format.
 
 Architecture Support: While the `--arch flag` from `cargo-certora-sbf` accepts multiple architecture options,
-this front-end currently supports only `sbfv1`/`sbf`, `sbpf v0` and `sbpf v1`:
+this front-end supports `sbfv1`/`sbf` and SBPF versions 0 through 4:
 
 ```
 --arch <ARCH>
@@ -25,9 +25,16 @@ this front-end currently supports only `sbfv1`/`sbf`, `sbpf v0` and `sbpf v1`:
       - sbf: sbfv1 from platform tools <= 1.41 [SUPPORTED]
       - v0:  SBPF v0 [SUPPORTED]
       - v1:  SBPF v1 [SUPPORTED]
-      - v2:  SBPF v2 [NOT SUPPORTED]
-      - v3:  SBPF v3 [NOT SUPPORTED]
+      - v2:  SBPF v2 [SUPPORTED]
+      - v3:  SBPF v3 [SUPPORTED]
+      - v4:  SBPF v4 [SUPPORTED]
 ```
+
+For reverse-engineering and analysis workflows, `-solanaRawTac true` lifts an ELF
+entrypoint to TAC without requiring CVLR rules, assertions, satisfy statements,
+or source code. If `-solanaEntrypoint` is omitted in raw TAC mode, the ELF entry
+address is used and a synthetic function name is generated when the ELF has no
+matching symbol table entry.
 
 ## Directory Structure ##
 

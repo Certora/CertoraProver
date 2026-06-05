@@ -102,10 +102,12 @@ class MutableSbfFunctionManager(private val start: ElfAddress, private val names
      *  @params entryPoint is the initial address of the function.
      */
     fun addFunction(entryPoint: ElfAddress): FunctionId {
-        val name = names[entryPoint] ?:
-            throw DisassemblerError("cannot find a name for entry point $entryPoint")
+        val name = getOrCreateFunctionName(entryPoint)
         return addFunction(name, entryPoint)
     }
+
+    fun getOrCreateFunctionName(entryPoint: ElfAddress): String =
+        names[entryPoint] ?: "sub_${(start + entryPoint).toString(16)}"
 
     override fun getFunction(id: FunctionId): SbfFunction? {
         val idxAdjusted = getIndex(id)
@@ -116,9 +118,16 @@ class MutableSbfFunctionManager(private val start: ElfAddress, private val names
     }
 
     override fun getFunction(entryPoint: ElfAddress): SbfFunction? {
-        val name = names[entryPoint] ?: return null
-        val id = functionIndex[name] ?: return null
-        return getFunction(id)
+        val name = names[entryPoint]
+        if (name != null) {
+            val id = functionIndex[name]
+            return if (id != null) {
+                getFunction(id)
+            } else {
+                SbfFunction(name, entryPoint)
+            }
+        }
+        return functions.firstOrNull { it.entryPoint == entryPoint }
     }
 
     override fun warnDuplicateSymbols() {
@@ -142,7 +151,7 @@ class MutableSbfFunctionManager(private val start: ElfAddress, private val names
     }
 
     override fun getAllFunctions(): Set<SbfFunction> =
-        names.map { SbfFunction(it.value, it.key) }.toSet()
+        functions.toSet() + names.map { SbfFunction(it.value, it.key) }
 }
 
 data class BytecodeProgram(val entriesMap: Map<String, ElfAddress>,

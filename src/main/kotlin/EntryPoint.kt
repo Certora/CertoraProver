@@ -29,6 +29,7 @@ import config.Config.CustomBuildScript
 import config.Config.SpecFile
 import config.Config.getSourcesSubdirInInternal
 import config.component.EventConfig
+import datastructures.stdcollections.*
 import dependencyinjection.setupDependencyInjection
 import diagnostics.JavaFlightRecorder
 import dwarf.DebugInfoReader
@@ -45,7 +46,10 @@ import os.dumpSystemConfig
 import parallel.coroutines.establishMainCoroutineScope
 import report.*
 import rules.*
+import sbf.SolanaConfig
 import sbf.SolanaVerificationFlow
+import sbf.solanaSbfToTAC
+import sbf.tac.levelZeroOptimizations
 import scene.*
 import scene.source.*
 import smt.BackendStrategyEnum
@@ -70,8 +74,6 @@ import java.io.IOException
 import java.nio.file.Paths
 import java.util.*
 import java.util.concurrent.ExecutionException
-import kotlin.collections.listOf
-import kotlin.collections.toList
 import kotlin.io.path.Path
 import kotlin.io.path.isDirectory
 import kotlin.sequences.toSet
@@ -575,6 +577,17 @@ private fun backupFiles() {
 
 suspend fun handleSolanaFlow(fileName: String): List<RuleCheckResult.Leaf> {
     backupFiles()
+    if (SolanaConfig.RawTac.get()) {
+        solanaSbfToTAC(fileName).forEach { result ->
+            val encodedRule = result.getOrThrow()
+            levelZeroOptimizations(encodedRule.code, isSatisfyRule = false)
+        }
+        Logger.always(
+            "Solana raw TAC mode enabled; lifted bytecode to TAC artifacts without running verification.",
+            respectQuiet = false
+        )
+        return emptyList()
+    }
     return SolanaVerificationFlow( fileName).use {
         it.solve()
     }

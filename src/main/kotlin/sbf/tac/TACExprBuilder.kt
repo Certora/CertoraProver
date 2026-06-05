@@ -323,9 +323,14 @@ abstract class SbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : TACExprBase(re
         return when (op) {
             BinOp.ADD  -> if (useMathInt) { IntAdd(listOf(o1,o2)) } else { Add(listOf(o1,o2)) }
             BinOp.SUB  -> if (useMathInt) { IntSub(o1,o2) } else { Sub(o1,o2) }
+            BinOp.RSUB -> if (useMathInt) { IntSub(o2,o1) } else { Sub(o2,o1) }
             BinOp.MUL  -> if (useMathInt) { IntMul(listOf(o1,o2)) }  else { Mul(listOf(o1,o2)) }
             BinOp.DIV  -> if (useMathInt) { IntDiv(o1,o2) } else { Div(o1,o2) }
+            BinOp.SDIV -> SDiv(o1,o2)
             BinOp.MOD  -> if (useMathInt) { IntMod(o1, o2) } else { Mod(o1,o2) }
+            BinOp.SREM -> Sub(o1, Mul(listOf(SDiv(o1, o2), o2)))
+            BinOp.UHMUL -> ShiftRightLogical(Mul128(listOf(mask64(o1), mask64(o2))), c64)
+            BinOp.SHMUL -> mask64(ShiftRightArithmetical128(Mul128(listOf(signExtendSbfValue(o1, 64L), signExtendSbfValue(o2, 64L))), c64))
             BinOp.ARSH -> ShiftRightArithmetical(o1,o2)
             BinOp.RSH  -> ShiftRightLogical(o1, o2)
             BinOp.LSH  -> ShiftLeft(o1, o2)
@@ -786,5 +791,4 @@ class NativeIntTACBuilder(regVars: ArrayList<TACSymbol.Var>) : TACExprBase(regVa
     infix fun ToTACExpr.add(other: ToTACExpr)    = this@NativeIntTACBuilder.Add(listOf(this.toTACExpr(), other.toTACExpr()))
     infix fun ToTACExpr.sub(other: ToTACExpr)    = this@NativeIntTACBuilder.Sub(this.toTACExpr(), other.toTACExpr())
 }
-
 

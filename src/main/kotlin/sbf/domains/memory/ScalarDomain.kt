@@ -579,8 +579,13 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
             BinOp.ADD  -> setRegister(dst, ScalarValue(SbfType.NumType(dstCst.add(srcCst))))
             BinOp.MUL  -> setRegister(dst, ScalarValue(SbfType.NumType(dstCst.mul(srcCst))))
             BinOp.SUB  -> setRegister(dst, ScalarValue(SbfType.NumType(dstCst.sub(srcCst))))
+            BinOp.RSUB -> setRegister(dst, ScalarValue(SbfType.NumType(srcCst.sub(dstCst))))
             BinOp.DIV  -> setRegister(dst, ScalarValue(SbfType.NumType(dstCst.udiv(srcCst))))
+            BinOp.SDIV -> setRegister(dst, ScalarValue(SbfType.NumType(dstCst.sdiv(srcCst))))
             BinOp.MOD  -> setRegister(dst, ScalarValue(SbfType.NumType(dstCst.urem(srcCst))))
+            BinOp.SREM -> setRegister(dst, ScalarValue(SbfType.NumType(dstCst.srem(srcCst))))
+            BinOp.UHMUL,
+            BinOp.SHMUL -> setRegister(dst, ScalarValue(sbfTypeFac.anyNum()))
             BinOp.AND  -> setRegister(dst, ScalarValue(SbfType.NumType(dstCst.and(srcCst))))
             BinOp.OR   -> setRegister(dst, ScalarValue(SbfType.NumType(dstCst.or(srcCst))))
             BinOp.XOR  -> setRegister(dst, ScalarValue(SbfType.NumType(dstCst.xor(srcCst))))

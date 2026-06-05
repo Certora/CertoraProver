@@ -70,11 +70,14 @@ enum class BinOp(val isCommutative: Boolean = false) {
     MOV(false),
     ADD(true),
     SUB(false),
+    RSUB(false),
     MUL(true),
-    // unsigned division (sbf doesn't have an instruction for signed division)
     DIV(false),
-    // unsigned remainder (sbf doesn't have an instruction for signed remainder)
+    SDIV(false),
     MOD(false),
+    SREM(false),
+    UHMUL(true),
+    SHMUL(true),
     OR(true),
     AND(true),
     XOR(true),
@@ -86,9 +89,11 @@ enum class BinOp(val isCommutative: Boolean = false) {
         return when (this) {
             ADD -> "+"
             SUB -> "-"
+            RSUB -> "r-"
             MUL -> "*"
             // unsigned division
             DIV -> "/"
+            SDIV -> "s/"
             // Bitwise or
             OR -> "or"
             // Bitwise and
@@ -103,10 +108,10 @@ enum class BinOp(val isCommutative: Boolean = false) {
             RSH -> "lrsh"
             // Arithmetic right shif
             ARSH -> "arsh"
-            // Note that mod and rem are different operators and this one is rem even
-            // if the name says MOD.
-            // sbfv1 doesn't have an instruction for signed remainder so this is unsigned remainder
             MOD -> "%"
+            SREM -> "s%"
+            UHMUL -> "uhmul"
+            SHMUL -> "shmul"
             // don't print MOV
             MOV -> ""
         }

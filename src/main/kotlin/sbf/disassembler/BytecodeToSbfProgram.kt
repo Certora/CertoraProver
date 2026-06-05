@@ -27,6 +27,24 @@ import org.jetbrains.annotations.TestOnly
  **/
 
 private fun getMemWidth(inst: SbfBytecode): Short {
+    return when (inst.opcode.toInt() and 0xff) {
+        SbfInstructionCodes.INST_OP_LD_1B_REG.opcode,
+        SbfInstructionCodes.INST_OP_ST_1B_IMM.opcode,
+        SbfInstructionCodes.INST_OP_ST_1B_REG.opcode -> 1.toShort()
+        SbfInstructionCodes.INST_OP_LD_2B_REG.opcode,
+        SbfInstructionCodes.INST_OP_ST_2B_IMM.opcode,
+        SbfInstructionCodes.INST_OP_ST_2B_REG.opcode -> 2.toShort()
+        SbfInstructionCodes.INST_OP_LD_4B_REG.opcode,
+        SbfInstructionCodes.INST_OP_ST_4B_IMM.opcode,
+        SbfInstructionCodes.INST_OP_ST_4B_REG.opcode -> 4.toShort()
+        SbfInstructionCodes.INST_OP_LD_8B_REG.opcode,
+        SbfInstructionCodes.INST_OP_ST_8B_IMM.opcode,
+        SbfInstructionCodes.INST_OP_ST_8B_REG.opcode -> 8.toShort()
+        else -> getLegacyMemWidth(inst)
+    }
+}
+
+private fun getLegacyMemWidth(inst: SbfBytecode): Short {
     return when (inst.opcode.toInt() and SbfInstructionCodes.INST_SIZE_MASK.opcode) {
         SbfInstructionCodes.INST_SIZE_B.opcode -> 1.toShort()
         SbfInstructionCodes.INST_SIZE_H.opcode -> 2.toShort()
@@ -50,8 +68,63 @@ private fun isMemLdX(inst: SbfBytecode): Boolean {
     }
 }
 
+private fun isMovedMemLdX(inst: SbfBytecode): Boolean {
+    return when (inst.opcode.toInt() and 0xff) {
+        SbfInstructionCodes.INST_OP_LD_1B_REG.opcode,
+        SbfInstructionCodes.INST_OP_LD_2B_REG.opcode,
+        SbfInstructionCodes.INST_OP_LD_4B_REG.opcode,
+        SbfInstructionCodes.INST_OP_LD_8B_REG.opcode -> true
+        else -> false
+    }
+}
+
+private fun isMovedMemStore(inst: SbfBytecode): Boolean {
+    return when (inst.opcode.toInt() and 0xff) {
+        SbfInstructionCodes.INST_OP_ST_1B_IMM.opcode,
+        SbfInstructionCodes.INST_OP_ST_2B_IMM.opcode,
+        SbfInstructionCodes.INST_OP_ST_4B_IMM.opcode,
+        SbfInstructionCodes.INST_OP_ST_8B_IMM.opcode,
+        SbfInstructionCodes.INST_OP_ST_1B_REG.opcode,
+        SbfInstructionCodes.INST_OP_ST_2B_REG.opcode,
+        SbfInstructionCodes.INST_OP_ST_4B_REG.opcode,
+        SbfInstructionCodes.INST_OP_ST_8B_REG.opcode -> true
+        else -> false
+    }
+}
+
+private fun isMovedMemInst(inst: SbfBytecode): Boolean =
+    isMovedMemLdX(inst) || isMovedMemStore(inst)
+
+private fun isMovedMemImmStore(inst: SbfBytecode): Boolean {
+    return when (inst.opcode.toInt() and 0xff) {
+        SbfInstructionCodes.INST_OP_ST_1B_IMM.opcode,
+        SbfInstructionCodes.INST_OP_ST_2B_IMM.opcode,
+        SbfInstructionCodes.INST_OP_ST_4B_IMM.opcode,
+        SbfInstructionCodes.INST_OP_ST_8B_IMM.opcode -> true
+        else -> false
+    }
+}
+
 @TestOnly
 fun makeMemInst(inst: SbfBytecode): SbfInstruction {
+    if (isMovedMemInst(inst)) {
+        val width = getMemWidth(inst)
+        val isLoad = isMovedMemLdX(inst)
+        val baseReg: Byte = if (isLoad) { inst.src } else { inst.dst }
+        return SbfInstruction.Mem(
+            Deref(width, Value.Reg(SbfRegister.getByValue(baseReg)), inst.offset),
+            if (isLoad) {
+                Value.Reg(SbfRegister.getByValue(inst.dst))
+            } else {
+                if (isMovedMemImmStore(inst)) {
+                    Value.Imm(inst.imm.toULong())
+                } else {
+                    Value.Reg(SbfRegister.getByValue(inst.src))
+                }
+            },
+            isLoad
+        )
+    }
     when ((inst.opcode.toInt() and SbfInstructionCodes.INST_MODE_MASK.opcode).shr(5)) {
         SbfInstructionCodes.INST_ABS.opcode -> {
             throw DisassemblerError("unsupported legacy BPF packet access (absolute)")
@@ -102,7 +175,7 @@ private fun getBinValue(inst: SbfBytecode): Value {
     if (inst.offset != 0.toShort()) {
         throw DisassemblerError("nonzero offset for register ALU instruction")
     }
-    return if (inst.opcode.toInt() and SbfInstructionCodes.INST_SRC_REG.opcode != 0) {
+    return if ((inst.opcode.toInt() and SbfInstructionCodes.INST_SRC_REG.opcode) != 0) {
         if (inst.imm != 0) {
             throw DisassemblerError("nonzero imm for register ALU instruction")
         }
@@ -118,16 +191,31 @@ private fun getBinValue(inst: SbfBytecode): Value {
 private fun makeBinAluInst(op: BinOp, bytecode: SbfBytecode, is64: Boolean) =
     SbfInstruction.Bin(op, Value.Reg(SbfRegister.getByValue(bytecode.dst)), getBinValue(bytecode), is64)
 
+private fun makePqrInst(bytecode: SbfBytecode): SbfInstruction {
+    val op = when (bytecode.opcode.toInt() and 0xe0) {
+        0x20 -> BinOp.UHMUL
+        0x40 -> BinOp.DIV
+        0x60 -> BinOp.MOD
+        0x80 -> BinOp.MUL
+        0xa0 -> BinOp.SHMUL
+        0xc0 -> BinOp.SDIV
+        0xe0 -> BinOp.SREM
+        else -> throw DisassemblerError("invalid PQR instruction -- opcode=${bytecode.opcode.toString(16)}")
+    }
+    val is64 = (bytecode.opcode.toInt() and SbfInstructionCodes.INST_SIZE_B.opcode) != 0
+    return makeBinAluInst(op, bytecode, is64)
+}
+
 private fun makeUnAluInst(op: UnOp, bytecode: SbfBytecode) =
     SbfInstruction.Un(op, Value.Reg(SbfRegister.getByValue(bytecode.dst)))
 
 private fun getEndianSwapOp(bytecode: SbfBytecode): UnOp {
-    // Opcode for LE=0xd0 | 0x4 | 0x8
+    // Opcode for LE=0xd0 | 0x4 | 0
     val LE = SbfInstructionCodes.INST_END.opcode
         .or(SbfInstructionCodes.INST_CLS_ALU.opcode)
         .or(SbfInstructionCodes.INST_END_LE.opcode).toByte()
 
-    // Opcode for BE= 0xd0 | 0x4 | 0
+    // Opcode for BE= 0xd0 | 0x4 | 0x8
     val BE = SbfInstructionCodes.INST_END.opcode
         .or(SbfInstructionCodes.INST_CLS_ALU.opcode)
         .or(SbfInstructionCodes.INST_END_BE.opcode).toByte()
@@ -159,7 +247,15 @@ fun makeAluInst(bytecode: SbfBytecode, elf:  IElfFileView): SbfInstruction {
     val useDynFrames = elf.useDynamicFrames()
     val inst = when (bytecode.opcode.toInt().shr(4) and 0xF) {
         0x0 -> makeBinAluInst(BinOp.ADD, bytecode, is64)
-        0x1 -> makeBinAluInst(BinOp.SUB, bytecode, is64)
+        0x1 -> {
+            val op = if (elf.swapSubRegImmOperands() &&
+                (bytecode.opcode.toInt() and SbfInstructionCodes.INST_SRC_REG.opcode) == 0) {
+                BinOp.RSUB
+            } else {
+                BinOp.SUB
+            }
+            makeBinAluInst(op, bytecode, is64)
+        }
         0x2 -> makeBinAluInst(BinOp.MUL, bytecode, is64)
         0x3 -> makeBinAluInst(BinOp.DIV, bytecode, is64)
         0x4 -> makeBinAluInst(BinOp.OR, bytecode, is64)
@@ -167,6 +263,9 @@ fun makeAluInst(bytecode: SbfBytecode, elf:  IElfFileView): SbfInstruction {
         0x6 -> makeBinAluInst(BinOp.LSH, bytecode, is64)
         0x7 -> makeBinAluInst(BinOp.RSH, bytecode, is64)
         0x8 -> {
+            if (elf.disableNeg()) {
+                throw DisassemblerError("NEG instruction is disabled in ${elf.sbpfVersion()}")
+            }
             check(is64) { "Only 64-bit NEG instruction is supported" }
             makeUnAluInst(UnOp.NEG, bytecode)
         }
@@ -174,7 +273,29 @@ fun makeAluInst(bytecode: SbfBytecode, elf:  IElfFileView): SbfInstruction {
         0xa -> makeBinAluInst(BinOp.XOR, bytecode, is64)
         0xb -> makeBinAluInst(BinOp.MOV, bytecode, is64)
         0xc -> makeBinAluInst(BinOp.ARSH, bytecode, is64)
-        0xd -> makeUnAluInst(getEndianSwapOp(bytecode), bytecode)
+        0xd -> {
+            val leOpcode = SbfInstructionCodes.INST_END.opcode
+                .or(SbfInstructionCodes.INST_CLS_ALU.opcode)
+                .or(SbfInstructionCodes.INST_END_LE.opcode)
+            if (elf.disableLe() && (bytecode.opcode.toInt() and 0xff) == leOpcode) {
+                throw DisassemblerError("LE instruction is disabled in ${elf.sbpfVersion()}")
+            }
+            makeUnAluInst(getEndianSwapOp(bytecode), bytecode)
+        }
+        0xf -> {
+            if (!elf.disableLddw() ||
+                !is64 ||
+                (bytecode.opcode.toInt() and SbfInstructionCodes.INST_SRC_REG.opcode) != 0) {
+                throw DisassemblerError("invalid HOR64 instruction -- opcode=${bytecode.opcode.toString(16)}")
+            }
+            val highBits = (bytecode.imm.toULong() and 0xffffffffUL).shl(32)
+            SbfInstruction.Bin(
+                BinOp.OR,
+                Value.Reg(SbfRegister.getByValue(bytecode.dst)),
+                Value.Imm(highBits),
+                is64 = true
+            )
+        }
         else -> throw DisassemblerError("invalid ALU instruction -- opcode=${bytecode.opcode.toString(16)}")
     }
 
@@ -249,8 +370,13 @@ fun makeCallInst(@Suppress("UNUSED_PARAMETER") inst: SbfBytecode,
     SbfInstruction.Call(name = syscall.name)
 
 
-fun makeCallRegInst(inst: SbfBytecode): SbfInstruction {
-    return SbfInstruction.CallReg(Value.Reg(SbfRegister.getByValue(inst.src)))
+fun makeCallRegInst(inst: SbfBytecode, elf: IElfFileView): SbfInstruction {
+    val reg = if (elf.callxUsesDstReg()) {
+        inst.dst
+    } else {
+        inst.src
+    }
+    return SbfInstruction.CallReg(Value.Reg(SbfRegister.getByValue(reg)))
 }
 
 fun getJumpOp(inst: SbfBytecode): CondOp {
@@ -278,24 +404,29 @@ fun getJumpOp(inst: SbfBytecode): CondOp {
 // A jump instruction can be call, exit or jump
 fun makeJumpInst(inst: SbfBytecode, isRelocatedCall: Boolean,
                  insts: List<SbfBytecode>, pc:Int,
-                 functionMan: MutableSbfFunctionManager): SbfInstruction {
+                 functionMan: MutableSbfFunctionManager,
+                 elf: IElfFileView): SbfInstruction {
     // Remember that inst.opcode occupies 1 byte
     // Here we extract the highest four bits which tells us whether the operation is a jump, call or exit
     when (inst.opcode.toInt().shr(4) and 0xF) {
         0x8 -> {
             if (!isRelocatedCall) {
-                if (inst.opcode.toInt() and 0x0F == 0xd) {
+                if ((inst.opcode.toInt() and 0x0F) == 0xd) {
                     /**
                      *  callx instruction: the callee is stored in a register
                      **/
-                    return makeCallRegInst(inst)
+                    return makeCallRegInst(inst, elf)
                 } else {
                     /**
                      * The called function is an internal call (sbf to sbf call).
                      * We know that the called function starts at ${target}.
                      * We add to the function manager a new function that starts at ${target}
                      **/
-                    val target = pc + inst.imm + 1
+                    val target = if (elf.staticSyscalls()) {
+                        pc + inst.imm + 1
+                    } else {
+                        pc + inst.imm + 1
+                    }
                     val function = functionMan.getFunction(functionMan.addFunction(target.toLong()))
                     check(function != null) {"Cannot find a function that was just added"}
                     return makeCallInst(inst, function)
@@ -333,7 +464,7 @@ fun makeJumpInst(inst: SbfBytecode, isRelocatedCall: Boolean,
                 // conditional jump
                 val cond = Condition(op = getJumpOp(inst),
                         left = Value.Reg(SbfRegister.getByValue(inst.dst)),
-                        right = if (inst.opcode.toInt() and SbfInstructionCodes.INST_SRC_REG.opcode != 0) {
+                        right = if ((inst.opcode.toInt() and SbfInstructionCodes.INST_SRC_REG.opcode) != 0) {
                             Value.Reg(SbfRegister.getByValue(inst.src))
                         } else {
                             Value.Imm(inst.imm.toULong())
@@ -352,6 +483,9 @@ private fun bytecodeToInstruction(pc: Int, inst: SbfBytecode, bytecode: Bytecode
     val newInst = when (inst.opcode.toInt() and SbfInstructionCodes.INST_CLS_MASK.opcode) {
         SbfInstructionCodes.INST_CLS_LD.opcode -> {
             if (inst.opcode.toInt() == SbfInstructionCodes.INST_OP_LDDW_IMM.opcode) {
+                if (bytecode.globals.elf.disableLddw()) {
+                    throw DisassemblerError("LDDW instruction is disabled in ${bytecode.globals.elf.sbpfVersion()}")
+                }
                 isLddwInst = true
                 makeLddw(inst, bytecode.program, pc)
             } else {
@@ -363,11 +497,21 @@ private fun bytecodeToInstruction(pc: Int, inst: SbfBytecode, bytecode: Bytecode
             makeMemInst(inst)
         }
         SbfInstructionCodes.INST_CLS_ALU.opcode, SbfInstructionCodes.INST_CLS_ALU64.opcode -> {
-            makeAluInst(inst, bytecode.globals.elf)
+            if (bytecode.globals.elf.moveMemoryInstructionClasses() && isMovedMemInst(inst)) {
+                makeMemInst(inst)
+            } else {
+                makeAluInst(inst, bytecode.globals.elf)
+            }
         }
         SbfInstructionCodes.INST_CLS_JMP32.opcode, SbfInstructionCodes.INST_CLS_JMP.opcode -> {
             val isRelocatedCall = (bytecode.relocatedCalls.contains(pc))
-            makeJumpInst(inst, isRelocatedCall, bytecode.program, pc, bytecode.functionMan)
+            if (bytecode.globals.elf.enablePqr() &&
+                (inst.opcode.toInt() and SbfInstructionCodes.INST_CLS_MASK.opcode) == SbfInstructionCodes.INST_CLS_JMP32.opcode &&
+                ((inst.opcode.toInt().shr(4) and 0xF) >= 0x2)) {
+                makePqrInst(inst)
+            } else {
+                makeJumpInst(inst, isRelocatedCall, bytecode.program, pc, bytecode.functionMan, bytecode.globals.elf)
+            }
         }
         else -> null
     } ?: throw DisassemblerError("Unrecognized SBF instruction $inst in the ELF file")

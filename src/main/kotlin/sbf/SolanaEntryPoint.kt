@@ -78,7 +78,13 @@ private val ptaFlagsFac = { SolanaPTANodeFlags() }
 fun solanaSbfToTAC(elfFile: String): List<SolanaEncodeResult> {
     sbfLogger.info { "Started Solana front-end" }
     val start0 = System.currentTimeMillis()
-    val targets = Config.SolanaEntrypoint.get().map { ruleName ->
+    val rawTacMode = SolanaConfig.RawTac.get()
+    val targetNames = Config.SolanaEntrypoint.getOrNull() ?: if (rawTacMode) {
+        emptySet()
+    } else {
+        Config.SolanaEntrypoint.get()
+    }
+    val targets = targetNames.map { ruleName ->
         EcosystemAgnosticRule(
             ruleIdentifier = RuleIdentifier.freshIdentifier(ruleName),
             ruleType = SpecType.Single.FromUser.SpecFile,
@@ -87,7 +93,7 @@ fun solanaSbfToTAC(elfFile: String): List<SolanaEncodeResult> {
     }
 
     val sanityRules =
-        if (Config.DoSanityChecksForRules.get() != SanityValues.NONE && SolanaConfig.EnableCvlrVacuity.get()) {
+        if (!rawTacMode && Config.DoSanityChecksForRules.get() != SanityValues.NONE && SolanaConfig.EnableCvlrVacuity.get()) {
             /**
              * In the case we are in sanity mode, all rules are duplicated for the vacuity check.
              * The new rules are derived from the original baseRule, this relationship is maintained
@@ -112,6 +118,17 @@ fun solanaSbfToTAC(elfFile: String): List<SolanaEncodeResult> {
     sbfLogger.info { "Disassembling ELF program $elfFile" }
     val disassembler = ElfDisassembler(elfFile)
     val (bytecode, missingFunctions) = disassembler.read(targets.mapToSet { it.ruleIdentifier.displayName.removeSuffix(devVacuitySuffix) })
+    val liftTargets = if (targets.isEmpty() && rawTacMode) {
+        bytecode.entriesMap.keys.map { entryName ->
+            EcosystemAgnosticRule(
+                ruleIdentifier = RuleIdentifier.freshIdentifier(entryName),
+                ruleType = SpecType.Single.FromUser.SpecFile,
+                isSatisfyRule = false
+            )
+        }
+    } else {
+        targets
+    }
 
     // 2. Read environment files
     val (memSummaries, inliningConfig) = readEnvironmentFiles()
@@ -130,7 +147,7 @@ fun solanaSbfToTAC(elfFile: String): List<SolanaEncodeResult> {
         cfgs.callGraphStructureToDot(ArtifactManagerFactory().outputDir)
     }
 
-    val rules = (targets + sanityRules).mapNotNull { target ->
+    val rules = (liftTargets + sanityRules).mapNotNull { target ->
         val ruleIdentifier = target.ruleIdentifier
         val elfFunction = ruleIdentifier.toElfFunctionName()
         if (elfFunction in missingFunctions) {
@@ -138,7 +155,13 @@ fun solanaSbfToTAC(elfFile: String): List<SolanaEncodeResult> {
                 "Please make sure that there is function $elfFunction and it has the attribute \"#[rule]\"")))
         } else {
             try {
-                solanaRuleToTAC(target, cfgs, inliningConfig, memSummaries)?.let { success(it) }
+                solanaRuleToTAC(
+                    target,
+                    cfgs,
+                    inliningConfig,
+                    memSummaries,
+                    requireAssertions = !rawTacMode
+                )?.let { success(it) }
             } catch (e: SolanaError) {
                 failure(RuleEncodingException(target, e))
             }
@@ -157,7 +180,8 @@ private fun solanaRuleToTAC(
     rule: EcosystemAgnosticRule,
     prog: SbfCallGraph,
     inliningConfig: InlinerConfig,
-    memSummaries: MemorySummaries
+    memSummaries: MemorySummaries,
+    requireAssertions: Boolean = true
 ): SolanaEncodedRule? {
 
     val target = rule.ruleIdentifier.toString()
@@ -188,20 +212,26 @@ private fun solanaRuleToTAC(
         return null
     }
 
-    if (!isVacuityRule && !hasSatisfies && !hasAssertions) {
+    if (requireAssertions && !isVacuityRule && !hasSatisfies && !hasAssertions) {
         throw NoAssertionError(target)
     }
 
     val isSatisfiedRule = hasSatisfies || isVacuityRule
 
     // 2. Slicing + PTA optimizations
-    val optProg = try {
-        sliceAndPTAOptLoop(target,
-                           removeSanityCalls(inlinedProg, isVacuityRule),
-                           memSummaries)
-    } catch (e: NoAssertionAfterSlicerError) {
-        sbfLogger.warn { "$e" }
-        vacuousProgram(target, inlinedProg.getGlobals(), "No assertions found after slicer")
+    val optProg = if (!requireAssertions && !hasSatisfies && !hasAssertions) {
+        removeSanityCalls(inlinedProg, isVacuityRule = false)
+    } else {
+        try {
+            sliceAndPTAOptLoop(
+                target,
+                removeSanityCalls(inlinedProg, isVacuityRule),
+                memSummaries
+            )
+        } catch (e: NoAssertionAfterSlicerError) {
+            sbfLogger.warn { "$e" }
+            vacuousProgram(target, inlinedProg.getGlobals(), "No assertions found after slicer")
+        }
     }
 
     // 3. Remove CPI calls and run analysis to infer global variables
@@ -551,4 +581,3 @@ private fun explainPTAError(e: PointerAnalysisError, prog: SbfCallGraph, memSumm
     val outFilename = "${ArtifactManagerFactory().outputDir}${File.separator}${cfg.getName()}.pta_error.dot"
     printToFile(outFilename, cfg.toDot(colorMap = colorMap))
 }
-

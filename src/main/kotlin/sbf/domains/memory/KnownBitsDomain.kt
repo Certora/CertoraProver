@@ -473,11 +473,16 @@ class KnownBitsDomain(
                 }
             }
             BinOp.DIV,
-            BinOp.MOD -> {
+            BinOp.SDIV,
+            BinOp.MOD,
+            BinOp.SREM,
+            BinOp.UHMUL,
+            BinOp.SHMUL -> {
                 forget(lhs)
             }
             BinOp.ADD,
             BinOp.SUB,
+            BinOp.RSUB,
             BinOp.MUL,
             BinOp.OR,
             BinOp.AND,
@@ -487,6 +492,7 @@ class KnownBitsDomain(
                 val res = when (inst.op) {
                     BinOp.ADD -> x.add(y)
                     BinOp.SUB -> x.sub(y)
+                    BinOp.RSUB -> y.sub(x)
                     BinOp.MUL -> x.mul(y)
                     BinOp.OR  -> x.bor(y)
                     BinOp.AND -> x.band(y)

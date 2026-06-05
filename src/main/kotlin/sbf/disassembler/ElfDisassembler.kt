@@ -28,7 +28,6 @@ import net.fornwall.jelf.ElfSymbol.STT_FUNC
 import sbf.callgraph.SolanaFunction
 import sbf.domains.FiniteInterval
 import sbf.sbfLogger
-import sbf.support.SolanaError
 import sbf.support.safeLongToInt
 import java.io.File
 
@@ -54,7 +53,8 @@ enum class SbpfVersion {
     SBPF_V0,
     SBPF_V1,
     SBPF_V2,
-    SBPF_V3;
+    SBPF_V3,
+    SBPF_V4;
 
     override fun toString() =
         when(this) {
@@ -63,6 +63,7 @@ enum class SbpfVersion {
             SBPF_V1 -> "sbpfv1"
             SBPF_V2 -> "sbpfv2"
             SBPF_V3 -> "sbpfv3"
+            SBPF_V4 -> "sbpfv4"
         }
 }
 
@@ -75,6 +76,22 @@ interface IElfFileView {
     fun sbpfVersion(): SbpfVersion
     /** Return true if the program uses dynamic-sized stack frames **/
     fun useDynamicFrames(): Boolean
+    /** Return true if the program uses the SIMD-0174 PQR arithmetic class **/
+    fun enablePqr(): Boolean = sbpfVersion() == SbpfVersion.SBPF_V2
+    /** Return true if memory instructions moved to the ALU32/ALU64 classes **/
+    fun moveMemoryInstructionClasses(): Boolean = sbpfVersion() == SbpfVersion.SBPF_V2
+    /** Return true if call immediates target code relative to the current pc **/
+    fun staticSyscalls(): Boolean = sbpfVersion() >= SbpfVersion.SBPF_V3
+    /** Return true if callx reads the callee register from the dst field **/
+    fun callxUsesDstReg(): Boolean = sbpfVersion() >= SbpfVersion.SBPF_V3
+    /** Return true if immediate subtraction is encoded as `imm - dst` **/
+    fun swapSubRegImmOperands(): Boolean = sbpfVersion() == SbpfVersion.SBPF_V2
+    /** Return true if legacy LDDW is disabled **/
+    fun disableLddw(): Boolean = sbpfVersion() == SbpfVersion.SBPF_V2
+    /** Return true if legacy LE is disabled **/
+    fun disableLe(): Boolean = sbpfVersion() == SbpfVersion.SBPF_V2
+    /** Return true if legacy NEG is disabled **/
+    fun disableNeg(): Boolean = sbpfVersion() == SbpfVersion.SBPF_V2
     /** SBF is little-endian, but we extract that info from the ELF file in case it will change in the future **/
     fun isLittleEndian(): Boolean
     /** Return true if [address] is in the range of any ELF section known to store global variables **/
@@ -155,6 +172,7 @@ class ElfFileView(private val reader: ElfFile, private val parser: ElfParser): I
             1 -> SbpfVersion.SBPF_V1
             2 -> SbpfVersion.SBPF_V2
             3 -> SbpfVersion.SBPF_V3
+            4 -> SbpfVersion.SBPF_V4
             else -> {
                 sbfLogger.warn {"Cannot recognize sbpf version, assuming SBF"}
                 SbpfVersion.SBF
@@ -162,7 +180,15 @@ class ElfFileView(private val reader: ElfFile, private val parser: ElfParser): I
         }
     }
 
-    override fun useDynamicFrames() = sbpfVersion() >= SbpfVersion.SBPF_V1
+    override fun useDynamicFrames() = sbpfVersion() == SbpfVersion.SBPF_V1 || sbpfVersion() == SbpfVersion.SBPF_V2
+    override fun enablePqr() = sbpfVersion() == SbpfVersion.SBPF_V2
+    override fun moveMemoryInstructionClasses() = sbpfVersion() == SbpfVersion.SBPF_V2
+    override fun staticSyscalls() = sbpfVersion() >= SbpfVersion.SBPF_V3
+    override fun callxUsesDstReg() = sbpfVersion() >= SbpfVersion.SBPF_V3
+    override fun swapSubRegImmOperands() = sbpfVersion() == SbpfVersion.SBPF_V2
+    override fun disableLddw() = sbpfVersion() == SbpfVersion.SBPF_V2
+    override fun disableLe() = sbpfVersion() == SbpfVersion.SBPF_V2
+    override fun disableNeg() = sbpfVersion() == SbpfVersion.SBPF_V2
 
     override fun isLittleEndian() = reader.ei_data == ElfFile.DATA_LSB
 
@@ -220,10 +246,6 @@ class ElfDisassembler(pathName: String) {
         this.file.inputStream().let {
             // from can throw a java.io.IOException
             this.reader = ElfFile.from(it)
-            if (reader.symbolTableSection == null) {
-                throw SolanaError("The Solana front-end needs symbols to recognize certain function names.\n" +
-                    "Please, make sure that symbols are not stripped from the binary")
-            }
         }
         this.parser = ElfParser(file, reader)
         this.globalsSymTable = ElfFileView(reader, parser)
@@ -431,22 +453,28 @@ class ElfDisassembler(pathName: String) {
      **/
     fun read(rules: Set<String>): ReadResult {
         val missingFunctions = mutableSetOf<String>()
-        val entryPoints = rules.mapNotNull { rule ->
-            val symbol = reader.getELFSymbol(rule)
-            if (symbol == null) {
-                missingFunctions.add(rule)
-            }
-            symbol
-        }
-
         val (sectionStart, instructions) = processTextSection()
         val functionMan = MutableSbfFunctionManager(sectionStart, getFunctionNames(sectionStart))
 
         val entryOffsetMap = mutableMapOf<String, ElfAddress>()
-        entryPoints.forEach { entryPoint ->
-            val entryPointOffset: ElfAddress = entryPoint.st_value/8 - sectionStart
-            functionMan.addFunction(entryPoint.name, entryPointOffset)
-            entryOffsetMap[entryPoint.name] = entryPointOffset
+        if (rules.isEmpty()) {
+            val entryPointOffset = (reader.e_entry / 8) - sectionStart
+            val entryPointName = functionMan.getOrCreateFunctionName(entryPointOffset)
+            functionMan.addFunction(entryPointName, entryPointOffset)
+            entryOffsetMap[entryPointName] = entryPointOffset
+        } else {
+            val entryPoints = rules.mapNotNull { rule ->
+                val symbol = reader.getELFSymbol(rule)
+                if (symbol == null) {
+                    missingFunctions.add(rule)
+                }
+                symbol
+            }
+            entryPoints.forEach { entryPoint ->
+                val entryPointOffset: ElfAddress = entryPoint.st_value/8 - sectionStart
+                functionMan.addFunction(entryPoint.name, entryPointOffset)
+                entryOffsetMap[entryPoint.name] = entryPointOffset
+            }
         }
         val relocatedCalls = resolveRelocations(sectionStart, instructions, functionMan)
         val initGlobals = GlobalVariables(globalsSymTable)
