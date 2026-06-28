@@ -238,9 +238,6 @@ object TACModSimplifier {
         // location of a memory access, it is a "pointer".  If a pointer is computed by adding a constant to another
         // variable, then the other variable is also a pointer.  Any other computation of a pointer is treated as
         // opaque.
-        //
-        // TODO CERT-10098: we should only mark operations that produce a pointer value, rather than marking all
-        // operations that happen to have a pointer operand.
         val ptrAnalysis = object : TACCommandDataflowAnalysis<TreapSet<TACSymbol.Var>>(
             graph = graph,
             lattice = JoinLattice.ofJoin { a, b -> a union b },
@@ -284,7 +281,8 @@ object TACModSimplifier {
             }
         }
 
-        // Annotate expressions of the form: `ptr.mod(2^64)`, where `ptr` is not already annotated
+        // Find assignments of the form: `lhs := loc.mod(2^64)`, where `lhs` and `loc` are pointers according to the
+        // above analysis, and annotate `loc` to indicate that it cannot have overflowed.
         return code.parallelLtacStream().mapNotNull { (ptr, cmd) ->
             if (cmd !is TACCmd.Simple.AssigningCmd.AssignExpCmd) { return@mapNotNull null }
             if (cmd.rhs !is TACExpr.BinOp.Mod) { return@mapNotNull null }
@@ -292,13 +290,14 @@ object TACModSimplifier {
             if (mbc.mustBeConstantAt(ptr, cmd.rhs.o2.s) != modz64.modulus) { return@mapNotNull null }
             val loc = cmd.rhs.o1 as? TACExpr.Sym.Var ?: return@mapNotNull null
             if (loc.s !in ptrAnalysis.cmdOut[ptr].orEmpty()) { return@mapNotNull null }
+            if (cmd.lhs in ptrAnalysis.cmdIn[ptr].orEmpty()) { return@mapNotNull null }
 
             // Check if this pointer value is already annotated
             val locDef = def.defSitesOf(loc.s, ptr).singleOrNull() ?: return@mapNotNull null
             val locDefCmd = graph.toCommand(locDef) as? TACCmd.Simple.AssigningCmd.AssignExpCmd ?: return@mapNotNull null
             if (locDefCmd.rhs is TACExpr.AnnotationExp<*>) { return@mapNotNull null }
 
-            // `ptr.mod(2^64) ~~> ptr.cannotOverflow64().mod(2^64)
+            // `loc.mod(2^64) ~~> loc.cannotOverflow64().mod(2^64)
             ptr to TXF {
                 cmd.rhs.o1
                     .annotated(CANNOT_OVERFLOW_64_REASON, "inferred pointer")
