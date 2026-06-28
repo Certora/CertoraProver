@@ -40,6 +40,7 @@ import diagnostics.inCode
 import disassembler.DisassembledEVMBytecode
 import instrumentation.transformers.EnvironmentFixer
 import instrumentation.transformers.FilteringFunctions
+import instrumentation.transformers.InternalReturnFixup
 import instrumentation.transformers.TACDSA
 import instrumentation.transformers.optimizeAssignments
 import log.*
@@ -129,6 +130,10 @@ object ContractUtils {
                     CoreToCoreTransformer(
                         ReportTypes.INTERNAL_FUNCTION_VALIDATED
                     ) { c: CoreTACProgram -> FunctionFlowAnnotator.validateIds(c, source) },
+                    // Deoptimize calls; must happen after the function flow analysis
+                    CoreToCoreTransformer(
+                        ReportTypes.ADHOC_INTERNAL_RETURN_FIXUP
+                    ) { c: CoreTACProgram -> InternalReturnFixup.transform(c) },
                     // Deduplicate blocks; must happen after the function flow analysis
                     CoreToCoreTransformer(
                         ReportTypes.DEDUPLICATED

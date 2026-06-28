@@ -1,0 +1,10 @@
+{
+	"rules": {
+		"test": "SUCCESS",
+		"envfreeFuncsStaticCheck": {
+			"SUCCESS": [
+				"test(bool,uint256)"
+			]
+		}
+	}
+}
