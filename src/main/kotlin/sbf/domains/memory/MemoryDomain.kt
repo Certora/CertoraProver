@@ -649,6 +649,9 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
 
     override fun getTypeFac() = scalars.getTypeFac()
 
+    override fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg) =
+        getScalars().getAsScalarValueWithNumToPtrCast(reg)
+
     /** External API for TAC encoding **/
     fun getRegCell(reg: Value.Reg): PTASymCell<Flags>? {
         val scalarVal = getScalars().getAsScalarValue(reg)

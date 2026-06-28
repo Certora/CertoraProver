@@ -17,9 +17,35 @@
 
 package sbf
 
+import cli.ConversionException
+import cli.Converter
 import config.ConfigType
 import org.apache.commons.cli.Option
 import org.jetbrains.annotations.TestOnly
+
+/**
+ * Selects which TAC memory splitter is used to translate SBF memory accesses.
+ *
+ * - [PTA]:          one ByteMap per pointer-analysis cell; requires the pointer analysis to succeed.
+ * - [Scalar]:       one ByteMap per memory region (heap/input/globals/external) plus scalars for stack;
+ *                   driven by the scalar domain; strictly coarser than [PTA] but independent of PTA results.
+ * - [ScalarSingle]: same as [Scalar] for stack/intrinsics/range-assumes, but uses a single ByteMap for all
+ *                   non-stack memory. Trades model-level region non-aliasing for a TAC encoding that the
+ *                   bytemap inliner/scalarizer can actually optimize (no ite-dispatched stores).
+ * - [Dummy]:        a single ByteMap for all non-stack memory (no disambiguation). Selected by the legacy
+ *                   flag `--solanaUsePTA false`.
+ */
+enum class MemorySplitter(val configString: String) {
+    PTA(configString = "pta"),
+    Scalar(configString = "scalar"),
+    ScalarSingle(configString = "scalar-single"),
+    Dummy(configString = "dummy"),
+}
+
+val MemorySplitterConverter = Converter {
+    MemorySplitter.entries.find { mode -> mode.configString == it.lowercase() }
+        ?: throw ConversionException(it, MemorySplitter::class.java)
+}
 
 /** Static object that contains all the Solana CLI options **/
 object SolanaConfig {
@@ -97,14 +123,45 @@ object SolanaConfig {
     ) {}
 
     // PTA options
+    @Deprecated(
+        "Use SolanaConfig.MemorySplitter instead. The legacy CLI flag --solanaUsePTA is kept for " +
+            "backward compatibility; --solanaUsePTA false is equivalent to --solanaMemorySplitter dummy.",
+        ReplaceWith("MemorySplitter")
+    )
     val UsePTA = object : ConfigType.BooleanCmdLine(
         true,
         Option(
             "solanaUsePTA",
             true,
-            "Enable pointer analysis. If disabled the analysis might be unsound. [default: true]"
+            "DEPRECATED: use --solanaMemorySplitter instead. " +
+                "Enable pointer analysis. If disabled the analysis might be unsound. [default: true]"
         )
     ) {}
+
+    val MemorySplitter = ConfigType.CmdLine(
+        converter = MemorySplitterConverter,
+        default = sbf.MemorySplitter.PTA,
+        option = Option(
+            "solanaMemorySplitter",
+            true,
+            "Which TAC memory splitter to use: pta | scalar | scalar-single | dummy. " +
+                "`pta` uses the pointer analysis; `scalar` uses the scalar domain with one ByteMap per region; " +
+                "`scalar-single` uses the scalar domain with a single ByteMap for all non-stack memory " +
+                "(loses region non-aliasing but produces TAC the bytemap optimizers can handle); " +
+                "`dummy` uses a single ByteMap for all non-stack memory (no disambiguation). " +
+                "The legacy flag `--solanaUsePTA false` forces `dummy` regardless of this setting. [default: pta]"
+        )
+    )
+
+    /**
+     * Resolves the active memory splitter, honoring the legacy [UsePTA] flag.
+     *
+     * `--solanaUsePTA false` (legacy) forces [sbf.MemorySplitter.Dummy] regardless of [MemorySplitter].
+     * Otherwise, the value of [MemorySplitter] is returned.
+     */
+    @Suppress("DEPRECATION")
+    fun memorySplitter(): MemorySplitter =
+        if (!UsePTA.get()) { sbf.MemorySplitter.Dummy } else { MemorySplitter.get() }
 
     @TestOnly
     val OptimisticPTAJoin = object : ConfigType.BooleanCmdLine(

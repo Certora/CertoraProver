@@ -152,7 +152,6 @@ interface ScalarValueProvider<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> 
     /** Return false if no bytes in `[offset, offset+size-1]` has ever been written on the stack **/
     fun mayStackBeInitialized(offset: Long, size: ULong): Boolean
     fun getTypeFac(): ISbfTypeFactory<TNum, TOffset>
-
     /**
      * Returns true iff [reg] definitely holds a pointer value.
      **/
@@ -160,6 +159,11 @@ interface ScalarValueProvider<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> 
         @Suppress("UNUSED_PARAMETER") inst: SbfInstruction,
         reg: Value.Reg
     ): Boolean = getAsScalarValue(reg).type() is SbfType.PointerType
+    /**
+     * Like [getAsScalarValue] but if the scalar value is a number, attempts to cast it to a
+     * pointer when that number is a known pointer address.
+     */
+    fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg): ScalarValue<TNum, TOffset>
 }
 
 /**
@@ -169,17 +173,6 @@ interface ScalarValueProvider<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> 
 interface MutableScalarValueUpdater<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
     fun setScalarValue(reg: Value.Reg, newVal: ScalarValue<TNum, TOffset>)
     fun setStackContent(offset: Long, width: Byte, value: ScalarValue<TNum, TOffset>)
-}
-
-
-/** Special operations that [MemoryDomain] needs from the scalar domain **/
-interface MemoryDomainScalarOps<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
-    /**
-     * This function returns the scalar value for [reg] similar to `getAsScalarValue`.
-     * However, if the scalar value is a number then it tries to cast it to a pointer
-     * in cases where that number is a known pointer address.
-     */
-    fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg): ScalarValue<TNum, TOffset>
 }
 
 data class StackLocation(val offset: Long, val width: Byte) {

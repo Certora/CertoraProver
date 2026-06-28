@@ -186,10 +186,10 @@ internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANo
     if (numArgs != 2 && numArgs != 3) {
         return null
     }
-    val resLow  = summaryArgs[0].variable as? TACByteStackVariable ?: return null
-    val resHigh = summaryArgs[1].variable as? TACByteStackVariable ?: return null
+    val resLow  = (summaryArgs[0].variable as? TACMemSplitter.SummaryArgVariable.Stack)?.v ?: return null
+    val resHigh = (summaryArgs[1].variable as? TACMemSplitter.SummaryArgVariable.Stack)?.v ?: return null
     return if (numArgs == 3) {
-        val overflow = summaryArgs[2].variable as? TACByteStackVariable ?: return null
+        val overflow = (summaryArgs[2].variable as? TACMemSplitter.SummaryArgVariable.Stack)?.v ?: return null
         Result128(resLow, resHigh, overflow)
     } else {
         Result128(resLow, resHigh, null)
@@ -227,7 +227,7 @@ internal fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANo
 }
 
 /**
- * Merges the low and high halves of [x] (and optionally [y]) into full 128-bit values and
+ * Merges the low and high halves of `x` (and optionally `y`) into full 128-bit values and
  * evaluates a relational [op] on them, assigning the boolean result to [res].
  *
  * Unlike [applyU128BinaryOperation], there is no [splitU128] step: the operation produces a
@@ -332,13 +332,15 @@ internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
     if (summaryArgs.isNotEmpty()) {
         for (arg in summaryArgs) {
             val tacV = when (val v = arg.variable) {
-                is TACByteStackVariable -> {
-                    v.tacVar
-                }
-                is TACByteMapVariable -> {
+                is TACMemSplitter.SummaryArgVariable.Stack -> v.v.tacVar
+                is TACMemSplitter.SummaryArgVariable.NonStack -> {
                     val lhs = vFac.mkFreshIntVar()
-                    val loc = computeTACMapIndex(sbfTacB.mkVar(arg.reg), arg.offset, cmds)
-                    cmds += sbfTacB.load(lhs, loc, arg.width.toShort(),v.tacVar)
+                    cmds += withReadableByteMap(v.target, "summary_arg") { mapVar ->
+                        val inner = mutableListOf<TACCmd.Simple>()
+                        val loc = computeTACMapIndex(sbfTacB.mkVar(arg.reg), arg.offset, inner)
+                        inner += sbfTacB.load(lhs, loc, arg.width.toShort(), mapVar.tacVar)
+                        inner
+                    }
                     lhs
                 }
             }

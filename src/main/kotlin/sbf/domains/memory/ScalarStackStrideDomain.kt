@@ -907,8 +907,7 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
     private val globalState: GlobalState
 ) : MutableAbstractDomain<ScalarStackStridePredicateDomain<TNum, TOffset>>,
     ScalarValueProvider<TNum, TOffset>,
-    MutableScalarValueUpdater<TNum, TOffset>,
-    MemoryDomainScalarOps<TNum, TOffset> {
+    MutableScalarValueUpdater<TNum, TOffset> {
 
     constructor(
         sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,

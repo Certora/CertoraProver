@@ -168,8 +168,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
     val globalState: GlobalState
 ) : MutableAbstractDomain<ScalarDomain<TNum, TOffset>>,
     ScalarValueProvider<TNum, TOffset>,
-    MutableScalarValueUpdater<TNum, TOffset>,
-    MemoryDomainScalarOps<TNum, TOffset> {
+    MutableScalarValueUpdater<TNum, TOffset> {
 
     constructor(
         sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
@@ -1363,7 +1362,10 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
     }
 
     override fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg): ScalarValue<TNum, TOffset> {
-        check(!isBottom()) {"getAsScalarValueWithNumToPtrCast cannot be called on bottom"}
+        if (isBottom()) {
+            return ScalarValue(sbfTypeFac.mkBottom())
+        }
+
         val scalarVal = getRegister(reg)
         val type = scalarVal.type()
         if (type is SbfType.NumType) {

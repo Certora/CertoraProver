@@ -28,6 +28,24 @@ import vc.data.tacexprutil.asSym
 import java.math.BigInteger
 
 /**
+ * Build a list of [TACByteStackVariable]s by walking the stack range starting at [start]
+ * for [length] bytes, stepping by [wordSize]. Used to scalarize stack ranges for memcmp encoding.
+ */
+internal fun <TFlags : IPTANodeFlags<TFlags>> createStackVarsFromRange(
+    start: PTAOffset,
+    length: Long,
+    wordSize: Byte,
+    vFac: TACVariableFactory<TFlags>,
+): List<TACByteStackVariable> {
+    check(length.mod(wordSize.toInt()) == 0) { "createStackVarsFromRange precondition: length must be multiple of wordSize" }
+    val vars = ArrayList<TACByteStackVariable>()
+    for (i in 0 until length step wordSize.toLong()) {
+        vars.add(vFac.getByteStackVar(start + i))
+    }
+    return vars
+}
+
+/**
  * Emit TAC to model the load `*([base] + [o])`
  *
  * **Important**: the TAC generation depends on whether the pointer analysis decided to split or merge cells during the transfer

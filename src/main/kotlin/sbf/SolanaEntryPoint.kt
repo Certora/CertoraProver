@@ -316,7 +316,7 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
     ptaFlagsFac: () -> TFlags,
     opts: MemoryDomainOpts,
     processor: InstructionListener<MemoryDomain<TNum, TOffset, TFlags>>?
-): WholeProgramMemoryAnalysis<TNum, TOffset, TFlags>? = if (SolanaConfig.UsePTA.get()) {
+): WholeProgramMemoryAnalysis<TNum, TOffset, TFlags>? = if (SolanaConfig.memorySplitter() == MemorySplitter.PTA) {
 
     val analysis = timeIt(target, "whole-program memory analysis") {
         val analysis = WholeProgramMemoryAnalysis(program, memSummaries, sbfTypesFac, ptaFlagsFac, opts, processor)
@@ -368,7 +368,7 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
     processor: InstructionListener<MemoryDomain<TNum, TOffset, TFlags>>?,
     maxNumPTAErrors: Int
 ): Pair<WholeProgramMemoryAnalysis<TNum, TOffset, TFlags>?, SbfCallGraph> {
-    if (!SolanaConfig.UsePTA.get()) {
+    if (SolanaConfig.memorySplitter() != MemorySplitter.PTA) {
         return null to program
     }
     require(maxNumPTAErrors >= 0) { "maxNumPTAErrors must be non-negative, got $maxNumPTAErrors" }

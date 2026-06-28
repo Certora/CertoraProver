@@ -35,18 +35,19 @@ internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
     check(inst is SbfInstruction.Call) { "summarizeCall expects only call instructions" }
 
     val summaryArgs = mem.getTACMemoryFromSummary(locInst).orEmpty()
-
     val cmds = mutableListOf(Debug.externalCall(inst))
     if (summaryArgs.isNotEmpty()) {
         for ((i, arg) in summaryArgs.withIndex()) {
-            val (tacV, useAssume) =  when (val v = arg.variable) {
-                is TACByteStackVariable -> {
-                    v.tacVar to false
-                }
-                is TACByteMapVariable -> {
+            val (tacV, useAssume) = when (val v = arg.variable) {
+                is TACMemSplitter.SummaryArgVariable.Stack -> v.v.tacVar to false
+                is TACMemSplitter.SummaryArgVariable.NonStack -> {
                     val lhs = vFac.mkFreshIntVar()
-                    val idx = computeTACMapIndex(sbfTacB.mkVar(arg.reg), arg.offset, cmds)
-                    cmds += sbfTacB.load(lhs, idx, arg.width.toShort(), v.tacVar)
+                    cmds += withReadableByteMap(v.target, "summary_arg") { mapVar ->
+                        val inner = mutableListOf<TACCmd.Simple>()
+                        val idx = computeTACMapIndex(sbfTacB.mkVar(arg.reg), arg.offset, inner)
+                        inner += sbfTacB.load(lhs, idx, arg.width.toShort(), mapVar.tacVar)
+                        inner
+                    }
                     lhs to true
                 }
             }

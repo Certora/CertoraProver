@@ -177,10 +177,16 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
 
         natIntTacB = NativeIntTACBuilder(regVars)
 
-        mem = if (memoryAnalysis != null) {
-            PTAMemSplitter(cfg, vFac, memoryAnalysis)
-        } else {
-            DummyMemSplitter(vFac, types)
+        mem = when (SolanaConfig.memorySplitter()) {
+            MemorySplitter.PTA ->
+                if (memoryAnalysis != null) {
+                    PTAMemSplitter(cfg, vFac, memoryAnalysis)
+                } else {
+                    DummyMemSplitter(vFac, types)
+                }
+            MemorySplitter.Scalar       -> ScalarMemSplitter(cfg, vFac, sbfTacB, types, memSummaries, useSingleNonStackMap = false)
+            MemorySplitter.ScalarSingle -> ScalarMemSplitter(cfg, vFac, sbfTacB, types, memSummaries, useSingleNonStackMap = true)
+            MemorySplitter.Dummy        -> DummyMemSplitter(vFac, types)
         }
 
         isPointerAnalysis = IsPointerAnalysis(scalarAnalysis)
@@ -254,13 +260,17 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                     val info = mem.getTACMemory(locInst)
                     checkNotNull(info) {"addGlobalInitializers cannot get PTA info from $inst"}
                     check(info is TACMemSplitter.NonStackLoadOrStoreInfo) {"addGlobalInitializers expects a byte map at $inst"}
-                    info.variable
+                    val target = info.variable
+                    check(target is TACMemSplitter.ByteMapTarget.Base) {
+                        "addGlobalInitializers expects a single ByteMap, not an ite target, at $inst"
+                    }
+                    target.v
                 }
                 is SbfInstruction.Call -> {
                     check(inst.name == SolanaFunction.SOL_MEMCMP.syscall.name)
                     val info = mem.getTACMemoryFromMemIntrinsic(locInst)
                     checkNotNull(info) {"addGlobalInitializers cannot get PTA info from $inst"}
-                    when(info) {
+                    val opTarget = when(info) {
                         is TACMemSplitter.NonStackMemCmpInfo -> {
                             // memcmp when both src and destination are non-stack and thus, they are both modeled as ByteMap
                             if (reg == SbfRegister.R1) { info.op1 } else { info.op2 }
@@ -273,6 +283,10 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                         }
                         else -> throw TACTranslationError("addGlobalInitializers expects a byte map at $inst")
                     }
+                    check(opTarget is TACMemSplitter.ByteMapTarget.Base) {
+                        "addGlobalInitializers expects a single ByteMap, not an ite target, at $inst"
+                    }
+                    opTarget.v
                 }
                 else -> throw TACTranslationError("addGlobalInitializers: unexpected instruction $inst")
             }
@@ -824,16 +838,21 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 val r1 = sbfTacB.mkVar(SbfRegister.R1)
                 val r2 = sbfTacB.mkVar(SbfRegister.R2)
 
-                val cmds = mutableListOf(Debug.startFunction("memcmp"))
-                // Read word-by word from the byte maps because there is no TAC instruction
-                // for comparison of ByteMap.
-                // REVISIT(SOUNDNESS):
-                // Soundness depends on all writes to the two memory regions to access exactly info.wordSize bytes.
-                val op1Vars = mapLoads(info.op1, r1, info.wordSize, info.length, cmds)
-                val op2Vars = mapLoads(info.op2, r2, info.wordSize, info.length, cmds)
-                cmds.add(assign(r0, allEqual(op1Vars, op2Vars, cmds)))
-                cmds.add(Debug.endFunction("memcmp"))
-                cmds
+                listOf(Debug.startFunction("memcmp")) +
+                    withReadableByteMap(info.op1, "memcmp_op1") { op1V ->
+                        withReadableByteMap(info.op2, "memcmp_op2") { op2V ->
+                            val inner = mutableListOf<TACCmd.Simple>()
+                            // Read word-by word from the byte maps because there is no TAC instruction
+                            // for comparison of ByteMap.
+                            // REVISIT(SOUNDNESS):
+                            // Soundness depends on all writes to the two memory regions to access exactly info.wordSize bytes.
+                            val op1Vars = mapLoads(op1V, r1, info.wordSize, info.length, inner)
+                            val op2Vars = mapLoads(op2V, r2, info.wordSize, info.length, inner)
+                            inner += assign(r0, allEqual(op1Vars, op2Vars, inner))
+                            inner
+                        }
+                    } +
+                    listOf(Debug.endFunction("memcmp"))
             }
             is TACMemSplitter.StackMemCmpInfo -> {
                 val r0 = sbfTacB.mkVar(SbfRegister.R0)
@@ -846,21 +865,19 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
             }
             is TACMemSplitter.MixedRegionsMemCmpInfo -> {
                 val r0 = sbfTacB.mkVar(SbfRegister.R0)
-                // scalars
                 val op1Vars = info.scalars
 
-                val cmds = mutableListOf(
-                    Debug.startFunction("memcmp", "(${info.scalarsReg}=${info.stackOpRange})")
-                )
-                // byte map
-                // Read word-by-word from the byte map to be able to compare with the scalars.
-                // REVISIT(SOUNDNESS):
-                // Soundness depends on all writes to the non-scalar memory region to access exactly info.wordSize bytes.
-                val op2Vars =
-                    mapLoads(info.byteMap, sbfTacB.mkVar(info.byteMapReg), info.wordSize, info.length, cmds)
-                cmds.add(assign(r0, allEqual(op1Vars.map { it.tacVar }, op2Vars, cmds)))
-                cmds.add(Debug.endFunction("memcmp"))
-                cmds
+                listOf(Debug.startFunction("memcmp", "(${info.scalarsReg}=${info.stackOpRange})")) +
+                    withReadableByteMap(info.byteMap, "memcmp_mixed") { byteMapV ->
+                        val inner = mutableListOf<TACCmd.Simple>()
+                        // Read word-by-word from the byte map to be able to compare with the scalars.
+                        // REVISIT(SOUNDNESS):
+                        // Soundness depends on all writes to the non-scalar memory region to access exactly info.wordSize bytes.
+                        val op2Vars = mapLoads(byteMapV, sbfTacB.mkVar(info.byteMapReg), info.wordSize, info.length, inner)
+                        inner += assign(r0, allEqual(op1Vars.map { it.tacVar }, op2Vars, inner))
+                        inner
+                    } +
+                    listOf(Debug.endFunction("memcmp"))
             }
         }
 
@@ -899,18 +916,18 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                     val pv = vFac.getByteStackVar(offset)
                     cmds.add(assign(pv.tacVar, sbfTacB.ZERO))
                 }
-                cmds.add(Debug.endFunction("memset"))
+                cmds += Debug.endFunction("memset")
                 cmds
             }
             is TACMemSplitter.NonStackMemsetInfo -> {
                 val len = info.length
                 val value = info.value
-                val byteMapV = info.byteMap
-
-                val cmds = if (len <= SolanaConfig.TACMaxUnfoldedMemset.get()) {
-                    memsetNonStack(byteMapV, len, value)
-                } else {
-                    memsetNonStackWithMapDef(byteMapV, len, value)
+                val cmds = withWritableByteMap(info.byteMap, "memset") { byteMapV ->
+                    if (len <= SolanaConfig.TACMaxUnfoldedMemset.get()) {
+                        memsetNonStack(byteMapV, len, value, info.offset)
+                    } else {
+                        memsetNonStackWithMapDef(byteMapV, len, value, info.offset)
+                    }
                 }
                 listOf(Debug.startFunction("memset", "(NonStack, $value, $len)")) +
                     cmds +
@@ -957,6 +974,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     private fun translateCall(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call)
+
         if (inst.isAbort()) {
             // If the abort was added by the slicer then we skip it in TAC because it can cause problems to sanity rules
             return if (inst.metaData.getVal(SbfMeta.UNREACHABLE_FROM_COI) != null) {
@@ -1052,7 +1070,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                             sbfTacB.mkVar(lhs.r)
                         )
                     } else {
-                        if (SolanaConfig.UsePTA.get()) {
+                        if (SolanaConfig.memorySplitter() == MemorySplitter.PTA) {
                             // havoc any possible overlaps
                             val scalarsToHavoc = loadOrStore.locationsToHavoc
                             check(scalarsToHavoc is TACMemSplitter.HavocScalars) {
@@ -1076,37 +1094,60 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                     newCmds
                 }
                 is TACMemSplitter.NonStackLoadOrStoreInfo -> {
-                    /* byte map variable */
-                    val memVar = loadOrStore.variable
                     val newCmds = mutableListOf<TACCmd.Simple>()
                     val loc = computeTACMapIndex(sbfTacB.mkVar(baseReg), PTAOffset(offset.toLong()), newCmds)
-                    if (inst.isLoad) {
-                        val lhs = value as Value.Reg
-                        val lhsV = sbfTacB.mkVar(lhs.r)
-                        val lhsType = types.typeAtInstruction(locInst, lhs.r, isWritten = true)
-                        val lhsVal = (lhsType as? SbfType.NumType)?.value?.toLongOrNull()
-                        newCmds += if (lhsVal != null) {
-                            // optimization, specially important for read-only globals: if the scalar analysis knows
-                            // the value of the lhs then we don't read from the map
-                            listOf(assign(lhsV, sbfTacB.mkConst(lhsVal).asSym()))
-                        } else {
-                            sbfTacB.load(lhsV, loc, inst.access.width, memVar.tacVar)
-                        }
-                    } else {
-                        if (SolanaConfig.UsePTA.get()) {
-                            // havoc any possible overlaps
-                            val mapFieldsToHavoc = loadOrStore.locationsToHavoc
-                            check(mapFieldsToHavoc is TACMemSplitter.HavocMapBytes) {
-                                "TAC translateMem expects HavocMapBytes"
+                    when (val target = loadOrStore.variable) {
+                        is TACMemSplitter.ByteMapTarget.Base -> {
+                            val memVar = target.v
+                            if (inst.isLoad) {
+                                val lhs = value as Value.Reg
+                                val lhsV = sbfTacB.mkVar(lhs.r)
+                                val lhsType = types.typeAtInstruction(locInst, lhs.r, isWritten = true)
+                                val lhsVal = (lhsType as? SbfType.NumType)?.value?.toLongOrNull()
+                                newCmds += if (lhsVal != null) {
+                                    // optimization, specially important for read-only globals: if the scalar analysis knows
+                                    // the value of the lhs then we don't read from the map
+                                    listOf(assign(lhsV, sbfTacB.mkConst(lhsVal).asSym()))
+                                } else {
+                                    sbfTacB.load(lhsV, loc, inst.access.width, memVar.tacVar)
+                                }
+                            } else {
+                                if (SolanaConfig.memorySplitter() == MemorySplitter.PTA) {
+                                    // havoc any possible overlaps
+                                    val mapFieldsToHavoc = loadOrStore.locationsToHavoc
+                                    check(mapFieldsToHavoc is TACMemSplitter.HavocMapBytes) {
+                                        "TAC translateMem expects HavocMapBytes"
+                                    }
+                                    newCmds += havocByteMapLocation(mapFieldsToHavoc.vars, memVar, loc)
+                                }
+                                val valueE = when (value) {
+                                    is Value.Imm -> { sbfTacB.mkConst(value) }
+                                    is Value.Reg -> { sbfTacB.mkVar(value) }
+                                }
+                                newCmds += store(memVar.tacVar, loc, valueE)
+                                newCmds += accounts.updateWrite(loc)
                             }
-                            newCmds += havocByteMapLocation(mapFieldsToHavoc.vars, memVar, loc)
                         }
-                        val valueE = when (value) {
-                            is Value.Imm -> { sbfTacB.mkConst(value) }
-                            is Value.Reg -> { sbfTacB.mkVar(value) }
+                        is TACMemSplitter.ByteMapTarget.Ite -> {
+                            if (inst.isLoad) {
+                                val lhs = value as Value.Reg
+                                val lhsV = sbfTacB.mkVar(lhs.r)
+                                val lhsType = types.typeAtInstruction(locInst, lhs.r, isWritten = true)
+                                val lhsVal = (lhsType as? SbfType.NumType)?.value?.toLongOrNull()
+                                newCmds += if (lhsVal != null) {
+                                    listOf(assign(lhsV, sbfTacB.mkConst(lhsVal).asSym()))
+                                } else {
+                                    load(lhsV, target, loc, inst.access.width)
+                                }
+                            } else {
+                                val valueE = when (value) {
+                                    is Value.Imm -> sbfTacB.mkConst(value)
+                                    is Value.Reg -> sbfTacB.mkVar(value)
+                                }
+                                newCmds += store(target, loc, valueE, inst.access.width)
+                                newCmds += accounts.updateWrite(loc)
+                            }
                         }
-                        newCmds += store(memVar.tacVar, loc, valueE)
-                        newCmds += accounts.updateWrite(loc)
                     }
                     val baseRegType = types.typeAtInstruction(locInst, baseReg.r)
                     newCmds += addMemoryLayoutAssumptions(loc, baseRegType)

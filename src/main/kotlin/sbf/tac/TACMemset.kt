@@ -39,19 +39,25 @@ context(SbfCFGToTAC<TNum, TOffset, TFlags>)
 internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> memsetNonStackWithMapDef(
     mapV: TACByteMapVariable,
     len: Long,
-    value: Long
+    value: Long,
+    offset: Long
 ): List<TACCmd.Simple> {
     val initMap = vFac.getByteMapVar("memset")
-    return listOf(
-        assign(initMap.tacVar, sbfTacB.defineMap(value)),
-        TACCmd.Simple.ByteLongCopy(
-            srcBase = initMap.tacVar,
-            srcOffset = TACSymbol.Zero,
-            dstBase = mapV.tacVar,
-            dstOffset = sbfTacB.mkVar(SbfRegister.R1),
-            length = sbfTacB.mkConst(len),
-        )
+    val cmds = mutableListOf<TACCmd.Simple>()
+    cmds += assign(initMap.tacVar, sbfTacB.defineMap(value))
+    val dstOffset = if (offset == 0L) {
+        sbfTacB.mkVar(SbfRegister.R1)
+    } else {
+        computeTACMapIndex(sbfTacB.mkVar(SbfRegister.R1), PTAOffset(offset), cmds)
+    }
+    cmds += TACCmd.Simple.ByteLongCopy(
+        srcBase = initMap.tacVar,
+        srcOffset = TACSymbol.Zero,
+        dstBase = mapV.tacVar,
+        dstOffset = dstOffset,
+        length = sbfTacB.mkConst(len),
     )
+    return cmds
 }
 
 /**
@@ -61,7 +67,8 @@ context(SbfCFGToTAC<TNum, TOffset, TFlags>)
 internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> memsetNonStack(
     mapV: TACByteMapVariable,
     len: Long,
-    value: Long
+    value: Long,
+    offset: Long
 ): List<TACCmd.Simple> {
     val valueS = if (value == 0L) {
         sbfTacB.mkConst(value)
@@ -72,7 +79,7 @@ internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
     val cmds = mutableListOf<TACCmd.Simple>()
     val r1 = sbfTacB.mkVar(SbfRegister.R1)
     for (i in 0 until len) {
-        cmds += mapStores(mapV, r1, PTAOffset(i), valueS)
+        cmds += mapStores(mapV, r1, PTAOffset(offset + i), valueS)
     }
     cmds += accounts.updateWrite(r1)
     return cmds
