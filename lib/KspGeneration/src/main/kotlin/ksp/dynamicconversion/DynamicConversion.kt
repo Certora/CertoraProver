@@ -48,6 +48,44 @@ annotation class AddDynamicConversion
 @Target(AnnotationTarget.VALUE_PARAMETER)
 annotation class ConvertibleWith(val converter: KClass<*>)
 
+/**
+ * Annotate a property to exclude it from the generated dynamic
+ * `copy(Map<String,Any>)` conversion in normal runs. A key matching such a
+ * property in the override map is ignored (the property keeps its current
+ * value) instead of being set, UNLESS this is a development or CI run (see
+ * [excludedDynamicConversionAllowed]). Use this for properties that must not be
+ * settable through the dynamic (e.g. command-line `name{prop=...}`) path in
+ * production. The regular named-argument `copy(...)` is unaffected, so trusted
+ * code can always set the property directly.
+ */
+@Target(AnnotationTarget.VALUE_PARAMETER)
+annotation class ExcludeFromDynamicConversion
+
+/**
+ * Whether a property annotated [ExcludeFromDynamicConversion] may still be set through the dynamic
+ * `copy(Map<String,Any>)` path. Excluded properties are honored only in development or CI runs,
+ * i.e. when the `CERTORA_DEV_MODE` or `CI` environment variable is set; otherwise the override is
+ * ignored. Called from generated dynamic-conversion code.
+ */
+fun excludedDynamicConversionAllowed(): Boolean =
+    excludedDynamicConversionAllowed(System.getenv("CERTORA_DEV_MODE"), System.getenv("CI"))
+
+/** Testable core of [excludedDynamicConversionAllowed]: allowed iff either env value is set. */
+fun excludedDynamicConversionAllowed(certoraDevMode: String?, ci: String?): Boolean =
+    certoraDevMode != null || ci != null
+
+/**
+ * Helper for generated dynamic-conversion code on an [ExcludeFromDynamicConversion] property:
+ * returns [override]'s result when the override is allowed (see [excludedDynamicConversionAllowed]),
+ * otherwise the unchanged [current] value. [override] is only evaluated when allowed.
+ */
+inline fun <T> applyExcludedOverride(current: T, override: () -> T): T =
+    if (excludedDynamicConversionAllowed()) {
+        override()
+    } else {
+        current
+    }
+
 /** Helper method for unchecked casting, copied from ExtStdlib.kt */
 @Suppress("UNCHECKED_CAST", "NOTHING_TO_INLINE")
 inline fun <T> Any?.uncheckedAs(): T = this as T

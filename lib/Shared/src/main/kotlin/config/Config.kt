@@ -298,7 +298,8 @@ object Config {
         Option(
             "customBuildScript",
             true,
-            "Script file to run in order to build or perform any kind of preprocessing prior to the tool"
+            "DEPRECATED and ignored: this hook is no longer executed. Perform any build or " +
+                "preprocessing steps before invoking the tool."
         )
     ) {}
 

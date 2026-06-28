@@ -593,21 +593,17 @@ suspend fun handleCVLFlow(contractFilename: String, specFilename: String) {
 }
 
 fun runBuildScript() {
-    CustomBuildScript.get().let { customBuildScript ->
-        if (customBuildScript.isNotBlank()) {
-            val (exitcode, output) = safeCommandExec(listOf(customBuildScript), "build_script", true, true)
-            if (exitcode != 0) {
-                logger.error("Failed to run $customBuildScript, returned exit code $exitcode and output $output")
-            } else {
-                output.split("\n").drop(3).joinToString("\n").let { filteredOutput ->
-                    if (filteredOutput.isNotBlank()) {
-                        Logger.always("Ran $customBuildScript, output: $filteredOutput", respectQuiet = false)
-                    } else {
-                        Logger.always("Ran $customBuildScript", respectQuiet = false)
-                    }
-                }
-            }
-        }
+    // DEPRECATED: the -customBuildScript hook is no longer executed. The option is retained so
+    // existing configurations that set it do not error; setting it only emits a warning.
+    if (CustomBuildScript.get().isNotBlank()) {
+        CVTAlertReporter.reportAlert(
+            CVTAlertType.GENERAL,
+            CVTAlertSeverity.WARNING,
+            jumpToDefinition = null,
+            "The -customBuildScript option is deprecated and is no longer executed; it will be " +
+                "removed in a future version.",
+            hint = "Perform any build or preprocessing steps before invoking the tool.",
+        )
     }
 }
 
