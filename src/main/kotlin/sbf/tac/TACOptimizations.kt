@@ -204,7 +204,11 @@ fun legacyOptimize(coreTAC: CoreTACProgram): CoreTACProgram {
                 )
             })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })
-            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { DiamondSimplifier.simplifyDiamonds(it, iterative = true) })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) {
+                // allowAssumes = false is important here, to avoid disjunctions in assumes that confuse the interval
+                // analysis, bytemap scalarizer, etc.
+                DiamondSimplifier.simplifyDiamonds(it, iterative = true, allowAssumes = false)
+            })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS2) {
                 // after pruning infeasible paths, there are more constants to propagate
                 ConstantPropagator.propagateConstants(it, emptySet())
@@ -255,7 +259,11 @@ fun legacyOptimize(coreTAC: CoreTACProgram): CoreTACProgram {
                         patternList = { solanaPatternsList() + postIntervalsRewriterPatternList() })
                 })
             }
-
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) {
+                // allowAssumes = true; now that we are done with the various intervals-based optimizations, we can
+                // tolerate disjunctions in assumes, and just want the simplest CFG.
+                DiamondSimplifier.simplifyDiamonds(it, iterative = true, allowAssumes = true)
+            })
     }
 
     val maybeOptimized3 = runIf(optLevel >= 3) {
