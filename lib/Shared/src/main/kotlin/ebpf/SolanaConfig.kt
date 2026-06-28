@@ -238,12 +238,18 @@ object SolanaConfig {
         )
     ) {}
 
+    @Deprecated(
+        "This option will be removed in a future release.  Remove uses of " +
+            "SolanaConfig.EnablePTAPseudoCanonicalize; the CLI flag " +
+            "--solanaEnablePTAPseudoCanonicalize is kept only for backwards-compatibility " +
+            "and currently has no effect on analysis behavior."
+    )
     val EnablePTAPseudoCanonicalize = object : ConfigType.BooleanCmdLine(
         true,
         Option(
             "solanaEnablePTAPseudoCanonicalize",
             true,
-            "This option does not affect soundness but it affects precision/performance of PTA analysis [default: true]"
+            "DEPRECATED: this option has no effect. [default: true]"
         )
     ) {}
 
@@ -264,6 +270,19 @@ object SolanaConfig {
             "If an error happens, then it prints extra information for developers. [default: true]"
         )
     ) {}
+
+    val PTAGraphVerbosity = object : ConfigType.IntCmdLine(
+        0,
+        Option(
+            "solanaPTAGraphVerbosity",
+            true,
+            "Verbosity level when printing the points-to graph. " +
+                "0 = minimal (registers + graph); 1 = + unmaterialized stack; " +
+                "2 = + untracked stack fields; 3 = + scratch registers. [default: 0]"
+        )
+    ) {
+        override fun check(newValue: Int) = newValue >= 0
+    }
 
     // CFG optimizations
     val SlicerIter = object : ConfigType.IntCmdLine(
@@ -622,5 +641,6 @@ object SolanaConfig {
     fun optimisticScalarAnalysis(): Boolean = DefactoSemantics.get() || OptimisticScalarAnalysis.get()
 
     fun optimisticDealloc(): Boolean = OptimisticDealloc.get()
-    fun optimisticJoinWithStackPtr(): Boolean = OptimisticPTAJoinWithStackPtr.get()
+    fun optimisticJoinWithStackPtr(): Boolean = optimisticJoin() && OptimisticPTAJoinWithStackPtr.get()
 }
+

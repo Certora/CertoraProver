@@ -352,7 +352,7 @@ private fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, Flags: IPTANodeF
         return p1
     }
 
-    val p3 = timeIt(target, "lowering of CPI calls") {
+    return timeIt(target, "lowering of CPI calls") {
         // Run an analysis to infer global variables by use
         val p2 = runGlobalInferenceAnalysis(p1, memSummaries)
         // Remove/replace some special intrinsics
@@ -386,14 +386,6 @@ private fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, Flags: IPTANodeF
 
         val cpiCalls = processor.getCpis()
         substituteCpiCalls(memAnalysis, target, cpiCalls, inliningConfig)
-    }
-
-    // HACK: remove some annotations added by the memory analysis.
-    // These annotations are generated and consumed by the memory analysis.
-    return p3.transformSingleEntry {
-        val outCFG = it.clone(it.getName())
-        outCFG.removeAnnotations(listOf(SbfMeta.REG_TYPE))
-        outCFG
     }
 }
 

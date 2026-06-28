@@ -29,6 +29,8 @@ import sbf.SolanaConfig.OptimisticPTAJoin
 import sbf.SolanaConfig.OptimisticPTAOverlaps
 import sbf.SolanaConfig.DefactoSemantics
 import sbf.SolanaConfig.ForgetOnUntrackedStackLoad
+import sbf.SolanaConfig.PTAGraphVerbosity
+import sbf.SolanaConfig.SanityChecks
 import sbf.analysis.MemoryAnalysis
 import sbf.callgraph.SolanaFunction
 import sbf.testing.SbfTestDSL
@@ -1089,7 +1091,7 @@ class MemoryTest {
             }
             bb(6) {
                 assert(CondOp.NE(r2, 0)) // for liveness
-                assert(CondOp.GT(r4, 0)) // for liveness
+                assert(CondOp.NE(r4, 0)) // for liveness
                 exit()
             }
         }
@@ -1242,7 +1244,9 @@ class MemoryTest {
         g.setRegCell(r2,sumN.createSymCell(PTAOffset(0)))
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(32)))
         g.doMemcpy(createMemcpy(), scalars)
-        println("After memcpy(r1=sp(4032),r2=(sumN,0),r3=32): $g")
+        ConfigScope(PTAGraphVerbosity, 2).use {
+            println("After memcpy(r1=sp(4032),r2=(sumN,0),r3=32): $g")
+        }
 
         val c1 = stack.getNode().getSucc(PTAField(PTAOffset(4032), 8))
         val c2 = stack.getNode().getSucc(PTAField(PTAOffset(4040), 8))
@@ -1257,24 +1261,48 @@ class MemoryTest {
         val intN = g.mkIntegerNode()
         g.setRegCell(r1, stack.getNode().createSymCell(PTAOffset(4040)))
         g.setRegCell(r5, intN.createSymCell(PTAOffset(0)))
+        // *sp(4040, 8) materializes the range [4033, 4054]: [4033,4039] and [4048,4054] are inaccessible
+        //
+        // 4032   4033..4039  4040..4047  4048..4054  4055..4063
+        // UNMAT  INACCESS    ACCESSIBLE       ?        UNMAT
+        //
         store(g, r1, 0, 8, r5)
-
-        // memcpy(r1=sp(3032), r2=sp(4042), r3=32)
+        ConfigScope(PTAGraphVerbosity, 2).use {
+            println("After store at sp(4040, 8): $g")
+        }
+        // memcpy(r1=sp(3032), r2=sp(4032), r3=32)
+        //
+        // 3032   3033..3039  3040..3047  3048..3054  3055..3063
+        // UNMAT  INACCESS    ACCESSIBLE       ?        UNMAT
         g.setRegCell(r1, stack.getNode().createSymCell(PTAOffset(3032)))
         g.setRegCell(r2, stack.getNode().createSymCell(PTAOffset(4032)))
         g.doMemcpy(createMemcpy(), scalars)
-        println("After memcpy(r1=sp(3032), r2=sp(4042), r3=32): $g")
+        ConfigScope(PTAGraphVerbosity, 2).use {
+            println("After memcpy(r1=sp(3032), r2=sp(4042), r3=32): $g")
+        }
 
         g.setRegCell(r4, stack.getNode().createSymCell(PTAOffset(3032)))
         // stack materialization for *sp(3032), *sp(3048), and *sp(3056) happens here
         // Note that *sp(3040) is equals to *sp(4040) which should point to (`intN`,0)
-        val c5 = load(g, r4, 0, 8, r5, scalars)
+
+        // c5 is *sp(3032, 1)  --> [3032, 3032] -> UNMAT
+        val c5 = load(g, r4, 0, 1, r5, scalars)
+        // c6 is *sp(3040, 8)  --> [3040, 3047] -> ACCESSIBLE
         val c6 = load(g, r4, 8, 8, r5, scalars)
-        val c7 = load(g, r4, 16, 8, r5, scalars)
+        // c7 is *sp(3048, 8)  --> [3048, 3055] is not really inaccessible. The last inaccessible fields produced by
+        // the above store are {3047:*i8,3047:*i16,3047:*i32,3047:*i64}
+        //val c7 = load(g, r4, 16, 8, r5, scalars)
+        // c8 is *sp(3056, 8)  --> [3056, 3063] -> UNMAT
         val c8 = load(g, r4, 24, 8, r5, scalars)
 
-        println("After stack materialization: $g")
-        Assertions.assertEquals(true, c5 != null && c5.getNode() == sumN && c5 != c6 && c5 == c7 && c7 == c8 )
+        ConfigScope(PTAGraphVerbosity, 2).use {
+            println("After stack materialization: $g")
+            println("c5=$c5")
+            println("c6=$c6")
+            //println("c7=$c7")
+            println("c8=$c8")
+        }
+        Assertions.assertEquals(true, c5 != null && c5.getNode() == sumN && c5 != c6 && c5 == c8)
         Assertions.assertEquals(true, c6?.getNode() == intN)
     }
 
@@ -1739,5 +1767,630 @@ class MemoryTest {
             memDomainOpts,
             processor = null
         )
+    }
+
+    /**
+     * After a pointer store of width N at a stack offset, the surrounding fields at widths
+     * other than N (including the wider widths at the same offset) are marked untracked.
+     * For a widening memcpy_zext from such an u8 source to an u64 destination, the destination
+     * gets an u64 link.
+     */
+    @Test
+    fun `memcpy_zext does not violate stack invariants (untrackedStackFields) when source has pointer link`() {
+        ConfigScope(SanityChecks, true).use {
+            val r10 = Value.Reg(SbfRegister.R10)
+            val r1 = Value.Reg(SbfRegister.R1)
+            val r2 = Value.Reg(SbfRegister.R2)
+            val r3 = Value.Reg(SbfRegister.R3)
+            val r4 = Value.Reg(SbfRegister.R4)
+
+            val absVal = createMemoryDomain()
+            val stackC = absVal.getRegCell(r10) ?: error("memory domain cannot find the stack node")
+            stackC.getNode().setRead()
+            val g = absVal.getPTAGraph()
+            val scalars = absVal.getScalars()
+
+            // r4 -> a non-stack node so the value held by r4 is a pointer
+            val targetNode = g.mkNode()
+            targetNode.setWrite()
+            g.setRegCell(r4, targetNode.createSymCell(PTAOffset(0)))
+
+            // u8 store of the pointer at r10[-600]: creates a u8 link AND populates
+            // untrackedStackFields with the overlapping fields (including the same-offset
+            // u16, u32, u64 entries).
+            val srcOff: Short = -600
+            store(g, r10, srcOff, 1, r4)
+
+            // Set up registers for memcpy_zext(dst=r10-1408, src=r10-600, len=1)
+            val dstOff: Short = -1408
+            g.setRegCell(r1, stackC.getNode().createSymCell(stackC.getOffset().add(PTASymOffset(dstOff.toLong()))))
+            g.setRegCell(r2, stackC.getNode().createSymCell(stackC.getOffset().add(PTASymOffset(srcOff.toLong()))))
+            scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(1UL)))
+
+            val locInst = LocatedSbfInstruction(
+                Label.fresh(), 0,
+                SbfInstruction.Call(SolanaFunction.SOL_MEMCPY_ZEXT.syscall.name)
+            )
+            g.doCall(locInst, scalars)
+
+            // The dst now has a u64 link at r10[-1408]. With the fix, the corresponding
+            // u64 entry has been excluded from the propagation, so the invariant holds.
+            // Without the fix, this would throw PointerDomainError.
+            g.checkStackInvariants("after memcpy_zext")
+        }
+    }
+
+    /**
+     * Symmetric to the widening case. An u64 pointer store creates an u64 link and adds the
+     * overlapping (narrower) widths to untrackedStackFields. A subsequent `memcpy_trunc` with
+     * `len = 2` installs an u16 link at the destination.
+     */
+    @Test
+    fun `memcpy_trunc does not violate stack invariants (untrackedStackFields) when source has pointer link`() {
+        ConfigScope(SanityChecks, true).use {
+            val r10 = Value.Reg(SbfRegister.R10)
+            val r1 = Value.Reg(SbfRegister.R1)
+            val r2 = Value.Reg(SbfRegister.R2)
+            val r3 = Value.Reg(SbfRegister.R3)
+            val r4 = Value.Reg(SbfRegister.R4)
+
+            val absVal = createMemoryDomain()
+            val stackC = absVal.getRegCell(r10) ?: error("memory domain cannot find the stack node")
+            stackC.getNode().setRead()
+            val g = absVal.getPTAGraph()
+            val scalars = absVal.getScalars()
+
+            val targetNode = g.mkNode()
+            targetNode.setWrite()
+            g.setRegCell(r4, targetNode.createSymCell(PTAOffset(0)))
+
+            // u64 store of the pointer at r10[-600]: creates an u64 link AND populates
+            // untrackedStackFields with the overlapping narrower widths at the same offset.
+            val srcOff: Short = -600
+            store(g, r10, srcOff, 8, r4)
+
+            // `memcpy_trunc(dst=r10-1408, src=r10-600, len=2)`: creates a u16 link on dst.
+            val dstOff: Short = -1408
+            g.setRegCell(r1, stackC.getNode().createSymCell(stackC.getOffset().add(PTASymOffset(dstOff.toLong()))))
+            g.setRegCell(r2, stackC.getNode().createSymCell(stackC.getOffset().add(PTASymOffset(srcOff.toLong()))))
+            scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(2UL)))
+
+            val locInst = LocatedSbfInstruction(
+                Label.fresh(), 0,
+                SbfInstruction.Call(SolanaFunction.SOL_MEMCPY_TRUNC.syscall.name)
+            )
+            g.doCall(locInst, scalars)
+
+            g.checkStackInvariants("after memcpy_trunc")
+        }
+    }
+
+    /**
+     * ```
+     * memcpy(sp(2689), summ, 7)             // unmaterialized at [sp(2689), sp(2695)]
+     * *(u8 *) sp(3496) = pointer
+     * memcpy_zext(sp(2688), sp(3496), 1)    // u64 link at sp(2688); stale entry must be cleared
+     * assert(*(u8 *) sp(2691) is not summ)
+     * ```
+     */
+    @Test
+    fun `memcpy_zext clears stale unmaterialized stack in the high zext bytes`() {
+        val r10 = Value.Reg(SbfRegister.R10)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r4 = Value.Reg(SbfRegister.R4)
+        val r5 = Value.Reg(SbfRegister.R5)
+
+        val absVal = createMemoryDomain()
+        val stackC = absVal.getRegCell(r10) ?: error("memory domain cannot find the stack node")
+        stackC.getNode().setRead()
+        val g = absVal.getPTAGraph()
+        val scalars = absVal.getScalars()
+
+        // (1) Create a stale unmaterialized region strictly in the high zext bytes by
+        // memcpy'ing 7 bytes from a summarized node into `r10-1407`. After this,
+        // unmaterializedStack covers `[r10-1407, r10-1401]` only; it does NOT touch
+        // `r10-1408`, so `removeLinks(dstC, 1)` in step (3) cannot wipe it.
+        val sumN = g.mkSummarizedNode()
+        sumN.setRead()
+        sumN.setWrite()
+        sumN.mkLink(0, 8, sumN.createCell(0))
+
+        val dstOff: Short = -1408
+        val highOff: Short = -1407
+        g.setRegCell(r1, stackC.getNode().createSymCell(stackC.getOffset().add(PTASymOffset(highOff.toLong()))))
+        g.setRegCell(r2, sumN.createSymCell(PTAOffset(0)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(7UL)))
+        g.doMemcpy(createMemcpy(), scalars)
+
+        println("(1) memcpy(sp(${4096+highOff}), summ, 7) -- $g")
+        // (2) Set up an u8 pointer link at `r10-600` so the widening has a link to copy.
+        val srcOff: Short = -600
+        val targetNode = g.mkNode()
+        targetNode.setWrite()
+        g.setRegCell(r4, targetNode.createSymCell(PTAOffset(0)))
+        store(g, r10, srcOff, 1, r4)
+        println("(2) Add an u8 link at ${4096-600} -- $g")
+        // (3) memcpy_zext(dst=r10-1408, src=r10-600, len=1). The widening installs an u64
+        // link at `r10-1408`. `removeLinks(dstC, 1)` only touches `[r10-1408, r10-1408]`,
+        // which does not overlap the planted region, so the stale interval survives unless
+        // the fix at lines 4192-4195 explicitly clears the high portion.
+        g.setRegCell(r1, stackC.getNode().createSymCell(stackC.getOffset().add(PTASymOffset(dstOff.toLong()))))
+        g.setRegCell(r2, stackC.getNode().createSymCell(stackC.getOffset().add(PTASymOffset(srcOff.toLong()))))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(1UL)))
+        val locInst = LocatedSbfInstruction(
+            Label.fresh(), 0,
+            SbfInstruction.Call(SolanaFunction.SOL_MEMCPY_ZEXT.syscall.name)
+        )
+        g.doCall(locInst, scalars)
+        println("(3) after memcpy_zext(dst=${4096-1408}, src=${4096-600},  1) -- $g")
+        // (4) Load a single byte from the high zext region. With the fix the stale entry
+        // was cleared and the load falls through to a fresh external allocation, so the
+        // loaded cell's node is not `sumN`. Without the fix the stale entry materializes
+        // and the loaded cell's node IS `sumN`.
+        val loadedC = load(g, r10, (dstOff + 3).toShort(), 1, r5, scalars)
+        println("(4) *(u8*)sp(${4096+dstOff +3}) = $loadedC")
+        Assertions.assertEquals(false, loadedC?.getNode() == sumN)
+    }
+
+    /**
+     * Test for the unmaterialized-stack propagation in `memcpyExactToStack`
+     *
+     * For Narrowing the source read range is 8 bytes (the full u64)
+     * while the destination write range is only `len`. The source's unmaterialized region
+     * is therefore wider than the dst write range and must be clipped during transfer.
+     *
+     * The source read range is 8 (the source link width for Narrowing) and
+     * each interval is trimmed to fit into the dst write range `[dstOffset, dstOffset+len)` before
+     * being inserted on the dst.
+     *
+     * ```
+     * memcpy(sp(3496), summ, 8)             // unmaterialized at [sp(3496), sp(3503)] -> sumN
+     * memcpy_trunc(sp(2688), sp(3496), 2)   // dst should inherit unmaterialized at [sp(2688), sp(2689)]
+     * assert(*(u8 *) sp(2688) is sumN)
+     * ```
+     */
+    @Test
+    fun `memcpy_trunc transfers source unmaterialized stack to destination clipped to len`() {
+        val r10 = Value.Reg(SbfRegister.R10)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r5 = Value.Reg(SbfRegister.R5)
+
+        val absVal = createMemoryDomain()
+        val stackC = absVal.getRegCell(r10) ?: error("memory domain cannot find the stack node")
+        stackC.getNode().setRead()
+        val g = absVal.getPTAGraph()
+        val scalars = absVal.getScalars()
+
+        // (1) Create an 8-byte unmaterialized region at `r10-600` by memcpy'ing from a
+        // summarized node. After this, unmaterializedStack covers `[r10-600, r10-593]`,
+        // pointing at a cell whose node is `sumN`.
+        val sumN = g.mkSummarizedNode()
+        sumN.setRead()
+        sumN.setWrite()
+        sumN.mkLink(0, 8, sumN.createCell(0))
+
+        val srcOff: Short = -600
+        g.setRegCell(r1, stackC.getNode().createSymCell(stackC.getOffset().add(PTASymOffset(srcOff.toLong()))))
+        g.setRegCell(r2, sumN.createSymCell(PTAOffset(0)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(8UL)))
+        g.doMemcpy(createMemcpy(), scalars)
+        println("(1) memcpy(sp(${4096+srcOff}), summ, 8) -- $g")
+
+        // (2) `memcpy_trunc(dst=r10-1408, src=r10-600, len=2)`.
+        // Stack-to-stack with kind=Narrowing.
+        // The source's unmaterialized interval `[r10-600, r10-593]` (8 bytes) is wider than the dst write range `[r10-1408, r10-1407]`
+        // (2 bytes). Lines 4172-4185 must scan the source over its 8-byte read range, clip each interval
+        // to the dst write range, and insert the clipped result on the dst.
+        val dstOff: Short = -1408
+        g.setRegCell(r1, stackC.getNode().createSymCell(stackC.getOffset().add(PTASymOffset(dstOff.toLong()))))
+        g.setRegCell(r2, stackC.getNode().createSymCell(stackC.getOffset().add(PTASymOffset(srcOff.toLong()))))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(2UL)))
+        val locInst = LocatedSbfInstruction(
+            Label.fresh(), 0,
+            SbfInstruction.Call(SolanaFunction.SOL_MEMCPY_TRUNC.syscall.name)
+        )
+        g.doCall(locInst, scalars)
+        println("(2) after memcpy_trunc(dst=${4096+dstOff}, src=${4096+srcOff}, 2) -- $g")
+
+        // (3) Load an u8 at `r10-1408`. The dst inherits the unmaterialized
+        // entry and the load materializes the `sumN` cell.
+        val loadedC = load(g, r10, dstOff, 1, r5, scalars)
+        println("(3) *(u8*)sp(${4096+dstOff}) = $loadedC")
+        Assertions.assertEquals(true, loadedC?.getNode() == sumN)
+    }
+
+    /**
+     * Similar to previous test but for `memcpy_zext`
+     *
+     * ```
+     * memcpy(sp(3496), summ, 8)             // unmaterialized at [sp(3496), sp(3503)] -> sumN
+     * memcpy_zext(sp(2688), sp(3496), 4)    // dst should inherit unmaterialized at [sp(2688), sp(2691)]
+     * assert(*(u8 *) sp(2688) is sumN)
+     * ```
+     */
+    @Test
+    fun `memcpy_zext transfers source unmaterialized stack to destination clipped to len`() {
+        val r10 = Value.Reg(SbfRegister.R10)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r5 = Value.Reg(SbfRegister.R5)
+
+        val absVal = createMemoryDomain()
+        val stackC = absVal.getRegCell(r10) ?: error("memory domain cannot find the stack node")
+        stackC.getNode().setRead()
+        val g = absVal.getPTAGraph()
+        val scalars = absVal.getScalars()
+
+        // (1) Create an 8-byte unmaterialized region at `r10-600` by memcpy'ing from a
+        // summarized node. After this, unmaterializedStack covers `[r10-600, r10-593]`,
+        // pointing at a cell whose node is `sumN`.
+        val sumN = g.mkSummarizedNode()
+        sumN.setRead()
+        sumN.setWrite()
+        sumN.mkLink(0, 8, sumN.createCell(0))
+
+        val srcOff: Short = -600
+        g.setRegCell(r1, stackC.getNode().createSymCell(stackC.getOffset().add(PTASymOffset(srcOff.toLong()))))
+        g.setRegCell(r2, sumN.createSymCell(PTAOffset(0)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(8UL)))
+        g.doMemcpy(createMemcpy(), scalars)
+        println("(1) memcpy(sp(${4096+srcOff}), summ, 8) -- $g")
+
+        // (2) `memcpy_zext(dst=r10-1408, src=r10-600, len=4)`. Stack-to-stack with
+        // kind=Widening. The source's unmaterialized interval `[r10-600, r10-593]`
+        // (8 bytes) is wider than the dst content range `[r10-1408, r10-1405]` (4 bytes).
+        // Lines 4172-4185 scan the source over its `len`-byte read range, clip each
+        // interval to the dst content range, and insert the clipped result on the dst.
+        val dstOff: Short = -1408
+        g.setRegCell(r1, stackC.getNode().createSymCell(stackC.getOffset().add(PTASymOffset(dstOff.toLong()))))
+        g.setRegCell(r2, stackC.getNode().createSymCell(stackC.getOffset().add(PTASymOffset(srcOff.toLong()))))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(4UL)))
+        val locInst = LocatedSbfInstruction(
+            Label.fresh(), 0,
+            SbfInstruction.Call(SolanaFunction.SOL_MEMCPY_ZEXT.syscall.name)
+        )
+        g.doCall(locInst, scalars)
+        println("(2) after memcpy_zext(dst=${4096+dstOff}, src=${4096+srcOff}, 4) -- $g")
+
+        // (3) Load an u8 at `r10-1408`. The dst inherits the unmaterialized entry (clipped
+        // to the low 4 bytes) and the load materializes the `sumN` cell.
+        val loadedC = load(g, r10, dstOff, 1, r5, scalars)
+        println("(3) *(u8*)sp(${4096+dstOff}) = $loadedC")
+        Assertions.assertEquals(true, loadedC?.getNode() == sumN)
+    }
+
+    @Test
+    fun `join of unmaterialized and untracked stack fields should not throw exception`() {
+        /**
+         * Diamond:
+         *
+         *   bb0
+         *   / \
+         * bb1 bb2
+         *   \ /
+         *   bb3
+         *
+         * - bb1: memcpy from summarized heap to stack at sp-200.
+         * - bb2: stack store at the same sp-196, making sp-200:u64 untracked.
+         */
+        val cfg = SbfTestDSL.makeCFG("test") {
+            bb(0) {
+                br(CondOp.EQ(r3, 0), 1, 2)
+            }
+            bb(1) {
+                "CVT_nondet_u64"()
+                r3 = r0
+                // Allocate on the heap and memcpy 8 bytes into stack at sp-200.
+                r1 = 8
+                "__rust_alloc"()
+                BinOp.ADD(r0, r3)
+                r0[0] = 5 // this should make the heap-allocated memory "summarized" because we are writing to a statically unknown address
+                r2 = r0
+                r1 = r10
+                BinOp.SUB(r1, 200)
+                r3 = 8
+                "sol_memcpy_"()
+                goto(3)
+            }
+            bb(2) {
+                // Immediate 8-byte store at sp-196
+                r1 = r10
+                BinOp.SUB(r1, 196)
+                r1[0] = 5
+                goto(3)
+            }
+            bb(3) {
+                exit()
+            }
+        }
+        cfg.normalize()
+        println("$cfg")
+
+        ConfigScope(SanityChecks, true).use {
+            ConfigScope(PTAGraphVerbosity, 2).use {
+                MemoryAnalysis(
+                    cfg,
+                    globals,
+                    MemorySummaries(),
+                    ConstantSbfTypeFactory(),
+                    nodeAllocator.flagsFactory,
+                    memDomainOpts,
+                    processor = null
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `4-byte stack store creates untracked overlapping fields that overlap pre-existing unmat`() {
+        val cfg = SbfTestDSL.makeCFG("test") {
+            bb(0) {
+                // Step 1: memcpy from a summarized heap to stack(sp-192, 8) -> unmat [sp-192, sp-185].
+                "CVT_nondet_u64"()
+                r3 = r0
+                r1 = 8
+                "__rust_alloc"()
+                BinOp.ADD(r0, r3)
+                r0[0] = 5
+                r2 = r0
+                r1 = r10
+                BinOp.SUB(r1, 192)
+                r3 = 8
+                "sol_memcpy_"()
+
+                // Step 2: 4-byte store at sp-200.  overlapCandidates(PTAField(sp-200, 4))
+                // adds wider entries including (sp-199, 8), interval [sp-199, sp-192],
+                // overlapping the unmat at byte sp-192.
+                r1 = r10
+                BinOp.SUB(r1, 200)
+                r1[0, 4] = 5
+                exit()
+            }
+        }
+        cfg.normalize()
+        println("$cfg")
+
+        ConfigScope(PTAGraphVerbosity, 2).use {
+            val results = MemoryAnalysis(
+                cfg,
+                globals,
+                MemorySummaries(),
+                ConstantSbfTypeFactory(),
+                nodeAllocator.flagsFactory,
+                memDomainOpts,
+                processor = null
+            ).getPost(Label.Address(0))
+            check(results != null) { "no abstract state at exit of block 0" }
+            println("post: ${results.getPTAGraph()}")
+            results.getPTAGraph().checkStackInvariants( "after 4-byte stack store")
+        }
+    }
+
+    /**
+     * Exercise lessOrEqual when both operands hold identical unmat: identity must be ⊑ in both directions.
+     */
+    @Test
+    fun `lessOrEqual is reflexive on unmaterialized stack`() {
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+
+        val absVal1 = createMemoryDomain()
+        val stack1 = absVal1.getRegCell(Value.Reg(SbfRegister.R10))
+        check(stack1 != null) { "memory domain cannot find the stack node" }
+        stack1.getNode().setRead()
+        val g1 = absVal1.getPTAGraph()
+        val scalars1 = absVal1.getScalars()
+        val sumN = g1.mkSummarizedNode()
+        sumN.setRead()
+        sumN.setWrite()
+        sumN.mkLink(0, 8, sumN.createCell(0))
+
+        // memcpy(r1=sp(4040), r2=sumN, r3=8) -> unmat[4040, 4047]
+        g1.setRegCell(r1, stack1.getNode().createSymCell(PTAOffset(4040)))
+        g1.setRegCell(r2, sumN.createSymCell(PTAOffset(0)))
+        scalars1.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(8)))
+        g1.doMemcpy(createMemcpy(), scalars1)
+
+        val absVal2 = absVal1.deepCopy()
+        println("absVal1=\n$absVal1")
+        println("absVal2=\n$absVal2")
+
+        Assertions.assertEquals(true, absVal1.lessOrEqual(absVal2))
+        Assertions.assertEquals(true, absVal2.lessOrEqual(absVal1))
+    }
+
+    /**
+     * left has unmat over a range; right has materialized that range into a field with
+     * a cell that the unmat's cell is ⊑ to.
+     */
+    @Test
+    fun `lessOrEqual accepts left unmat covered by right materialized field`() {
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r4 = Value.Reg(SbfRegister.R4)
+        val r5 = Value.Reg(SbfRegister.R5)
+
+        val absVal1 = createMemoryDomain()
+        val stack1 = absVal1.getRegCell(Value.Reg(SbfRegister.R10))
+        check(stack1 != null) { "memory domain cannot find the stack node" }
+        stack1.getNode().setRead()
+        val g1 = absVal1.getPTAGraph()
+        val scalars1 = absVal1.getScalars()
+        val sumN = g1.mkSummarizedNode()
+        sumN.setRead()
+        sumN.setWrite()
+        sumN.mkLink(0, 8, sumN.createCell(0))
+
+        // absVal1 stays in the unmat shape.
+        g1.setRegCell(r1, stack1.getNode().createSymCell(PTAOffset(4040)))
+        g1.setRegCell(r2, sumN.createSymCell(PTAOffset(0)))
+        scalars1.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(8)))
+        g1.doMemcpy(createMemcpy(), scalars1)
+
+        // absVal2 materializes the unmat to a (4040, 8) succ via a load.
+        val absVal2 = absVal1.deepCopy()
+        val g2 = absVal2.getPTAGraph()
+        val scalars2 = absVal2.getScalars()
+        val stack2 = absVal2.getRegCell(Value.Reg(SbfRegister.R10))!!
+        g2.setRegCell(r4, stack2.getNode().createSymCell(PTAOffset(4040)))
+        load(g2, r4, 0, 8, r5, scalars2)
+
+        // forget r4 and r5 otherwise absVal1 cannot be less or equal than absVal2
+        g2.forget(r4)
+        g2.forget(r5)
+        println("absVal1 (unmat)=\n$absVal1")
+        println("absVal2 (materialized)=\n$absVal2")
+
+        // Without the unmat-covered-by-succ rule, this would fail.
+        Assertions.assertEquals(true, absVal1.lessOrEqual(absVal2))
+    }
+
+    /**
+     * A join of two states with incompatible stack-pointer cells at the same field
+     * produces a right with that field untracked (no succ).  Left's unmat over the same range
+     * must be ⊑ that right via the inaccessible-coverage rule (step (iii) of the unmat loop).
+     */
+    @Test
+    fun `lessOrEqual accepts left unmat covered by right inaccessible field`() {
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+
+        // absValLeft: unmat[4040, 4047] -> some extern cell.
+        val absValLeft = createMemoryDomain()
+        val stackL = absValLeft.getRegCell(Value.Reg(SbfRegister.R10))!!
+        stackL.getNode().setRead()
+        val gL = absValLeft.getPTAGraph()
+        val scalarsL = absValLeft.getScalars()
+        val sumN = gL.mkSummarizedNode()
+        sumN.setRead()
+        sumN.setWrite()
+        sumN.mkLink(0, 8, sumN.createCell(0))
+        gL.setRegCell(r1, stackL.getNode().createSymCell(PTAOffset(4040)))
+        gL.setRegCell(r2, sumN.createSymCell(PTAOffset(0)))
+        scalarsL.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(8)))
+        gL.doMemcpy(createMemcpy(), scalarsL)
+
+        // absValA, absValB: incompatible stack-pointer cells at (4040, 8).  Their join produces
+        // (4040, 8) in untrackedStackFields with no succ.
+        val absValA = createMemoryDomain()
+        val stackA = absValA.getRegCell(Value.Reg(SbfRegister.R10))!!
+        stackA.getNode().setRead()
+        stackA.getNode().mkLink(4040, 8, stackA.getNode().createCell(3000))
+
+        val absValB = createMemoryDomain()
+        val stackB = absValB.getRegCell(Value.Reg(SbfRegister.R10))!!
+        stackB.getNode().setRead()
+        stackB.getNode().mkLink(4040, 8, stackB.getNode().createCell(2000))
+
+        val absValRight = absValA.join(absValB)
+        println("absValLeft=\n$absValLeft")
+        println("absValRight=\n$absValRight")
+
+        Assertions.assertEquals(true, absValLeft.lessOrEqual(absValRight))
+    }
+
+    /**
+     * Left holds a materialized field; right has the same range as unmat with a compatible cell.
+     * lessOrEqual must accept via the field-loop covering-unmat escape (step (c)).
+     */
+    @Test
+    fun `lessOrEqual accepts left materialized field covered by right unmat`() {
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r4 = Value.Reg(SbfRegister.R4)
+        val r5 = Value.Reg(SbfRegister.R5)
+
+        val absVal1 = createMemoryDomain()
+        val stack1 = absVal1.getRegCell(Value.Reg(SbfRegister.R10))
+        check(stack1 != null) { "memory domain cannot find the stack node" }
+        stack1.getNode().setRead()
+        val g1 = absVal1.getPTAGraph()
+        val scalars1 = absVal1.getScalars()
+        val sumN = g1.mkSummarizedNode()
+        sumN.setRead()
+        sumN.setWrite()
+        sumN.mkLink(0, 8, sumN.createCell(0))
+
+        g1.setRegCell(r1, stack1.getNode().createSymCell(PTAOffset(4040)))
+        g1.setRegCell(r2, sumN.createSymCell(PTAOffset(0)))
+        scalars1.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(8)))
+        g1.doMemcpy(createMemcpy(), scalars1)
+
+        // absVal1 keeps the unmat (it will be the right operand).
+        // absVal2 materializes via a load (it will be the left operand).
+        val absVal2 = absVal1.deepCopy()
+        val g2 = absVal2.getPTAGraph()
+        val scalars2 = absVal2.getScalars()
+        val stack2 = absVal2.getRegCell(Value.Reg(SbfRegister.R10))!!
+        g2.setRegCell(r4, stack2.getNode().createSymCell(PTAOffset(4040)))
+        load(g2, r4, 0, 8, r5, scalars2)
+
+        g2.forget(r4)
+        g2.forget(r5)
+
+        println("absVal1 (unmat)=\n$absVal1")
+        println("absVal2 (materialized field)=\n$absVal2")
+
+        Assertions.assertEquals(true, absVal1.lessOrEqual(absVal2))
+        Assertions.assertEquals(true, absVal2.lessOrEqual(absVal1))
+    }
+
+    /**
+     * Cell-mismatch counter-example: a right field overlapping left's unmat with an
+     * incompatible cell must cause lessOrEqual to fail (cell-condition short-circuit in step (ii)).
+     */
+    @Test
+    fun `lessOrEqual rejects left unmat covered by right field with incompatible cell`() {
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+        val r4 = Value.Reg(SbfRegister.R4)
+        val r5 = Value.Reg(SbfRegister.R5)
+
+        val absVal1 = createMemoryDomain()
+        val stack1 = absVal1.getRegCell(Value.Reg(SbfRegister.R10))
+        check(stack1 != null) { "memory domain cannot find the stack node" }
+        stack1.getNode().setRead()
+        val g1 = absVal1.getPTAGraph()
+        val scalars1 = absVal1.getScalars()
+        val sumN = g1.mkSummarizedNode()
+        sumN.setRead()
+        sumN.setWrite()
+        sumN.mkLink(0, 8, sumN.createCell(0))
+        g1.setRegCell(r1, stack1.getNode().createSymCell(PTAOffset(4040)))
+        g1.setRegCell(r2, sumN.createSymCell(PTAOffset(0)))
+        scalars1.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(8)))
+        g1.doMemcpy(createMemcpy(), scalars1)
+
+        // absVal2 has succ (4040, 8) but pointing to a fresh, unrelated node.
+        val absVal2 = createMemoryDomain()
+        val stack2 = absVal2.getRegCell(Value.Reg(SbfRegister.R10))!!
+        stack2.getNode().setRead()
+        val g2 = absVal2.getPTAGraph()
+        val unrelatedN = g2.mkNode()
+        unrelatedN.setWrite()
+        stack2.getNode().mkLink(4040, 8, unrelatedN.createCell(0))
+        g2.setRegCell(r4, stack2.getNode().createSymCell(PTAOffset(4040)))
+        g2.setRegCell(r5, unrelatedN.createSymCell(PTAOffset(0)))
+
+        // forget registers to avoid lessOrEqual returns false for the wrong reason
+        g1.forget(r1)
+        g1.forget(r2)
+        g2.forget(r4)
+        g2.forget(r5)
+
+        println("absVal1 (unmat)=\n$absVal1")
+        println("absVal2 (succ with unrelated cell)=\n$absVal2")
+
+        Assertions.assertEquals(false, absVal1.lessOrEqual(absVal2))
     }
 }

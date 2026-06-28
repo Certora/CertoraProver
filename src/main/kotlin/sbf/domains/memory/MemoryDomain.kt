@@ -402,7 +402,13 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
      * The pointer domain might know that the content of some (non-stack) memory location contains a number.
      * Recall that the scalar domain only knows about registers and stack.
      */
-    private fun reductionFromPtaGraphToScalars(b: SbfBasicBlock, locInst: LocatedSbfInstruction, reg: Value) {
+    private fun reductionFromPtaGraphToScalars(
+        @Suppress("UNUSED_PARAMETER")
+        b: SbfBasicBlock,
+        @Suppress("UNUSED_PARAMETER")
+        locInst: LocatedSbfInstruction,
+        reg: Value
+    ) {
         if (isBottom()) {
             return
         }
@@ -412,23 +418,6 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
             if (x != null && x.isConcrete()) {
                 val c = x.concretize()
                 if (c.getNode().mustBeInteger()) {
-                    val change = refineToNum(reg)
-                    if (change) {
-                        val topNum =  scalars.getTypeFac().anyNum().concretize()
-                        check(topNum != null) {"concretize on anyNum cannot be null"}
-                        /// HACK: changing metadata serves here as caching the reduction.
-                        val newMetadata = locInst.inst.metaData.plus(SbfMeta.REG_TYPE to  (reg to topNum))
-                        val newInst = locInst.inst.copyInst(metadata = newMetadata)
-                        (b as MutableSbfBasicBlock).replaceInstruction(locInst.pos, newInst)
-                    }
-                    return
-                }
-            }
-
-            /// If the analysis previously determined that `reg` is a number then we keep using that fact,
-            /// even if the pointer analysis lost precision and cannot infer that fact anymore.
-            locInst.inst.metaData.getVal(SbfMeta.REG_TYPE)?.let { (refinedReg, type) ->
-                if (refinedReg == reg && type is SbfRegisterType.NumType) {
                     refineToNum(reg)
                 }
             }

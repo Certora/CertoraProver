@@ -20,16 +20,57 @@ package sbf.domains
 import com.certora.collect.*
 
 /**
+ * Tag type for the lattice flavor of an [IntervalMap].
+ *
+ * The mode is a *type-level* parameter on [IntervalMap]: a [Union] map and an [Intersect] map
+ * are different types and cannot be mixed in a single [IntervalMap.join] / [IntervalMap.lessOrEqual]
+ * call.  The compiler enforces this via the `M : JoinMode` type parameter on [IntervalMap].
+ */
+sealed interface JoinMode {
+    object Union : JoinMode
+    object Intersect : JoinMode
+}
+
+/**
  * A disjoint (closed) interval map: [start, end] -> V with lattice operations.
- * In terms of lattice ordering, the more elements, the more precise.
+ *
+ * The type parameter [M] fixes the lattice flavor: use [JoinMode.Union] for a may-style
+ * abstraction (the join keeps all intervals from both sides) or [JoinMode.Intersect] for a
+ * must-style one (the join keeps only intervals where both sides agree).  Use the factory
+ * functions [unionIntervalMap] / [intersectIntervalMap] to construct an empty map.
  **/
-class IntervalMap<V> (
+class IntervalMap<V, M : JoinMode> internal constructor(
+    private val mode: M,
     private val map: TreapMap<Long, Pair<Long, V>> = treapMapOf() // key=start, value=(end, V)
 ) {
 
-    /** Return intersection of `this` and `other` **/
-    fun join(other: IntervalMap<V>): IntervalMap<V> {
-        return IntervalMap(map.merge(other.map) { _, leftVal, rightVal ->
+    private fun copy(map: TreapMap<Long, Pair<Long, V>>): IntervalMap<V, M> = IntervalMap(mode, map)
+
+    // The `when` is exhaustive over `JoinMode` (a sealed interface), but the compiler
+    // tracks `mode` as the type variable `M`, not as `JoinMode`, and refuses to treat the
+    // branches as exhaustive without an `else`.  Up-casting widens the subject's static
+    // type so the sealed-interface exhaustiveness check fires.
+    // `other`'s mode is intentionally erased: only `this.mode` decides the lattice flavor,
+    // and the bodies below only need `other.map`.  Callers are expected to pass an `IntervalMap`
+    // with the same mode as `this`; the relaxed parameter type is what lets the factories in
+    // PointerDomain (e.g. `newUnmaterializedStack`) hide the choice behind star projection.
+    @Suppress("USELESS_CAST")
+    fun join(other: IntervalMap<V, *>, merger: (V, V) -> V): IntervalMap<V, M> =
+        when (mode as JoinMode) {
+            is JoinMode.Union -> joinWithUnion(other, merger)
+            is JoinMode.Intersect -> joinWithIntersect(other)
+        }
+
+    @Suppress("USELESS_CAST")
+    fun lessOrEqual(other: IntervalMap<V, *>): Boolean =
+        when (mode as JoinMode) {
+            is JoinMode.Union -> lessOrEqualWithUnion(other)
+            is JoinMode.Intersect -> lessOrEqualWithIntersect(other)
+        }
+
+    private fun joinWithIntersect(other: IntervalMap<V, *>): IntervalMap<V, M> {
+        return copy(map.merge(other.map) { _, leftVal, rightVal ->
+            // Keep entry only if: start, end, value are equal.
             if (leftVal == rightVal) {
                 leftVal
             } else {
@@ -38,14 +79,39 @@ class IntervalMap<V> (
         })
     }
 
+    private fun joinWithUnion(other: IntervalMap<V, *>, merger: (V, V) -> V): IntervalMap<V, M> {
+        var res = this
+        other.map.forEachEntry {
+            val (end, v) = it.value
+            res = res.insert(it.key, end, v, merger)
+        }
+        return res
+    }
+
+
     /** Return true if `this` is a superset of `other` **/
-    fun lessOrEqual(other: IntervalMap<V>): Boolean {
+    private fun lessOrEqualWithIntersect(other: IntervalMap<V, *>): Boolean {
         val entries = map.zip(other.map)
         for (entry in entries) {
-            val leftVal = entry.value.first
+            // All the entries from [other] must be in [this]
+            val leftVal  = entry.value.first
             val rightVal = entry.value.second
             check(!(leftVal == null && rightVal == null)) { "cannot compare two null values" }
             if (rightVal != null && leftVal != rightVal) {
+                return false
+            }
+        }
+        return true
+    }
+
+
+    /** Return true if every interval in `this` is included in some interval in `other` and the values match **/
+    private fun lessOrEqualWithUnion(other: IntervalMap<V, *>): Boolean {
+        for ((leftStart, leftEndAndV) in map) {
+            val leftEnd = leftEndAndV.first
+            val leftVal = leftEndAndV.second
+            val rightVal = other.contains(leftStart, leftEnd) ?: return false
+            if (leftVal != rightVal) {
                 return false
             }
         }
@@ -64,12 +130,12 @@ class IntervalMap<V> (
      *  - if [overlapMode] == [InsertMode.MERGE] then adjacent or overlapping intervals are merged using the [merger] function.
      *  - if [overlapMode] == [InsertMode.REMOVE] then overlapping intervals are removed.
      */
-    private fun insert(start: Long, end: Long, value: V, overlapMode: InsertMode, merger: ((V,V) -> V)?): IntervalMap<V> {
+    private fun insert(start: Long, end: Long, value: V, overlapMode: InsertMode, merger: ((V,V) -> V)?): IntervalMap<V, M> {
         check(start <= end) { "insert expects start <= end" }
         check(overlapMode != InsertMode.MERGE || merger != null) { "merger function cannot be null" }
 
         if (map.isEmpty()) {
-            return IntervalMap(map.put(start, end to value))
+            return copy(map.put(start, end to value))
         }
 
         val toRemove = mutableListOf<Long>()
@@ -109,14 +175,14 @@ class IntervalMap<V> (
         // Insert merged interval
         outMap = outMap.put(newStart, newEnd to newValue)
 
-        return IntervalMap(outMap)
+        return copy(outMap)
     }
 
     /**
      *  Insert a disjoint interval `[start, end]` -> [value].
      *  Adjacent or overlapping intervals are merged using the [merger] function.
      */
-    fun insert(start: Long, end: Long, value: V, merger: (V,V) -> V): IntervalMap<V> {
+    fun insert(start: Long, end: Long, value: V, merger: (V,V) -> V): IntervalMap<V, M> {
         return insert(start, end, value, InsertMode.MERGE, merger)
     }
 
@@ -124,7 +190,7 @@ class IntervalMap<V> (
      *  Insert a disjoint interval `[start, end]` -> [value].
      *  Overlapping intervals are removed.
      */
-    fun insert(start: Long, end: Long, value: V): IntervalMap<V> {
+    fun insert(start: Long, end: Long, value: V): IntervalMap<V, M> {
         return insert(start, end, value, InsertMode.REMOVE, merger = null)
     }
 
@@ -151,6 +217,28 @@ class IntervalMap<V> (
         }
     }
 
+    /**
+     * Lookup any interval in the map that overlaps `[start, end]` and returns its value, or null
+     * if no interval overlaps it.
+     */
+    fun overlap(start: Long, end: Long): V? {
+        check(start <= end) { "overlap expects start <= end" }
+        // Case 1: an interval `[k, e]` with `k <= start`.  Overlap iff `e >= start`.
+        val floor = map.floorEntry(start)
+        if (floor != null) {
+            val (e, value) = floor.value
+            if (e >= start) {
+                return value
+            }
+        }
+        // Case 2: an interval `[k, e]` with `k > start`.  Overlap iff `k <= end`.
+        val ceiling = map.higherEntry(start)
+        if (ceiling != null && ceiling.key <= end) {
+            return ceiling.value.second
+        }
+        return null
+    }
+
     enum class RemoveMode {
         /** remove the full interval */
         NO_SPLIT,
@@ -163,38 +251,39 @@ class IntervalMap<V> (
      * - If [mode] == [RemoveMode.NO_SPLIT] then it does not add any interval.
      * - If [mode] == [RemoveMode.SPLIT] then add the sub-intervals of `i` that do not overlap with `[start, end]`.
      */
-    fun remove(start: Long, end:Long, mode: RemoveMode): IntervalMap<V> {
+    fun remove(start: Long, end:Long, mode: RemoveMode): IntervalMap<V, M> {
         check(start <= end) {"remove expects start <= end"}
 
-        var entry = map.floorEntry(start)
         var outMap = map
         val toAdd = mutableListOf<Pair<Long, Pair<Long, V>>>()
-        val i = FiniteInterval(start, end)
-        while (entry != null) {
+
+        // The floor entry at `start` overlaps `[start, end]` only when its `e >= start`.
+        // Otherwise (or if no floor entry exists), start from the first entry with key > start;
+        // any such entry whose key is `<= end` overlaps the range.
+        var entry = map.floorEntry(start)
+        if (entry == null || entry.value.first < start) {
+            entry = map.ceilingEntry(start)
+        }
+        while (entry != null && entry.key <= end) {
             val s = entry.key
             val (e, v) = entry.value
-            val j = FiniteInterval(s, e)
-            if (i.overlap(j)) {
-                outMap = outMap.remove(entry.key)
-                if (mode == RemoveMode.SPLIT) {
-                    if (start > s) {
-                        toAdd.add(s to (start - 1 to v))
-                    }
-                    if (end < e) {
-                        toAdd.add(end+1 to (e to v))
-                    }
+            outMap = outMap.remove(s)
+            if (mode == RemoveMode.SPLIT) {
+                if (start > s) {
+                    toAdd.add(s to (start - 1 to v))
                 }
-            } else {
-                break
+                if (end < e) {
+                    toAdd.add(end + 1 to (e to v))
+                }
             }
-            entry = outMap.ceilingEntry(s)
+            entry = outMap.ceilingEntry(s + 1)
         }
         toAdd.forEach {
             val s = it.first
             val (e, v) = it.second
             outMap = outMap.put(s, e to v)
         }
-        return IntervalMap(outMap)
+        return copy(outMap)
     }
 
     /** Iterate over all intervals as [FiniteInterval] -> value. */
@@ -216,8 +305,8 @@ class IntervalMap<V> (
         }
     }
 
-    fun removeAll(pred: (FiniteInterval) -> Boolean): IntervalMap<V> {
-        return IntervalMap(map.removeAll { (start, endAndV) ->
+    fun removeAll(pred: (FiniteInterval) -> Boolean): IntervalMap<V, M> {
+        return copy(map.removeAll { (start, endAndV) ->
             val (end, _) = endAndV
             pred(FiniteInterval(start, end))
         })
@@ -229,3 +318,9 @@ class IntervalMap<V> (
         return "{" + intervals().joinToString(separator = ",") { (r, v) -> "$r -> $v" } + "}"
     }
  }
+
+/** Empty [IntervalMap] with [JoinMode.Union] semantics. */
+fun <V> unionIntervalMap(): IntervalMap<V, JoinMode.Union> = IntervalMap(JoinMode.Union)
+
+/** Empty [IntervalMap] with [JoinMode.Intersect] semantics. */
+fun <V> intersectIntervalMap(): IntervalMap<V, JoinMode.Intersect> = IntervalMap(JoinMode.Intersect)
