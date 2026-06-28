@@ -3880,6 +3880,9 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         valueType: SbfType<TNum, TOffset>,
         locInst: LocatedSbfInstruction
     ): PTASymCell<Flags>? {
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Mem && !inst.isLoad)
+
         return when (value) {
             is Value.Imm -> {
                 integerAlloc.alloc(locInst, initValue = Constant(value.v.toLong()))
@@ -3908,7 +3911,15 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         }
                     }
                     else -> {
-                        null
+                        // SBF pointers are 64-bit, so a store narrower than 8 bytes cannot hold
+                        // one. The value must therefore be modeled as an integer regardless of
+                        // whether `valueType` is Top (unknown) or some pointer type the scalar
+                        // domain failed to narrow.
+                        if (inst.access.width < 8) {
+                            integerAlloc.alloc(locInst)
+                        } else {
+                            null
+                        }
                     }
                 }
             }

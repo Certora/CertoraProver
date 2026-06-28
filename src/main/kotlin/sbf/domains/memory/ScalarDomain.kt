@@ -1395,13 +1395,17 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         val baseType = baseScalarVal.type()
         checkStackInBounds(baseType, locInst)
         val loadedAsNumForPTA = inst.metaData.getVal(SbfMeta.LOADED_AS_NUM_FOR_PTA) != null
+        // SBF pointers are 64-bit, so a load narrower than 8 bytes cannot read a
+        // pointer — the loaded register is necessarily numeric. Folded into the
+        // existing PTA-metadata flag so all the arms below pick up both reasons.
+        val mustBeNum = loadedAsNumForPTA || width < 8
         when (baseType) {
             is SbfType.Bottom -> {}
-            is SbfType.Top -> forgetOrNum(lhs, loadedAsNumForPTA)
+            is SbfType.Top -> forgetOrNum(lhs, mustBeNum)
             is SbfType.NumType -> {
                 // Before GlobalInferenceAnalysis is run, it's totally possible to de-reference
                 // an absolute address that it's actually a global variable, but we don't know yet.
-                forgetOrNum(lhs, loadedAsNumForPTA)
+                forgetOrNum(lhs, mustBeNum)
             }
             is SbfType.PointerType -> {
                 when (baseType) {
@@ -1410,7 +1414,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                         val stackTOffsets = baseType.offset.add(offset.toLong())
                         check(!stackTOffsets.isBottom())
                         if (stackTOffsets.isTop()) {
-                            forgetOrNum(lhs, loadedAsNumForPTA)
+                            forgetOrNum(lhs, mustBeNum)
                         } else {
                             val stackOffsets = stackTOffsets.toLongList()
                             setRegister(lhs,
@@ -1418,7 +1422,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                                     val loadedAbsVal = base.getStackSingletonOrNull(ByteRange(stackOffset, width))
                                     when {
                                         loadedAbsVal != null -> acc.join(loadedAbsVal.zext(width.toLong()))
-                                        loadedAsNumForPTA -> acc.join(ScalarValue(sbfTypeFac.anyNum()))
+                                        mustBeNum -> acc.join(ScalarValue(sbfTypeFac.anyNum()))
                                         else -> {
                                             val interval = FiniteInterval.mkInterval(stackOffset, width.toLong())
                                             if (mayInitStack.intersects(interval)) {
@@ -1441,7 +1445,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                         // Under the (checked) assumption that stack pointers do not escape the stack:
                         // if we read from heap or input then the loaded value cannot a stack pointer
                         setRegister(lhs,
-                            ScalarValue( if (loadedAsNumForPTA) {
+                            ScalarValue(if (mustBeNum) {
                                 sbfTypeFac.anyNum()
                             } else {
                                 SbfType.nonStack()
@@ -1465,7 +1469,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
             }
             is SbfType.NonStack -> {
                 setRegister(lhs,
-                    ScalarValue( if (loadedAsNumForPTA) {
+                    ScalarValue(if (mustBeNum) {
                         sbfTypeFac.anyNum()
                     } else {
                         SbfType.nonStack()
