@@ -1,0 +1,6 @@
+{
+	"rules": {
+		"array0ForallRead": "SUCCESS",
+		"array1ForallRead": "SUCCESS"
+	}
+}
