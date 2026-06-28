@@ -1980,7 +1980,12 @@ class CertoraBuildGenerator:
         compiler_logger.debug(f"about to run in {compile_wd} the command: {collect_cmd}")
         compiler_logger.debug(f"solc input = {json.dumps(input_for_solc, indent=4)}")
 
-        if self.context.test == str(Util.TestValue.CHECK_SOLC_OPTIONS) and eval(self.context.test_condition):
+        # test_condition gates this checkpoint to a specific contract file (the compile loop runs per-file).
+        # Default 'True' fires for every file; otherwise it is treated as a filename suffix to match.
+        # It is matched as a plain string (never evaluated).
+        expected_file_suffix = self.context.test_condition
+        if self.context.test == str(Util.TestValue.CHECK_SOLC_OPTIONS) and \
+           (expected_file_suffix == 'True' or build_arg_contract_file.endswith(expected_file_suffix)):
             raise Util.TestResultsReady({'standard_json_input': standard_json_input, 'main_path': main_path})
         Util.run_compiler_cmd(collect_cmd, f"{sdc_name}.standard.json", wd=compile_wd,
                               compiler_input=standard_json_input)

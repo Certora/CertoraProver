@@ -1084,8 +1084,8 @@ class TestClient(unittest.TestCase):
         }
 
         for file in list(expected.keys()):
-            cond = f"build_arg_contract_file.endswith('{file}')"
-            json_obj = suite.expect_checkpoint(description='check solc obj', run_flags=['--test_condition', cond])
+            file_suffix = file  # test_condition matches contract files by path suffix
+            json_obj = suite.expect_checkpoint(description='check solc obj', run_flags=['--test_condition', file_suffix])
             obj_as_str = json_obj['standard_json_input'].decode('utf-8')
             for s in expected[file]:
                 assert s in obj_as_str, f"test_solc_args: expecting to find {s} in {obj_as_str}"
