@@ -19,7 +19,9 @@ package vc.data
 
 import allocator.Allocator
 import analysis.TACExprWithRequiredCmdsAndDecls
-import analysis.opt.intervals.IntervalsRewriter.Companion.NON_ZERO_META
+import analysis.opt.intervals.IntervalsRewriter.Companion.isSurelyNonNeg
+import analysis.opt.intervals.IntervalsRewriter.Companion.isSurelyNonPos
+import analysis.opt.intervals.IntervalsRewriter.Companion.isSurelyNonZero
 import analysis.storage.StorageAnalysisResult
 import analysis.storage.indices
 import analysis.storage.toNonIndexed
@@ -62,7 +64,6 @@ import vc.data.TACMeta.DIRECT_STORAGE_ACCESS_TYPE
 import vc.data.TACSymbol.Var.Companion.KEYWORD_ENTRY
 import vc.data.compilation.storage.InternalCVLCompilationAPI
 import vc.data.tacexprutil.TACUnboundedHashingUtils
-import vc.data.tacexprutil.asVarOrNull
 import vc.data.tacexprutil.evaluators.TACExprInterpreter
 import vc.data.tacexprutil.subs
 import verifier.PolarityCalculator
@@ -1084,7 +1085,25 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
             }
         }
 
-        /** Division of two [Tag.Int] operands. */
+        /**
+         * Division of two [Tag.Int] operands, imitating EVM semantics: rounding toward zero.
+         *
+         * This differs from SMT-LIB's integer division (`div`), which is Euclidean: the result is
+         * pinned so that the remainder is non-negative (`0 <= x mod y < |y|`). Concretely:
+         *   - For positive `y`, SMT `div` rounds toward minus infinity:
+         *       EVM  :  (-7) / 2 = -3      SMT  :  (-7) div 2 = -4
+         *   - For negative `y`, SMT `div` rounds toward plus infinity:
+         *       EVM  :    7  / (-2) = -3   SMT  :    7  div (-2) = -3
+         *       EVM  :  (-7) / (-2) =  3   SMT  :  (-7) div (-2) =  4
+         * In both cases the two agree when the dividend is non-negative, and disagree (by one,
+         * with the opposite sign) when the dividend is negative.
+         *
+         * To get EVM semantics from the SMT operator, we negate the dividend before and after the
+         * division when it is negative:
+         *   `x / y  ==  (x >= 0) ? x divSMT y : -((-x) divSMT y)`
+         * When the intervals analysis has proved the dividend is non-negative (or non-positive) we
+         * specialize the encoding and drop the `ite`.
+         */
         @KSerializable
         data class IntDiv(override val o1: TACExpr, override val o2: TACExpr, override val tag: Tag.Int? = null) :
             BinOp(), ToLExpression, IntExp {
@@ -1101,20 +1120,28 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
                 // we introduce a fresh variable for this purpose
                 // however, if we proved that the value is of the denominator is never 0, we prefer to plug in
                 // 0 instead of a skolem, because SMT solvers seem to behave better in that case.
-                val skolem = if (o2.asVarOrNull?.meta?.contains(NON_ZERO_META) == true) {
+                val skolem = if (o2.isSurelyNonZero()) {
                     conv.lxf.litInt(0)
                 } else {
                     conv.lxf.const("div0" + Allocator.getFreshId(Allocator.Id.DIV_0_NONDET), Tag.Int)
                 }
                 return conv.lxf {
+                    val l1 = conv(o1)
+                    val l2 = conv(o2)
+                    fun neg(l : LExpression) = ZERO - l
                     ite(
-                        eq(conv(o2), ZERO),
+                        eq(l2, ZERO),
                         skolem,
-                        conv(o1) / conv(o2)
+                        when {
+                            o1.isSurelyNonNeg() -> l1 / l2
+                            o1.isSurelyNonPos() -> neg(neg(l1) / l2)
+                            else -> ite(l1 ge ZERO, l1 / l2, neg(neg(l1) / l2))
+                        }
                     )
                 }
             }
 
+            /** EVM-style truncation toward zero: `BigInteger.divide` rounds toward zero. */
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
                 if (o2 == BigInteger.ZERO) {
                     BigInteger.ZERO

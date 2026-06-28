@@ -2373,6 +2373,16 @@ object Config {
         )
     )
 
+    val printCEX = ConfigType.BooleanCmdLine(
+        default = false,
+        option = Option(
+            "printCEX",
+            true,
+            "Prints the CEX to stdout. used only for debugging. [default = false]"
+        )
+    )
+
+
 
     val patternRewriter = object : ConfigType.IntCmdLine(
         default = 10,
