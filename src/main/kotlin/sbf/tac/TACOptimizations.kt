@@ -151,6 +151,7 @@ fun runDSAandUnrollLoops(coreTAC: CoreTACProgram): CoreTACProgram {
         .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
         .map(CoreToCoreTransformer(ReportTypes.COLLAPSE_EMPTY_DSA, TACDSA::collapseEmptyAssignmentBlocks))
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.REMOVE_SIMPLE_CONSTANT_VARIABLES, SimpleConstantVariableRemover::transform))
+        .map(CoreToCoreTransformer(ReportTypes.U128_PROMOTER, TACU128MathPromoter::insertU128Operations))
         .simplifyModMathPreUnroll()
         .map(CoreToCoreTransformer(ReportTypes.HOIST_LOOPS, LoopHoistingOptimization::hoistLoopComputations))
         .map(CoreToCoreTransformer(ReportTypes.UNROLL, CoreTACProgram::convertToLoopFreeCode))
