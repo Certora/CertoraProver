@@ -28,7 +28,7 @@ import log.*
 import sbf.callgraph.SolanaFunction
 
 private val logger = Logger(LoggerTypes.SBF_SCALAR_WITH_PREDS_ANALYSIS)
-private fun dbg(msg: () -> Any) { logger.info(msg) }
+private fun dbg(msg: () -> Any) { logger.debug(msg) }
 
 /**
  * Represent predicate of the form:
@@ -1087,7 +1087,7 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
 
     fun analyze(locInst: LocatedSbfInstruction) {
         val inst = locInst.inst
-        dbg { "$inst\n" }
+        logger.dbg(locInst) { "$inst\n" }
         if (!isBottom()) {
             if (SolanaConfig.UseScalarPredicateDomain.get()) {
                 if (inst is SbfInstruction.Bin) {
@@ -1124,7 +1124,7 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
                 }
             }
         }
-        dbg { "$this\n" }
+        logger.dbg(locInst) { "$this\n" }
     }
 
     override fun analyze(

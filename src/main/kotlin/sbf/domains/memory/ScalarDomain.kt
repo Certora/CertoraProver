@@ -51,7 +51,6 @@ import org.jetbrains.annotations.TestOnly
 
 
 private val logger = Logger(LoggerTypes.SBF_SCALAR_ANALYSIS)
-private fun dbg(msg: () -> Any) { logger.info(msg)}
 
 private class ValueFactory<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     val sbfTypeFac: ISbfTypeFactory<TNum, TOffset>): IScalarValueFactory<ScalarValue<TNum, TOffset>> {
@@ -1732,7 +1731,7 @@ fun<ScalarDomain: MutableAbstractDomain<ScalarDomain>> analyzeBlockMut(
     listener: InstructionListener<ScalarDomain>
 ): ScalarDomain {
 
-    dbg { "=== $domainName analyzing ${b.getLabel()} ===\nAt entry: $inState\n" }
+    logger.dbg(b) { "=== $domainName analyzing ${b.getLabel()} ===\nAt entry: $inState\n" }
 
     if (listener is DefaultInstructionListener) {
         // Fast path: shortcut when bottom is detected and avoid deep copies
@@ -1742,9 +1741,9 @@ fun<ScalarDomain: MutableAbstractDomain<ScalarDomain>> analyzeBlockMut(
 
         val outState = inState.deepCopy()
         for (locInst in b.getLocatedInstructions()) {
-            dbg { "${locInst.inst}\n" }
+            logger.dbg(locInst) { "${locInst.inst}\n" }
             transferFunction(outState, locInst)
-            dbg { "$outState\n" }
+            logger.dbg(locInst) { "$outState\n" }
             if (outState.isBottom()) {
                 break
             }
@@ -1755,9 +1754,9 @@ fun<ScalarDomain: MutableAbstractDomain<ScalarDomain>> analyzeBlockMut(
         for (locInst in b.getLocatedInstructions()) {
             val after = before.deepCopy()
             listener.instructionEventBefore(locInst, before)
-            dbg { "${locInst.inst}\n" }
+            logger.dbg(locInst) { "${locInst.inst}\n" }
             transferFunction(after, locInst)
-            dbg { "$after\n" }
+            logger.dbg(locInst) { "$after\n" }
             listener.instructionEventAfter(locInst, after)
             // Calling to this listener requires to make an extra copy
             // It's used by class AnnotateWithTypesListener defined in AnnotateCFG.kt
@@ -1787,7 +1786,7 @@ fun<ScalarDomain: AbstractDomain<ScalarDomain>> analyzeBlock(
     listener: InstructionListener<ScalarDomain>
 ): ScalarDomain {
 
-    dbg { "=== $domainName analyzing ${b.getLabel()} ===\nAt entry: $state\n" }
+    logger.dbg(b) { "=== $domainName analyzing ${b.getLabel()} ===\nAt entry: $state\n" }
 
     // Fast path: shortcut when bottom is detected
     if (listener is DefaultInstructionListener) {
@@ -1797,9 +1796,9 @@ fun<ScalarDomain: AbstractDomain<ScalarDomain>> analyzeBlock(
 
         var outState = state
         for (locInst in b.getLocatedInstructions()) {
-            dbg { "${locInst.inst}\n" }
+            logger.dbg(locInst) { "${locInst.inst}\n" }
             outState = transferFunction(outState, locInst)
-            dbg { "$outState\n" }
+            logger.dbg(locInst) { "$outState\n" }
             if (outState.isBottom()) {
                 break
             }
@@ -1810,11 +1809,11 @@ fun<ScalarDomain: AbstractDomain<ScalarDomain>> analyzeBlock(
     // Full tracking path: even if bottom is detected we call the listener
     var currentState = state
     for (locInst in b.getLocatedInstructions()) {
-        dbg { "${locInst.inst}\n" }
+        logger.dbg(locInst) { "${locInst.inst}\n" }
         val inState = currentState
         listener.instructionEventBefore(locInst, inState)
         val outState = transferFunction(inState, locInst)
-        dbg { "$outState\n" }
+        logger.dbg(locInst) { "$outState\n" }
         listener.instructionEventAfter(locInst, outState)
         listener.instructionEvent(locInst, inState, outState)
         currentState = outState

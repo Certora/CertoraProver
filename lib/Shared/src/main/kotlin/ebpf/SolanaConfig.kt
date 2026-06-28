@@ -599,6 +599,18 @@ object SolanaConfig {
         )
     ) {}
 
+    val PrintInvariantsAt: ConfigType.StringSetCmdLine = object : ConfigType.StringSetCmdLine(
+        null,
+        Option("solanaPrintInvariantsAt",
+            true,
+            "Set of strings. Each is matched verbatim against either a block label " +
+                "(as printed by the SBF CFG dump) or an instruction's bytecode address rendered " +
+                "as '0x' + lowercase hex. When set, the scalar and memory analyses print " +
+                "their internal state only at matching blocks/instructions. This option has only effect " +
+                "when either -Dlevel.sbf.scalar.analysis or -Dlevel.sbf.memory.analysis is enabled."
+        )
+    ) {}
+
     val PrintTACToStdOut = object : ConfigType.BooleanCmdLine(
         false,
         Option(

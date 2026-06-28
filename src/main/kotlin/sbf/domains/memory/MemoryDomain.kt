@@ -65,7 +65,6 @@ import utils.*
  **/
 
 private val logger = Logger(LoggerTypes.SBF_MEMORY_ANALYSIS)
-private fun dbg(msg: () -> Any) { logger.info(msg)}
 
 class MemoryDomainError(msg: String): SolanaInternalError("MemoryDomain error: $msg")
 
@@ -511,8 +510,6 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
         if (scalars.isBottom()) {
             setToBottom()
         } else {
-            val stmt = locInst.inst
-            check(stmt is SbfInstruction.Select)
             ptaGraph.doSelect(locInst, scalars)
         }
     }
@@ -571,7 +568,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
 
     private fun analyze(b: SbfBasicBlock, locInst: LocatedSbfInstruction) {
         val inst = locInst.inst
-        dbg { "$inst\n" }
+        logger.dbg(locInst) { "$inst\n" }
         if (!isBottom()) {
             if (opts.useEqualityDomain) {
                 memcmpPreds.analyze(locInst, this)
@@ -597,7 +594,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
                 is SbfInstruction.Debug -> {}
             }
         }
-        dbg {"$this\n"}
+        logger.dbg(locInst) {"$this\n"}
     }
 
     override fun analyze(
@@ -606,7 +603,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
     ): MemoryDomain<TNum, TOffset, Flags> {
 
 
-        dbg { "=== Memory Domain analyzing ${b.getLabel()} ===\n$this\n" }
+        logger.dbg(b) { "=== Memory Domain analyzing ${b.getLabel()} ===\n$this\n" }
         if (listener is DefaultInstructionListener) {
             if (isBottom()) {
                 return makeBottom(ptaGraph.nodeAllocator, scalars.getTypeFac(), opts, globalState)

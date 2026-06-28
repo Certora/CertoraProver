@@ -27,7 +27,6 @@ import sbf.callgraph.CVTFunction
 import sbf.callgraph.SolanaFunction
 
 private val logger = Logger(LoggerTypes.SBF_SCALAR_WITH_KNOWN_BITS)
-private fun dbg(msg: () -> Any) { logger.info(msg) }
 
 /** This option is for KnownBits widening **/
 private const val useJoinAsWidening = true
@@ -1044,7 +1043,7 @@ class ScalarKnownBitsDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> pr
      **/
     fun analyze(locInst: LocatedSbfInstruction) {
         val inst = locInst.inst
-        dbg { "$inst\n" }
+        logger.dbg(locInst) { "$inst\n" }
         if (!isBottom()) {
             // Note that locInst can be something like `r1 = r1 and r2`
             // In that case knownBits must use the value of `r1` before the scalar transfer function is applied.
@@ -1055,7 +1054,7 @@ class ScalarKnownBitsDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> pr
             refineWithConstants(locInst, scalars, knownBits)  // reduction from knownBits to scalars
             scalars.analyze(locInst)
         }
-        dbg { "$this\n" }
+        logger.dbg(locInst) { "$this\n" }
     }
 
     override fun analyze(

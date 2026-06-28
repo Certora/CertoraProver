@@ -64,7 +64,7 @@ package sbf.domains
 
 /** Scalar domain used by [MemoryDomain] **/
 typealias MemoryScalarDom<TNum, TOffset> = ScalarStackStridePredicateDomain<TNum, TOffset>
-/** Scalar domain factory used by [SbfCFGToTAC] **/
+/** Scalar domain factory used by [sbf.tac.SbfCFGToTAC] **/
 typealias MemoryScalarDomFac<TNum, TOffset> = ScalarStackStridePredicateDomainFactory<TNum, TOffset>
 
 /** Scalar domain used by [ScalarStackStridePredicateDomain] **/
@@ -76,13 +76,13 @@ typealias KnownBitsScalarDom<TNum, TOffset> = ScalarDomain<TNum, TOffset>
 /** Scalar domain used by [ScalarRegisterStackEqualityDomain] **/
 typealias RegStackEqScalarDom<TNum, TOffset> = ScalarStackStridePredicateDomain<TNum, TOffset>
 
-/** Scalar domain used by [NPDomainAnalysis] **/
+/** Scalar domain used by [sbf.analysis.NPAnalysis] **/
 typealias NPDomScalarDom<TNum, TOffset> = ScalarRegisterStackEqualityDomain<TNum, TOffset>
-/** Scalar domain factory used by [NPDomainAnalysis] **/
+/** Scalar domain factory used by [sbf.analysis.NPAnalysis] **/
 typealias NPDomScalarDomFac<TNum, TOffset> = ScalarRegisterStackEqualityDomainFactory<TNum, TOffset>
 
-/** Scalar domain factory used by CFG transformations: [PromoteMemcpy], [PromoteMemset], [SplitWideStores]**/
+/** Scalar domain factory used by CFG transformations: [sbf.cfg.PromoteMemcpy], [sbf.cfg.promoteMemset], [sbf.cfg.splitWideStores]**/
 typealias CFGTransformScalarDomFac<TNum, TOffset> = ScalarRegisterStackEqualityDomainFactory<TNum, TOffset>
 
-/** Scalar domain factory used by [GlobalInferenceAnalysis] **/
+/** Scalar domain factory used by [sbf.analysis.GlobalInferenceAnalysis] **/
 typealias GlobalAnalysisScalarDomFac<TNum, TOffset> = ScalarRegisterStackEqualityDomainFactory<TNum, TOffset>
