@@ -87,10 +87,10 @@ class TACSolanaAccountAccess(
 
         val cmds = mutableListOf<TACCmd.Simple>()
         cmds += Debug.startFunction("IsWritten")
-        val boolVars = mutableListOf<TACExpr.Sym.Var>()
+        var isWritten: TACExpr? = null
         flags.zip(ranges).forEach { (flag, range) ->
             val boolV = vFac.mkFreshBoolVar()
-            boolVars += boolV.asSym()
+            isWritten = sbfTacB { isWritten?.or(boolV.asSym()) ?: boolV.asSym() }
             cmds += assign(boolV, sbfTacB {
                 switch(
                     (loc.asSym() ge mkConst(range.start.toLong()).asSym()) and
@@ -99,7 +99,7 @@ class TACSolanaAccountAccess(
                 )
             })
         }
-        cmds += assign(res, sbfTacB { switch(or(boolVars) to ONE, default = ZERO) })
+        cmds += assign(res, sbfTacB { switch((isWritten ?: FALSE) to ONE, default = ZERO) })
         cmds += Debug.endFunction("IsWritten")
         return cmds
     }

@@ -18,23 +18,21 @@
 package sbf.tac
 
 import analysis.LTACSymbol
-import analysis.PatternMatcher
-import analysis.patterns.Info
-import analysis.patterns.Info.Companion.set
-import analysis.patterns.InfoKey
-import analysis.patterns.get
-import java.math.BigInteger
 import analysis.opt.PatternRewriter
 import analysis.opt.PatternRewriter.Key
 import analysis.opt.PatternRewriter.Key.*
-import sbf.cfg.CondOp
-import wasm.analysis.intervals.IntervalAnalysis
+import analysis.PatternMatcher
+import analysis.patterns.get
+import analysis.patterns.Info
+import analysis.patterns.Info.Companion.set
+import analysis.patterns.InfoKey
 import datastructures.stdcollections.*
+import java.math.BigInteger
 import log.*
+import sbf.cfg.CondOp
 import tac.Tag
-
 import vc.data.*
-import vc.data.tacexprutil.ExprUnfolder
+import wasm.analysis.intervals.IntervalAnalysis
 
 private val logger = Logger(LoggerTypes.SBF_MATH_PROMOTION)
 private fun dbg(msg: () -> Any) {
@@ -49,14 +47,7 @@ object TACU128MathPromoter {
 
     fun insertU128Operations(prog: CoreTACProgram): CoreTACProgram {
         dbg { "Detecting U128 operations..." }
-        val unfolded = ExprUnfolder.unfoldAll(prog) { e ->
-            when (val rhs = e.rhs) {
-                is TACExpr.BinRel -> true
-                is TACExpr.TernaryExp.Ite -> rhs.i is TACExpr.BinRel
-                else -> false
-            }
-        }
-        return insertU128BinRelOperations(unfolded)
+        return insertU128BinRelOperations(prog)
     }
 
     /** Returns the TAC expression `high << 64 + low` (merges two u64 halves into one 128-bit value).

@@ -127,27 +127,7 @@ object TACModSimplifier {
             encoded.takeIf { it.inBounds }?.from2s()?.takeIf { it < BigInteger.ZERO }?.let { -it }
 
         return PatternRewriter.rewrite(
-            ExprUnfolder.unfoldAll(code) { e ->
-                e.rhs.contains {
-                    it is TACExpr.BinOp.Mod ||
-                    it is TACExpr.BinOp.BWAnd ||
-                    it is TACExpr.BinOp.BWXOr ||
-                    it is TACExpr.BinOp.ShiftLeft ||
-                    it is TACExpr.BinOp.ShiftRightLogical ||
-                    it is TACExpr.BinOp.ShiftRightArithmetical ||
-                    it is TACExpr.BinOp.SignExtend ||
-                    it is TACExpr.BinRel.Gt ||
-                    it is TACExpr.BinRel.Ge ||
-                    it is TACExpr.BinRel.Lt ||
-                    it is TACExpr.BinRel.Le ||
-                    it is TACExpr.BinRel.Sgt ||
-                    it is TACExpr.BinRel.Sge ||
-                    it is TACExpr.BinRel.Slt ||
-                    it is TACExpr.BinRel.Sle ||
-                    it is TACExpr.BinRel.Eq ||
-                    it.cannotOverflow64() != null
-                }
-            },
+            code,
             repeat = 1,
             patternList = { listOf(
                 /*

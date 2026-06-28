@@ -148,6 +148,9 @@ fun optimize(coreTAC: CoreTACProgram): CoreTACProgram {
  */
 fun runDSAandUnrollLoops(coreTAC: CoreTACProgram): CoreTACProgram {
     return CoreTACProgram.Linear(coreTAC)
+        // SbfCFGToTAC generates complex TAC expressions for convenience; begin by unfolding these so the pattern-
+        // matching passes can make sense of them.
+        .map(CoreToCoreTransformer(ReportTypes.EXPR_UNFOLDING) { unfoldAll(it) { true } })
         .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
         .map(CoreToCoreTransformer(ReportTypes.COLLAPSE_EMPTY_DSA, TACDSA::collapseEmptyAssignmentBlocks))
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.REMOVE_SIMPLE_CONSTANT_VARIABLES, SimpleConstantVariableRemover::transform))
@@ -293,12 +296,5 @@ fun levelZeroOptimizations(coreTAC: CoreTACProgram, isSatisfyRule: Boolean): Cor
         }
         .mapIf(isSatisfyRule, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, WasmEntryPoint::rewriteAsserts))
         .map(CoreToCoreTransformer(ReportTypes.PATTERN_REWRITER) {
-            // We need to ensure 3 address code before applying the pattern rewriter.
-            unfoldAll(it) { e ->
-                e.rhs is TACExpr.BinOp.BWXOr ||
-                    e.rhs is TACExpr.BinOp.BWOr ||
-                    e.rhs is TACExpr.UnaryExp.LNot
-            }.let {
-                PatternRewriter.rewrite(it, PatternRewriter::solanaPatternsList)
-            }
+            PatternRewriter.rewrite(it, PatternRewriter::solanaPatternsList)
         }).ref
