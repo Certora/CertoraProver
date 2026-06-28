@@ -24,6 +24,7 @@ import bridge.NamedContractIdentifier
 import cache.*
 import datastructures.stdcollections.*
 import decompiler.Disassembler
+import normalizer.ConstructorBytecodeNormalizer
 import log.Logger
 import log.LoggerTypes
 import parallel.ParallelPool
@@ -266,11 +267,19 @@ private val immutableReferenceComparator =
     Comparator.comparingInt(ImmutableReference::length).thenComparingInt(ImmutableReference::offset)
         .thenComparing(ImmutableReference::varname).thenComparing(ImmutableReference::value)
 
+private object BytecodeNormalizer : ConstructorBytecodeNormalizer
+
 private fun metadatalessRuntimeBytecode(it: ContractInstanceInSDC) =
-    Disassembler.disassembleRuntimeBytecode(it).bytes.toByteArray()
+    with(BytecodeNormalizer) {
+        Disassembler.disassembleRuntimeBytecode(it).bytes.stripCbor().toByteArray()
+    }
 
 private fun metadatalessConstructorBytecode(it: ContractInstanceInSDC) =
-    Disassembler.disassembleConstructorBytecode(it).code.toByteArray()
+    with(BytecodeNormalizer) {
+        // The creation bytecode embeds the runtime code it returns, so it carries the same CBOR
+        // metadata section near its end - strip it the same way as the runtime bytecode.
+        Disassembler.disassembleConstructorBytecode(it).bytes.stripCbor().toByteArray()
+    }
 
 private fun hashContractConfig(outputStream: ObjectOutputStream, it: ContractInstanceInSDC) {
     logger.debug { "chaining ${it.address.toString(16)}" }
@@ -305,7 +314,7 @@ private fun hashContractConfig(outputStream: ObjectOutputStream, it: ContractIns
 }
 
 
-private fun computeSceneKey(baseCacheKey: BigInteger, instances: List<ContractInstanceInSDC>): String {
+internal fun computeSceneKey(baseCacheKey: BigInteger, instances: List<ContractInstanceInSDC>): String {
     return withStringDigest { outputStream ->
         logger.debug { "chaining $baseCacheKey" }
         outputStream.writeObject(baseCacheKey)

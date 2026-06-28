@@ -19,6 +19,7 @@ package normalizer
 
 import analysis.ip.functionIdMask
 import analysis.ip.isInternalAnnotationConstant
+import utils.*
 import java.math.BigInteger
 import kotlin.math.pow
 
@@ -145,6 +146,20 @@ interface ConstructorBytecodeNormalizer {
             }
         }
         return this
+    }
+
+    /**
+     * [List]<[UByte]> variant of [stripCbor]: reuses the (tested) hex-string CBOR parser by converting to a
+     * byte-aligned hex string, stripping, and converting back. [String.stripCbor] zeroes the CBOR bytes in
+     * place (preserving length), so the result has the same length as the input.
+     */
+    fun List<UByte>.stripCbor(): List<UByte> {
+        if (this.isEmpty()) {
+            return this
+        }
+        // toByteArray().toHexString() emits exactly 2 hex chars per byte (%02X), keeping the string
+        // byte-aligned. Do NOT use UByte.toString(16): it drops the leading zero for bytes < 0x10.
+        return hexStringToBytes(this.toByteArray().toHexString().stripCbor())
     }
 
     /**
