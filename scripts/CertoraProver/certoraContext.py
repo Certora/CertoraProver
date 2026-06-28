@@ -313,6 +313,14 @@ def get_args(args_list: List[str], app: Type[App.CertoraApp]) -> CertoraContext:
     # Setup defaults (defaults are not recorded in conf file)
     context.expected_file = context.expected_file or "expected.json"
     context.run_source = context.run_source or Vf.RunSources.COMMAND.name.upper()
+    if context.run_source.upper() \
+        in [Vf.RunSources.AUTO_PROVER.name.upper(), Vf.RunSources.STATIC_ANALYZER.name.upper()] \
+            and os.environ.get("CERTORA_PROVER_GROUP_ID") is not None:
+
+        context_logger.info("Running with run source auto_prover or static_analysis will override the group_id")
+        context_logger.info(f'group_id: {context.group_id}, override: {os.environ.get("CERTORA_PROVER_GROUP_ID")}')
+        context.group_id = os.environ.get("CERTORA_PROVER_GROUP_ID")
+
     context.java_version = Util.get_java_version()
 
     context_logger.debug("parsed args successfully.")
