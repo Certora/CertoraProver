@@ -107,8 +107,10 @@ data class GlobalVariables(
 
     fun add(newGv: SbfGlobalVariable): GlobalVariables {
         val addr = newGv.address
-        val oldGv = findGlobalThatContains(addr)
-            ?: return GlobalVariables(elf, map.put(addr, newGv))
+        val oldGv = findGlobalThatContains(addr) ?: return GlobalVariables(elf, map.put(addr, newGv))
+        if (oldGv.address == newGv.address && !oldGv.isSized() && newGv.isSized()) {
+            return GlobalVariables(elf, map.put(addr, newGv))
+        }
         if (oldGv != newGv) {
             logger.warn { "$newGv was not added because it overlaps with $oldGv" }
         }
