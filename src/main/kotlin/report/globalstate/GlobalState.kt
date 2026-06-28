@@ -20,6 +20,7 @@ package report.globalstate
 import analysis.CmdPointer
 import analysis.TACCommandGraph
 import analysis.storage.InstantiatedDisplayPath
+import datastructures.stdcollections.*
 import report.calltrace.CallInstance
 import report.calltrace.CallTrace
 import report.calltrace.formatter.CallTraceValueFormatter
@@ -53,7 +54,7 @@ internal class GlobalState(
     scene: ISceneIdentifiers,
     formatter: CallTraceValueFormatter,
 ) {
-    private val variablesState = VariablesState(model)
+    private val variablesState = VariablesState(model, graph, blocks.toSet())
     private val seqGen = SequenceGenerator(graph, blocks, model)
     val storageState = StorageState(seqGen, model, scene, formatter, variablesState)
     val balancesState = BalancesState(seqGen, model, formatter)

@@ -918,6 +918,15 @@ fun <T, E> Iterable<T>.allSame(id: (T) -> E): Boolean =
 
 fun <T> Iterable<T>.sameValueOrNull(): T? = sameValueOrNull { it }
 fun <T> Iterable<T>.allSame(): Boolean = allSame { it }
+fun <T> Iterable<T>.allDifferent(): Boolean {
+    val seen = HashSet<T>((this as? Collection<T>)?.size ?: 16)
+    for (t in this) {
+        if (!seen.add(t)) {
+            return false
+        }
+    }
+    return true
+}
 
 // to make biginteger life a little easier:
 
