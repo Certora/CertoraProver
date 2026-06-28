@@ -655,8 +655,10 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
         return getPTAGraph().getRegCell(reg, scalarVal.type(), locInst = null)
     }
 
-    /** Returns true iff we are sure that [reg] holds a pointer value */
-    fun isSurelyPointer(inst: SbfInstruction, reg: Value.Reg): Boolean {
+    /**
+     * Returns true iff [reg] definitely holds a pointer value.
+     **/
+    override fun isSurelyPointer(inst: SbfInstruction, reg: Value.Reg): Boolean {
         // Note that we're currently only using the scalar domain to check if a register is a pointer or not, as we
         // have not yet found a way to get reliable "must be pointer" info from the pointer domain.
         // `IsPointerAnalysis` could just use the scalar domain/analysis directly, which might improve performance a

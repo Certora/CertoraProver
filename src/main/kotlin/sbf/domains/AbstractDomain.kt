@@ -152,6 +152,14 @@ interface ScalarValueProvider<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> 
     /** Return false if no bytes in `[offset, offset+size-1]` has ever been written on the stack **/
     fun mayStackBeInitialized(offset: Long, size: ULong): Boolean
     fun getTypeFac(): ISbfTypeFactory<TNum, TOffset>
+
+    /**
+     * Returns true iff [reg] definitely holds a pointer value.
+     **/
+    fun isSurelyPointer(
+        @Suppress("UNUSED_PARAMETER") inst: SbfInstruction,
+        reg: Value.Reg
+    ): Boolean = getAsScalarValue(reg).type() is SbfType.PointerType
 }
 
 /**

@@ -150,8 +150,8 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     val accounts: TACSolanaAccountAccess
     // To summarize u128 intrinsics
     val u128Summarizer: U128Summarizer = U128Summarizer { prefix -> vFac.mkFreshIntVar(prefix = prefix) }
-
-    val isPointerAnalysis: IsPointerAnalysis<TNum, TOffset, TFlags>
+    // To improve TAC encoding
+    val isPointerAnalysis: IsPointerAnalysis<*,*,*>
 
     init {
         val scalarAnalysis = GenericScalarAnalysis(
@@ -183,7 +183,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
             DummyMemSplitter(vFac, types)
         }
 
-        isPointerAnalysis = IsPointerAnalysis(memoryAnalysis)
+        isPointerAnalysis = IsPointerAnalysis(scalarAnalysis)
 
         accounts = TACSolanaAccountAccess(cfg) { prefix ->
             vFac.mkFreshBoolVar(prefix = prefix)
