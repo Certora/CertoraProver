@@ -1,0 +1,5 @@
+{
+	"rules": {
+		"absorb_negative_returns_true": "SUCCESS"
+	}
+}
