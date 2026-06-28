@@ -188,6 +188,12 @@ class TreeViewReporter(
             return true
         }
 
+        // Do a last propagation of the state here before performing the check that no node is running.
+        // propagateState updates the nodes status, in particular it is updating isRunning to false in case a node
+        // has been completed. propagateState is called periodically (via hotUpdate) every X seconds when the tree view
+        // json file is updated. So we call it here to ensure the check operates on the most recent state of the tree.
+        tree.propagateState()
+
         val nodeToResult = tree
             .getChildren(ROOT_NODE_IDENTIFIER)
             .map { it to tree.getResultForNode(it) }
