@@ -51,9 +51,11 @@ object DSAChecker {
      * Returns the variables in [code] that violate DSA form, split into [NonDsaVars.badDefForm] and
      * [NonDsaVars.useBeforeDef]. A variable is DSA-good when either:
      *  - It has a single definition that strictly dominates every use; or
-     *  - Its definitions sit in distinct blocks that all flow into one common successor (a diamond), that successor
-     *    has no other predecessors, and every use is either later in a defining block (same block as that block's
-     *    def, at a strictly later pos) or in a block dominated by the join.
+     *  - Its definitions sit in distinct sibling blocks (all flowing into one common successor) and either:
+     *      (a) every use is local to one of those def blocks (strictly after that block's def), so the variable
+     *          never escapes the def blocks; or
+     *      (b) the common successor has no predecessors besides the defining blocks (a clean diamond), and every
+     *          use is either later in a defining block or in a block dominated by the join.
      */
     fun nonDsaVars(code: CoreTACProgram): NonDsaVars {
         val g = code.analysisCache.graph
@@ -96,13 +98,22 @@ object DSAChecker {
                 return null
             }
             val succ = succs[0]
-            // The common successor must have no predecessors besides the defining blocks - otherwise `v` is
-            // undefined on the path through the extra predecessor, even though every defining block dominates a
-            // path into `succ`.
+
+            // Option (a): if every use is local to a defining block (strictly after that block's def), the variable
+            // never escapes - the join's predecessor topology is irrelevant.
+            val usages = allUsages[v].orEmpty()
+            val everyUseIsLocalToDefBlock = usages.all { usePtr ->
+                defsByBlock[usePtr.block]?.let { defPtr -> usePtr.pos > defPtr.pos } == true
+            }
+            if (everyUseIsLocalToDefBlock) {
+                return true
+            }
+
+            // Option (b): clean diamond - the common successor has no predecessors besides the defining blocks.
             if (g.pred(succ).size != defBlocks.size) {
                 return null
             }
-            for (usePtr in allUsages[v].orEmpty()) {
+            for (usePtr in usages) {
                 defsByBlock[usePtr.block]
                     ?.let { defPtr ->
                         if (usePtr.pos <= defPtr.pos) {
