@@ -284,6 +284,18 @@ object SolanaConfig {
         override fun check(newValue: Int) = newValue >= 0
     }
 
+    val MaxSilencedPTAErrors = object : ConfigType.IntCmdLine(
+        0,
+        Option(
+            "solanaMaxSilencedPTAErrors",
+            true,
+            "Maximum number of PTA errors to silence by inserting an assert(false) at the error location, " +
+                "so the verifier can continue past each error and produce a counterexample for it. [default: 0]"
+        )
+    ) {
+        override fun check(newValue: Int) = newValue >= 0
+    }
+
     // CFG optimizations
     val SlicerIter = object : ConfigType.IntCmdLine(
         6,
