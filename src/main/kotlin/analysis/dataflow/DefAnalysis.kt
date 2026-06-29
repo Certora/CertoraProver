@@ -23,12 +23,30 @@ import config.*
 import datastructures.ArrayHashMap
 import datastructures.ArrayHashSet
 import datastructures.stdcollections.*
+import statistics.*
 import tac.*
 import utils.*
 import vc.data.*
 import java.math.BigInteger
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.stream.Collectors
+
+private val DEF_ANALYSIS_KEY = "defAnalysis".toSDFeatureKey()
+private val PREPROCESSING_KEY = "preprocessing".toSDFeatureKey()
+private val PREPROCESSING_TAG = "elapsed".toTimeTag()
+
+/**
+    Records elapsed time of [block] under defAnalysis.preprocessing.[kindKey] in statsData.json.
+    Multiple invocations with the same [kindKey] are summed (aggregated total in ms).
+ */
+internal fun <T> recordDefAnalysisPreprocessing(kindKey: SDFeatureKey, block: () -> T): T {
+    val stats = ElapsedTimeStats()
+    val result = stats.measure(PREPROCESSING_TAG, block)
+    SDCollectorFactory.collector().collectFeature(
+        AggregatedElapsedTimeStats(stats, DEF_ANALYSIS_KEY, PREPROCESSING_KEY, kindKey)
+    )
+    return result
+}
 
 abstract class DefAnalysis<
     T : TACCmd, U : LTACCmdGen<T>, V : TACBlockGen<T, U>, G : GenericTACCommandGraph<T, U, V>
@@ -41,7 +59,9 @@ abstract class DefAnalysis<
         For [StrictDefAnalysis], this is every variable that appears in the program.  For [LooseDefAnalysis] this is
         the empty set - we don't track undefined vars in that case.
      */
-    private val initialUndefinedVars: TreapSet<TACSymbol.Var>
+    private val initialUndefinedVars: TreapSet<TACSymbol.Var>,
+    /** Innermost statsData.json key identifying this analysis kind (e.g. "loose", "strict", "move"). */
+    private val kindKey: SDFeatureKey,
 ) {
     /**
         Gets the variables defined by this command, if any.
@@ -54,13 +74,15 @@ abstract class DefAnalysis<
         All definitions of every variable.  Maps (block, v) to an array of locations of defs in that block
      */
     private val allDefs: Map<Pair<NBId, TACSymbol.Var>, IntArray> =
-        groupToArrays(
-            graph.commands.flatMap {
-                it.getDefinedVars().map { v ->
-                    (it.ptr.block to v) to it.ptr.pos
+        recordDefAnalysisPreprocessing(kindKey) {
+            groupToArrays(
+                graph.commands.flatMap {
+                    it.getDefinedVars().map { v ->
+                        (it.ptr.block to v) to it.ptr.pos
+                    }
                 }
-            }
-        )
+            )
+        }
 
     protected fun lastDef(block: NBId, v: TACSymbol.Var): CmdPointer? =
         allDefs[block to v]?.let { CmdPointer(block, it.last()) }
@@ -69,10 +91,12 @@ abstract class DefAnalysis<
         For each variable, the set of all definitions that are the last in their respective blocks.
      */
     protected val lastDefs: Map<TACSymbol.Var, TreapSet<CmdPointer>> by lazy {
-        ArrayHashMap<TACSymbol.Var, TreapSet<CmdPointer>>().also { lastDefs ->
-            allDefs.forEachEntry { (blockAndVar, locs) ->
-                val (block, v) = blockAndVar
-                lastDefs[v] = lastDefs[v].orEmpty() + CmdPointer(block, locs.last())
+        recordDefAnalysisPreprocessing(kindKey) {
+            ArrayHashMap<TACSymbol.Var, TreapSet<CmdPointer>>().also { lastDefs ->
+                allDefs.forEachEntry { (blockAndVar, locs) ->
+                    val (block, v) = blockAndVar
+                    lastDefs[v] = lastDefs[v].orEmpty() + CmdPointer(block, locs.last())
+                }
             }
         }
     }
@@ -124,6 +148,7 @@ abstract class DefAnalysis<
         The [DefState] at the entry to each block.
      */
     private val entryStates: Map<NBId, DefState> by lazy {
+        recordDefAnalysisPreprocessing(kindKey) {
         object : BlockDataflowAnalysis<G, V, NBId, DefState>(
             graph,
             JoinLattice.ofJoin(::join),
@@ -169,6 +194,7 @@ abstract class DefAnalysis<
             init { runAnalysis() }
 
         }.blockIn
+        }
     }
 
     protected open fun findDefsInPriorBlocks(v: TACSymbol.Var, pointer: CmdPointer): Pair<Set<CmdPointer>, Boolean> {
@@ -190,11 +216,13 @@ abstract class GenericLooseDefAnalysis<
     T : TACCmd, U : LTACCmdGen<T>, V : TACBlockGen<T, U>, G : GenericTACCommandGraph<T, U, V>
 > (
     graph: G,
-    blockView: GraphBlockView<G, V, NBId>
+    blockView: GraphBlockView<G, V, NBId>,
+    kindKey: SDFeatureKey,
 ) : DefAnalysis<T, U, V, G>(
     graph,
     blockView,
-    initialUndefinedVars = treapSetOf()
+    initialUndefinedVars = treapSetOf(),
+    kindKey = kindKey,
 ), IDefAnalysis {
 
     override fun defSitesOf(v: TACSymbol.Var, pointer: CmdPointer) =
@@ -245,7 +273,8 @@ class LooseDefAnalysis private constructor(
     graph: TACCommandGraph
 ) : GenericLooseDefAnalysis<TACCmd.Simple, LTACCmd, TACBlock, TACCommandGraph>(
     graph,
-    TACBlockView()
+    TACBlockView(),
+    kindKey = "loose".toSDFeatureKey(),
 ) {
     companion object : AnalysisCache.Key<TACCommandGraph, LooseDefAnalysis> {
         override fun createCached(graph: TACCommandGraph) = LooseDefAnalysis(graph)
@@ -264,9 +293,12 @@ class StrictDefAnalysis private constructor(
 ) : DefAnalysis<TACCmd.Simple, LTACCmd, TACBlock, TACCommandGraph>(
     graph,
     TACBlockView(),
-    initialUndefinedVars = graph.blocks.parallelStream().flatMap {
-        it.commands.flatMapToSet { it.cmd.freeVars() }.stream()
-    }.collect(Collectors.toCollection { treapSetBuilderOf() }).build()
+    initialUndefinedVars = recordDefAnalysisPreprocessing("strict".toSDFeatureKey()) {
+        graph.blocks.parallelStream().flatMap {
+            it.commands.flatMapToSet { it.cmd.freeVars() }.stream()
+        }.collect(Collectors.toCollection { treapSetBuilderOf() }).build()
+    },
+    kindKey = "strict".toSDFeatureKey(),
 ) {
     companion object : AnalysisCache.Key<TACCommandGraph, StrictDefAnalysis> {
         override fun createCached(graph: TACCommandGraph) = StrictDefAnalysis(graph)

@@ -19,15 +19,20 @@ package sbf
 
 import config.Config
 import config.ConfigScope
+import config.ConfigScope.Companion.invoke
 import sbf.cfg.*
 import sbf.disassembler.SbfRegister
 import sbf.disassembler.Label
 import sbf.support.UnknownStackContentError
 import sbf.tac.TACTranslationError
 import org.junit.jupiter.api.*
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.ValueSource
 import sbf.SolanaConfig.ForgetOnUntrackedStackLoad
 import sbf.tac.levelZeroOptimizations
 import sbf.testing.SbfTestDSL
+import kotlin.booleanArrayOf
 
 class TACStoresTest {
 
@@ -65,13 +70,16 @@ class TACStoresTest {
 
         expectException<UnknownStackContentError> {
             ConfigScope(ForgetOnUntrackedStackLoad, false).use {
-                toTAC(cfg)
+                ConfigScope(SolanaConfig.MemorySplitter, MemorySplitter.PTA).use {
+                    toTAC(cfg)
+                }
             }
         }
     }
 
-    @Test
-    fun test02() {
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun test02(usePTA: Boolean) {
         // r1 points to the heap
         /*
            r2 := r10
@@ -114,13 +122,17 @@ class TACStoresTest {
         cfg.normalize()
         cfg.verify(true)
 
-        val tacProg = toTAC(cfg)
-        println(dumpTAC(tacProg))
-        Assertions.assertEquals(true, verify(tacProg))
+        val memSplitter = if (usePTA) { MemorySplitter.PTA }  else { MemorySplitter.Scalar }
+        ConfigScope(SolanaConfig.MemorySplitter, memSplitter).use {
+            val tacProg = toTAC(cfg)
+            println(dumpTAC(tacProg))
+            Assertions.assertEquals(true, verify(tacProg))
+        }
     }
 
-    @Test
-    fun test03() {
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun test03(usePTA: Boolean) {
         // r1 points to the heap
         /*
            r2 := r10
@@ -165,9 +177,13 @@ class TACStoresTest {
         cfg.normalize()
         cfg.verify(true)
 
-        val tacProg = toTAC(cfg)
-        println(dumpTAC(tacProg))
-        Assertions.assertEquals(false, verify(tacProg))
+        val memSplitter = if (usePTA) { MemorySplitter.PTA }  else { MemorySplitter.Scalar }
+        val expectedRes = if (usePTA) { false  /* assertion does not hold */ } else { true /* assertion incorrectly holds */ }
+        ConfigScope(SolanaConfig.MemorySplitter, memSplitter).use {
+            val tacProg = toTAC(cfg)
+            println(dumpTAC(tacProg))
+            Assertions.assertEquals(expectedRes, verify(tacProg))
+        }
     }
 
     @Test
@@ -228,7 +244,9 @@ class TACStoresTest {
 
         expectException<TACTranslationError> {
             ConfigScope(SolanaConfig.DefactoSemantics, false).use {
-                toTAC(cfg)
+                ConfigScope(SolanaConfig.MemorySplitter, MemorySplitter.PTA).use {
+                    toTAC(cfg)
+                }
             }
         }
     }
@@ -253,8 +271,9 @@ class TACStoresTest {
      *   }
      *   ```
      **/
-    @Test
-    fun test5() {
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun test5(usePTA: Boolean) {
         println("====== TEST 5  =======")
         val cfg = SbfTestDSL.makeCFG("test") {
             bb(1) {
@@ -298,13 +317,16 @@ class TACStoresTest {
         cfg.normalize()
         cfg.verify(true)
 
-        ConfigScope(SolanaConfig.OptimisticPTAOverlaps, true).use {
-            val tacProg = toTAC(cfg)
-            println("Before loop unrolling\n" + dumpTAC(tacProg))
-            ConfigScope(Config.LoopUnrollConstant, 5).use {
-                val loopFreeTacProg = levelZeroOptimizations(tacProg, false)
-                println("After loop unrolling\n" + dumpTAC(loopFreeTacProg))
-                Assertions.assertEquals(true, verify(loopFreeTacProg))
+        val memSplitter = if (usePTA) { MemorySplitter.PTA }  else { MemorySplitter.Scalar }
+        ConfigScope(SolanaConfig.MemorySplitter, memSplitter).use {
+            ConfigScope(SolanaConfig.OptimisticPTAOverlaps, true).use {
+                val tacProg = toTAC(cfg)
+                println("Before loop unrolling\n" + dumpTAC(tacProg))
+                ConfigScope(Config.LoopUnrollConstant, 5).use {
+                    val loopFreeTacProg = levelZeroOptimizations(tacProg, false)
+                    println("After loop unrolling\n" + dumpTAC(loopFreeTacProg))
+                    Assertions.assertEquals(true, verify(loopFreeTacProg))
+                }
             }
         }
     }
@@ -324,8 +346,9 @@ class TACStoresTest {
      *   }
      *  ```
      */
-    @Test
-    fun test6() {
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun test6(usePTA: Boolean) {
         println("====== TEST 6  =======")
         val cfg = SbfTestDSL.makeCFG("test") {
             bb(1) {
@@ -365,7 +388,91 @@ class TACStoresTest {
         cfg.normalize()
         cfg.verify(true)
 
-        ConfigScope(SolanaConfig.OptimisticPTAOverlaps, true).use {
+        val memSplitter = if (usePTA) { MemorySplitter.PTA }  else { MemorySplitter.Scalar }
+        ConfigScope(SolanaConfig.MemorySplitter, memSplitter).use {
+            ConfigScope(SolanaConfig.OptimisticPTAOverlaps, true).use {
+                val tacProg = toTAC(cfg)
+                println(dumpTAC(tacProg))
+                Assertions.assertEquals(true, verify(tacProg))
+            }
+        }
+    }
+
+    /**
+     * Single heap write + read. Exercises the scalar splitter's non-stack store/load path under both
+     * per-region (`Scalar`) and single-map (`ScalarSingle`) modes.
+     *
+     * ```
+     * r1 := alloc(32)
+     * *r1 := 42
+     * r2 := *r1
+     * assert(r2 == 42)
+     * ```
+     */
+    @ParameterizedTest
+    @EnumSource(value = MemorySplitter::class, names = ["Scalar", "ScalarSingle"])
+    fun test7(memSplitter: MemorySplitter) {
+        println("====== TEST 7 ($memSplitter) =======")
+        val cfg = SbfTestDSL.makeCFG("test7") {
+            bb(1) {
+                r1 = 32
+                "__rust_alloc"()
+                r1 = r0
+                r1[0] = 42
+                r2 = r1[0]
+                assert(CondOp.EQ(r2, 42))
+                exit()
+            }
+        }
+        cfg.normalize()
+        cfg.verify(true)
+
+        ConfigScope(SolanaConfig.MemorySplitter, memSplitter).use {
+            val tacProg = toTAC(cfg)
+            println(dumpTAC(tacProg))
+            Assertions.assertEquals(true, verify(tacProg))
+        }
+    }
+
+    /**
+     * Multiple non-overlapping heap writes and reads at distinct word-aligned offsets. Exercises a
+     * longer non-stack store chain under both per-region (`Scalar`) and single-map (`ScalarSingle`) modes.
+     *
+     * ```
+     * r1 := alloc(32)
+     * *(r1 + 0)  := 10
+     * *(r1 + 8)  := 20
+     * *(r1 + 16) := 30
+     * r2 := *(r1 + 0);  assert(r2 == 10)
+     * r3 := *(r1 + 8);  assert(r3 == 20)
+     * r4 := *(r1 + 16); assert(r4 == 30)
+     * ```
+     */
+    @ParameterizedTest
+    @EnumSource(value = MemorySplitter::class, names = ["Scalar", "ScalarSingle"])
+    fun test8(memSplitter: MemorySplitter) {
+        println("====== TEST 8 ($memSplitter) =======")
+        val cfg = SbfTestDSL.makeCFG("test8") {
+            bb(1) {
+                r1 = 32
+                "__rust_alloc"()
+                r1 = r0
+                r1[0]  = 10
+                r1[8]  = 20
+                r1[16] = 30
+                r2 = r1[0]
+                r3 = r1[8]
+                r4 = r1[16]
+                assert(CondOp.EQ(r2, 10))
+                assert(CondOp.EQ(r3, 20))
+                assert(CondOp.EQ(r4, 30))
+                exit()
+            }
+        }
+        cfg.normalize()
+        cfg.verify(true)
+
+        ConfigScope(SolanaConfig.MemorySplitter, memSplitter).use {
             val tacProg = toTAC(cfg)
             println(dumpTAC(tacProg))
             Assertions.assertEquals(true, verify(tacProg))

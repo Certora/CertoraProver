@@ -18,6 +18,7 @@
 package sbf
 
 import config.ConfigScope
+import config.ConfigScope.Companion.invoke
 import sbf.cfg.*
 import sbf.disassembler.SbfRegister
 import sbf.disassembler.Label
@@ -62,12 +63,14 @@ class TACMemcpyPromotionTest {
 
     @Test
     fun `widening + narrowing without memcpy promotion`() {
-        val cfg = `widening + narrowing`()
-        Assertions.assertEquals(false, cfg.hasMemcpyZExt())
-        Assertions.assertEquals(false, cfg.hasMemcpyTrunc())
-        expectException<UnknownStackContentError> {
-            ConfigScope(ForgetOnUntrackedStackLoad, false).use {
-                toTAC(cfg)
+        ConfigScope(SolanaConfig.MemorySplitter, MemorySplitter.PTA).use {
+            val cfg = `widening + narrowing`()
+            Assertions.assertEquals(false, cfg.hasMemcpyZExt())
+            Assertions.assertEquals(false, cfg.hasMemcpyTrunc())
+            expectException<UnknownStackContentError> {
+                ConfigScope(ForgetOnUntrackedStackLoad, false).use {
+                    toTAC(cfg)
+                }
             }
         }
     }

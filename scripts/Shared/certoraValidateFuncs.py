@@ -34,10 +34,8 @@ from uuid import UUID
 scripts_dir_path = Path(__file__).parent.resolve()  # containing directory
 sys.path.insert(0, str(scripts_dir_path))
 
-
 from Shared import certoraUtils as Util
 from Mutate import mutateConstants as Constants
-
 
 validation_logger = logging.getLogger("validation")
 
@@ -176,11 +174,14 @@ def validate_non_negative_integer(string: str) -> str:
         raise Util.CertoraUserInputError(f'expected a non-negative integer, instead given {string}') from e
     return string
 
+
 def validate_manual_mutants(value: Any) -> Any:
     return validate_mutant_attributes(value, Constants.MANUAL_MUTANTS)
 
+
 def validate_universal_mutator_mutants(value: Any) -> Any:
     return validate_mutant_attributes(value, Constants.UNIVERSAL_MUTATOR)
+
 
 def validate_mutant_attributes(value: Any, attr_name: str) -> Any:
     error_message = (f"Bad value. '{attr_name}' should be a list of dictionaries, each dictionary should"
@@ -267,6 +268,7 @@ def validate_optional_readable_file(filename: str) -> str:
 
 def validate_spec_file(filename: str) -> str:
     return validate_readable_file(filename, (".spec", ".cvl"))
+
 
 def validate_soroban_extension(filename: str) -> str:
     if not filename.lower().endswith(Util.SOROBAN_EXEC_EXTENSION):
@@ -435,8 +437,8 @@ def validate_contract_extension_attr(map: Any) -> Dict[str, List[Dict[str, Any]]
         for extension in extensions:
             if not isinstance(extension, dict) or \
                 "extension" not in extension or \
-                    "exclude" not in extension or \
-                    not isinstance(extension["exclude"], list) or \
+                "exclude" not in extension or \
+                not isinstance(extension["exclude"], list) or \
                     len(extension) > 2:
                 raise Util.CertoraUserInputError(f'Each extension for {extended} must be of the form '
                                                  f'`{{ "extension": "ExtenderContractA", '
@@ -535,8 +537,9 @@ def validate_prototype_attr(string: str) -> str:
 def validate_storage_extension_harness_attr(link: str) -> str:
     contracts = link.split("=", 2)
     if len(contracts) != 2:
-        raise Util.CertoraUserInputError(f"Invalid storage extension harness format: '{link}'. Expected 'ContractA=ContractB'."
-                                         "specified as ContractA=ContractB")
+        raise Util.CertoraUserInputError(
+            f"Invalid storage extension harness format: '{link}'. Expected 'ContractA=ContractB'."
+            "specified as ContractA=ContractB")
     validate_contract_name(contracts[0])
     validate_contract_name(contracts[1])
     if contracts[0] == contracts[1]:
@@ -570,6 +573,7 @@ def validate_equivalence_contracts(equiv_string: str) -> str:
             f"Equivalence check must be ContractA=ContractB, got {equiv_string}"
         )
     return equiv_string
+
 
 def validate_packages(package: str) -> str:
     if not re.search("^[^=]+=[^=]+$", package):
@@ -684,7 +688,8 @@ def validate_address(value: str) -> str:
 def validate_boolean_map(args: Dict[str, bool], attr_name: str) -> None:
     attr_map_name = attr_name + "_map"
     if not isinstance(args, dict):
-        raise Util.CertoraUserInputError(f"'{attr_map_name}' should be stored as a map (type was {type(args).__name__})")
+        raise Util.CertoraUserInputError(
+            f"'{attr_map_name}' should be stored as a map (type was {type(args).__name__})")
 
     for contract, value in args.items():
         if not isinstance(value, bool):
@@ -698,13 +703,17 @@ def validate_boolean_map(args: Dict[str, bool], attr_name: str) -> None:
         if first:
             validation_logger.warning(f"all {attr_map_name} values are set to True '{attr_name}' can be used instead")
         else:
-            validation_logger.warning(f"all {attr_map_name} values are set to False, this flag/attribute can be omitted")
+            validation_logger.warning(
+                f"all {attr_map_name} values are set to False, this flag/attribute can be omitted")
+
 
 def validate_solc_via_ir_map(args: Dict[str, bool]) -> None:
     validate_boolean_map(args, 'solc_via_ir')
 
+
 def validate_vyper_venom_map(args: Dict[str, bool]) -> None:
     validate_boolean_map(args, 'vyper_venom')
+
 
 def validate_solc_evm_version_map(args: Dict[str, str]) -> None:
     if not isinstance(args, dict):
@@ -722,6 +731,7 @@ def validate_solc_evm_version_map(args: Dict[str, str]) -> None:
     if all(x == first for x in values):
         validation_logger.warning(f"All EVM versions in --solc_evm_version_map are the same."
                                   f" --solc_evm_version {first} can be used instead")
+
 
 def validate_solc_optimize_map(args: Dict[str, str]) -> None:
     if not isinstance(args, dict):
@@ -775,7 +785,8 @@ def validate_vyper_custom_std_json_in_map(args: Dict[str, str]) -> None:
     :raises CertoraUserInputError if the format is wrong
     """
     if not isinstance(args, dict):
-        raise Util.CertoraUserInputError(f"vyper custom std json in should be stored as a map (type was {type(args).__name__})")
+        raise Util.CertoraUserInputError(
+            f"vyper custom std json in should be stored as a map (type was {type(args).__name__})")
 
     for source_file, json_file in args.items():
         if not Util.is_vyper_file(source_file):
@@ -808,10 +819,12 @@ def validate_git_hash(git_hash: str) -> str:
         raise Util.CertoraUserInputError("Git hash must consist of between 1 and 40 characters")
     return git_hash
 
+
 def validate_check_method_flag(method: str) -> str:
     if '.' in method:
-        raise Util.CertoraUserInputError(f"Malformed `check_mathod` argument '{method}': checked method cannot contain a dot. Use only the method name without the contract prefix."
-                                         "the contract part is not allowed in `--check_method`")
+        raise Util.CertoraUserInputError(
+            f"Malformed `check_mathod` argument '{method}': checked method cannot contain a dot. Use only the method name without the contract prefix."
+            "the contract part is not allowed in `--check_method`")
     if ' ' in method:
         raise Util.CertoraUserInputError(f"Malformed method '{method}' in `--check_method`: remove all whitespace")
 
@@ -819,10 +832,12 @@ def validate_check_method_flag(method: str) -> str:
         raise Util.CertoraUserInputError(f"Malformed method '{method}' in `--check_method`: unmatched parenthesis")
     return method
 
+
 def validate_evm_method_flag(method: str) -> str:
     contract_and_method = method.split('.')
     if len(contract_and_method) > 2:
-        raise Util.CertoraUserInputError(f"Malformed method '{method}' in `--method` list: a method should be of the form `[ContractName.]functionABISignature(...)`")
+        raise Util.CertoraUserInputError(
+            f"Malformed method '{method}' in `--method` list: a method should be of the form `[ContractName.]functionABISignature(...)`")
     elif (len(contract_and_method) == 2):
         contract = contract_and_method[0]
         validate_contract_name(contract)
@@ -838,8 +853,10 @@ def validate_evm_method_flag(method: str) -> str:
 
     return method
 
+
 def validate_move_method_flag(method: str) -> str:
     return validate_move_function_name(method)
+
 
 def __validate_matching_parens(s: str) -> bool:
     stack = []
@@ -875,11 +892,13 @@ def __validate_solidity_id(string: str, object: str) -> str:
 def validate_contract_name(contract_name: str) -> str:
     return __validate_solidity_id(contract_name, "contract")
 
+
 def validate_rule_pattern_string(rule_str: str) -> str:
     if not re.match(r"^[a-zA-Z0-9_$*]+$", rule_str):
         raise Util.CertoraUserInputError(f"invalid rule pattern \"{rule_str}\": rule patterns must contain only "
                                          "letters, digits, dollar signs, underscores, or asterisks")
     return rule_str
+
 
 def validate_evm_rule_name(rule_str: str) -> str:
     if ("*" in rule_str):
@@ -887,17 +906,21 @@ def validate_evm_rule_name(rule_str: str) -> str:
     else:
         return __validate_solidity_id(rule_str, "rule")
 
+
 def validate_move_rule_pattern_string(rule_str: str) -> str:
     if not re.match(r"^([a-zA-Z0-9_$*]|::)+$", rule_str):
         raise Util.CertoraUserInputError(f"invalid rule pattern \"{rule_str}\": rule patterns must contain only "
                                          "letters, digits, dollar signs, underscores, asterisks, or double colons")
     return rule_str
 
+
 def validate_move_function_name(name: str) -> str:
-    if not re.match(r"^(0x[0-9a-fA-F]+|([a-zA-Z_][a-zA-Z0-9_]*))::[a-zA-Z_][a-zA-Z0-9_]*::[a-zA-Z_][a-zA-Z0-9_]*$", name):
+    if not re.match(r"^(0x[0-9a-fA-F]+|([a-zA-Z_][a-zA-Z0-9_]*))::[a-zA-Z_][a-zA-Z0-9_]*::[a-zA-Z_][a-zA-Z0-9_]*$",
+                    name):
         raise Util.CertoraUserInputError(f"invalid Move function name \"{name}\": must be a fully-qualified Move "
                                          "function name")
     return name
+
 
 def validate_move_rule_name(rule_str: str) -> str:
     if ("*" in rule_str):
@@ -910,7 +933,6 @@ MAX_MSG_LEN: int = 256
 
 
 def validate_msg(msg: str) -> str:
-
     if len(msg) > MAX_MSG_LEN:
         msg = (msg[:MAX_MSG_LEN - 3] + "...")
         validation_logger.warning(f"'msg' can't accept strings longer than {MAX_MSG_LEN} chars, string was truncated")
@@ -952,7 +974,14 @@ def validate_run_source(string: str) -> str:
     We allow the user to insert the run source in any casing they want
         (e.g., we accept command, Command, COMMAND and CoMmAnD, but always send COMMAND)
     """
-    return __validate_enum_value(string, RunSources).upper()
+    output = __validate_enum_value(string, RunSources).upper()
+    # output should either be correct or we raised an exception in __validate_enum_value
+
+    if string.upper() in [RunSources.AUTO_PROVER.name.upper(), RunSources.STATIC_ANALYZER.name.upper()] \
+            and os.environ.get("CERTORA_PROVER_GROUP_ID") is not None:
+        validate_uuid(os.environ.get("CERTORA_PROVER_GROUP_ID") or '')
+
+    return output
 
 
 def validate_multi_example_value(value: str) -> str:
@@ -996,15 +1025,6 @@ def validate_prover_version(value: str) -> str:
                                          " underscores ")
     return value
 
-
-def validate_job_definition(value: str) -> str:
-    """
-    A job definition may consist only of letters, numbers and underscores
-    """
-    if not re.match(r"^\w+$", value):
-        raise Util.CertoraUserInputError(f"illegal 'job_definition' argument {value}, job definition may consist only "
-                                         "of letters, numbers and underscores")
-    return value
 
 def validate_false(value: str) -> str:
     """

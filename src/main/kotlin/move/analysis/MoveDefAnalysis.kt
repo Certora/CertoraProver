@@ -24,6 +24,7 @@ import datastructures.stdcollections.*
 import move.*
 import move.MoveTACProgram.Block
 import move.MoveTACProgram.LCmd
+import statistics.toSDFeatureKey
 import utils.*
 import vc.data.*
 import java.math.BigInteger
@@ -39,7 +40,8 @@ class MoveDefAnalysis private constructor(
     graph: MoveTACCommandGraph
 ) : GenericLooseDefAnalysis<TACCmd, LCmd, Block, MoveTACCommandGraph>(
     graph,
-    MoveBlockView
+    MoveBlockView,
+    kindKey = "move".toSDFeatureKey(),
 ) {
     companion object : AnalysisCache.Key<MoveTACCommandGraph, MoveDefAnalysis> {
         override fun createCached(graph: MoveTACCommandGraph) = MoveDefAnalysis(graph)

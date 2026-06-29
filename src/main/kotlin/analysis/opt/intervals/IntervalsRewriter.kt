@@ -38,6 +38,7 @@ import utils.Color.Companion.blue
 import utils.Color.Companion.cyan
 import vc.data.*
 import vc.data.SimplePatchingProgram.Companion.patchForEach
+import vc.data.tacexprutil.asSymOrNull
 import vc.data.TACCmd.Simple.AssigningCmd.AssignExpCmd
 import vc.data.tacexprutil.asVarOrNull
 import vc.data.tacexprutil.postTransform
@@ -101,6 +102,32 @@ class IntervalsRewriter(
         val NON_ZERO_META = MetaKey.Nothing("tac.non.zero.var")
         val NON_NEG_META = MetaKey.Nothing("tac.non.neg.var")
         val NON_POS_META = MetaKey.Nothing("tac.non.pos.var")
+
+        fun TACSymbol.isSurelyNonZero() = when (this) {
+            is TACSymbol.Const -> value != BigInteger.ZERO
+            is TACSymbol.Var -> NON_ZERO_META in meta
+        }
+
+        fun TACSymbol.isSurelyNonNeg() = tag is Tag.Bits ||
+            when (this) {
+                is TACSymbol.Const -> value >= BigInteger.ZERO
+                is TACSymbol.Var -> NON_NEG_META in meta
+            }
+
+        fun TACSymbol.isSurelyNonPos() = when (this) {
+            is TACSymbol.Const -> value <= BigInteger.ZERO
+            is TACSymbol.Var -> NON_POS_META in meta
+        }
+
+        fun TACSymbol.isSurelyPos() = isSurelyNonNeg() && isSurelyNonZero()
+        fun TACSymbol.isSurelyNeg() = isSurelyNonPos() && isSurelyNonZero()
+
+        fun TACExpr.isSurelyNonZero() = asSymOrNull?.isSurelyNonZero() == true
+        fun TACExpr.isSurelyNonNeg() = tag is Tag.Bits || asSymOrNull?.isSurelyNonNeg() == true
+        fun TACExpr.isSurelyNonPos() = asSymOrNull?.isSurelyNonPos() == true
+        fun TACExpr.isSurelyPos() = asSymOrNull?.isSurelyPos() == true
+        fun TACExpr.isSurelyNeg() = asSymOrNull?.isSurelyNeg() == true
+
     }
 
     private val graph = code.analysisCache.graph

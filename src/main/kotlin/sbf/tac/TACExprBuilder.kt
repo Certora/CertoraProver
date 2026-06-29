@@ -268,8 +268,8 @@ abstract class SbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : TACExprBase(re
 
     //-----------------------------------------------------------------------------------------
 
-    private fun LAnd(ls: List<TACExpr>) = TACExpr.BinBoolOp.LAnd(ls)
-    private fun LOr(ls: List<TACExpr>) = TACExpr.BinBoolOp.LOr(ls)
+    private fun LAnd(o1: TACExpr, o2: TACExpr) = TACExpr.BinBoolOp.LAnd(o1, o2)
+    private fun LOr(o1: TACExpr, o2: TACExpr) = TACExpr.BinBoolOp.LOr(o1, o2)
     private fun LNot(o: TACExpr): TACExpr = TACExpr.UnaryExp.LNot(o)
 
     /** Convert [e] which is a 256-bit TAC expression into a mathint expression **/
@@ -372,12 +372,11 @@ abstract class SbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : TACExprBase(re
 
     // logical operator shorthands
 
-    infix fun ToTACExpr.and(other: ToTACExpr) = this@SbfTACBuilder.LAnd(listOf(this.toTACExpr(), other.toTACExpr()))
-    fun and(vararg args: TACExpr) = LAnd(args.toList())
+    infix fun ToTACExpr.and(other: ToTACExpr) = this@SbfTACBuilder.LAnd(this.toTACExpr(), other.toTACExpr())
+    fun and(o1: TACExpr, o2: TACExpr) = LAnd(o1, o2)
 
-    infix fun ToTACExpr.or(other: ToTACExpr) = this@SbfTACBuilder.LOr(listOf(this.toTACExpr(), other.toTACExpr()))
-    fun or(vararg args: TACExpr) = LOr(args.toList())
-    fun or(args: List<TACExpr>) = LOr(args)
+    infix fun ToTACExpr.or(other: ToTACExpr) = this@SbfTACBuilder.LOr(this.toTACExpr(), other.toTACExpr())
+    fun or(o1: TACExpr, o2: TACExpr) = LOr(o1, o2)
 
     fun not(exp: ToTACExpr) = this@SbfTACBuilder.LNot(exp.toTACExpr())
 

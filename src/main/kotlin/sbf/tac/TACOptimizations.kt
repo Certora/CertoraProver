@@ -148,9 +148,13 @@ fun optimize(coreTAC: CoreTACProgram): CoreTACProgram {
  */
 fun runDSAandUnrollLoops(coreTAC: CoreTACProgram): CoreTACProgram {
     return CoreTACProgram.Linear(coreTAC)
+        // SbfCFGToTAC generates complex TAC expressions for convenience; begin by unfolding these so the pattern-
+        // matching passes can make sense of them.
+        .map(CoreToCoreTransformer(ReportTypes.EXPR_UNFOLDING) { unfoldAll(it) { true } })
         .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
         .map(CoreToCoreTransformer(ReportTypes.COLLAPSE_EMPTY_DSA, TACDSA::collapseEmptyAssignmentBlocks))
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.REMOVE_SIMPLE_CONSTANT_VARIABLES, SimpleConstantVariableRemover::transform))
+        .map(CoreToCoreTransformer(ReportTypes.U128_PROMOTER, TACU128MathPromoter::insertU128Operations))
         .simplifyModMathPreUnroll()
         .map(CoreToCoreTransformer(ReportTypes.HOIST_LOOPS, LoopHoistingOptimization::hoistLoopComputations))
         .map(CoreToCoreTransformer(ReportTypes.UNROLL, CoreTACProgram::convertToLoopFreeCode))
@@ -204,7 +208,11 @@ fun legacyOptimize(coreTAC: CoreTACProgram): CoreTACProgram {
                 )
             })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })
-            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { DiamondSimplifier.simplifyDiamonds(it, iterative = true) })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) {
+                // allowAssumes = false is important here, to avoid disjunctions in assumes that confuse the interval
+                // analysis, bytemap scalarizer, etc.
+                DiamondSimplifier.simplifyDiamonds(it, iterative = true, allowAssumes = false)
+            })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS2) {
                 // after pruning infeasible paths, there are more constants to propagate
                 ConstantPropagator.propagateConstants(it, emptySet())
@@ -255,7 +263,11 @@ fun legacyOptimize(coreTAC: CoreTACProgram): CoreTACProgram {
                         patternList = { solanaPatternsList() + postIntervalsRewriterPatternList() })
                 })
             }
-
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) {
+                // allowAssumes = true; now that we are done with the various intervals-based optimizations, we can
+                // tolerate disjunctions in assumes, and just want the simplest CFG.
+                DiamondSimplifier.simplifyDiamonds(it, iterative = true, allowAssumes = true)
+            })
     }
 
     val maybeOptimized3 = runIf(optLevel >= 3) {
@@ -284,12 +296,5 @@ fun levelZeroOptimizations(coreTAC: CoreTACProgram, isSatisfyRule: Boolean): Cor
         }
         .mapIf(isSatisfyRule, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, WasmEntryPoint::rewriteAsserts))
         .map(CoreToCoreTransformer(ReportTypes.PATTERN_REWRITER) {
-            // We need to ensure 3 address code before applying the pattern rewriter.
-            unfoldAll(it) { e ->
-                e.rhs is TACExpr.BinOp.BWXOr ||
-                    e.rhs is TACExpr.BinOp.BWOr ||
-                    e.rhs is TACExpr.UnaryExp.LNot
-            }.let {
-                PatternRewriter.rewrite(it, PatternRewriter::solanaPatternsList)
-            }
+            PatternRewriter.rewrite(it, PatternRewriter::solanaPatternsList)
         }).ref

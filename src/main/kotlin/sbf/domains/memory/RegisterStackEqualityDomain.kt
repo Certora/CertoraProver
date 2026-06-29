@@ -775,4 +775,7 @@ class ScalarRegisterStackEqualityDomain<TNum: INumValue<TNum>, TOffset: IOffset<
 
     override fun getTypeFac() = scalars.getTypeFac()
 
+    override fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg) =
+        scalars.getAsScalarValueWithNumToPtrCast(reg)
+
 }

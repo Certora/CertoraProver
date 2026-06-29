@@ -558,7 +558,7 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
                     }
 
                     is TACExpr.Apply ->
-                        when ((exp.f as? TACExpr.TACFunctionSym.BuiltIn)?.bif) {
+                        when (val bif = (exp.f as? TACExpr.TACFunctionSym.BuiltIn)?.bif) {
                             is TACBuiltInFunction.TwosComplement.Wrap -> {
                                 val o = ops[0]
                                 if (o is TACExpr.Apply &&
@@ -602,6 +602,21 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
 
                             is TACBuiltInFunction.SafeMathPromotion ->
                                 ops.single()
+
+                            is TACBuiltInFunction.SafeMathNarrow -> {
+                                val op = ops.single()
+                                op.asConstOrNull?.let { c ->
+                                    runIf(c in bif.narrowRange) {
+                                        c.asTACExpr(bif.returnSort)
+                                    }
+                                } ?: runIf(op.tag == bif.returnSort) {
+                                    when (bif) {
+                                        is TACBuiltInFunction.SafeMathNarrow.Implicit -> op
+                                        is TACBuiltInFunction.SafeMathNarrow.Assuming ->
+                                            runIf(bif.returnSort.maxUnsigned == bif.upperBound) { op }
+                                    }
+                                }
+                            }
 
                             else -> null
                         }

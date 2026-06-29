@@ -21,6 +21,7 @@ import sbf.cfg.LocatedSbfInstruction
 import sbf.disassembler.SbfRegister
 import sbf.domains.MemSummaryArgumentType
 import sbf.domains.PTAOffset
+import vc.data.TACExpr
 
 /**
  * Disambiguate a memory access by mapping the memory access to a symbolic variable
@@ -63,16 +64,52 @@ interface TACMemSplitter {
         val variables: Map<PTAOffset, TACByteStackVariable>,
         val reconstructedValues: Map<PTAOffset, PTAMemSplitter.ReconstructedIntegerValue>,
         val locationsToHavoc: HavocMemLocations): LoadOrStoreInfo()
+    /**
+     *  A non-stack ByteMap operand: either a single concrete ByteMap variable,
+     *  or a dispatch over several maps guarded by address-range predicates.
+     **/
+    sealed class ByteMapTarget {
+        /** A single ByteMap variable. */
+        data class Base(val v: TACByteMapVariable): ByteMapTarget()
+
+        /**
+         * The access dispatches over multiple region ByteMaps. [branches] is tried in order;
+         * if none of the guards holds, [default] is used.
+         */
+        data class Ite(
+            val branches: List<Branch>,
+        ): ByteMapTarget() {
+            init { require(branches.isNotEmpty()) { "ByteMapTarget.Ite needs at least one branch" } }
+
+            /**
+             * One branch of the dispatch: when [guard] holds, the access targets [map].
+             * Callers must order branches so that the union of all guards covers the address
+             * range the access can land in: the last branch is treated as the fallthrough
+             * (its guard is dropped when building the ite expression for loads).
+             */
+            data class Branch(val guard: TACExpr, val map: TACByteMapVariable)
+        }
+    }
 
     /**
      *  Represent a memory load or store from/to non-stack in TAC.
      *
-     *  @param variable: TAC bytemap variable that models the de-referenced memory location.
+     *  @param variable: TAC bytemap operand that models the de-referenced memory location.
      *  @param locationsToHavoc is the scalars or byte map indexes that must be havoced by the memory operation.
      **/
     data class NonStackLoadOrStoreInfo(
-        val variable: TACByteMapVariable,
+        val variable: ByteMapTarget,
         val locationsToHavoc: HavocMemLocations): LoadOrStoreInfo()
+
+    /**
+     * What `*(arg.reg + arg.offset)` resolves to in TAC: either a stack scalar
+     * or a non-stack ByteMap target (which itself may be a [ByteMapTarget.Base] or
+     * an [ByteMapTarget.Ite] dispatch).
+     */
+    sealed class SummaryArgVariable {
+        data class Stack(val v: TACByteStackVariable): SummaryArgVariable()
+        data class NonStack(val target: ByteMapTarget): SummaryArgVariable()
+    }
 
     /**
      * Represent that (*[reg]+[offset]) is mapped to [variable] and has type [type]
@@ -83,7 +120,7 @@ interface TACMemSplitter {
         val width: Byte,
         val allocatedSpace: ULong,
         val type: MemSummaryArgumentType,
-        val variable: TACVariable)
+        val variable: SummaryArgVariable)
 
     /**
      * Represent `sol_memcpy_`, `memcpy_zext`, `memcpy_trunc`, `sol_memmove_`, `sol_memcmp_`, or `sol_memset_` in TAC.
@@ -133,8 +170,8 @@ interface TACMemSplitter {
      * Transfer memory from non-stack to non-stack
      **/
     class NonStackMemTransferInfo(
-        val source: TACByteMapVariable,
-        val destination: TACByteMapVariable,
+        val source: ByteMapTarget,
+        val destination: ByteMapTarget,
         val length: Long?,
         val locationsToHavoc: HavocMapBytes): MemTransferInfo()
 
@@ -142,7 +179,7 @@ interface TACMemSplitter {
      * Transfer memory from non-stack to stack, or vice-versa.
      */
     class MixedRegionsMemTransferInfo (
-        val byteMap: TACByteMapVariable,
+        val byteMap: ByteMapTarget,
         val stack: Map<PTAOffset, StackSlice>,
         /// To know the direction of the transfer. If true then from non-stack to stack
         val isDestStack: Boolean,
@@ -211,8 +248,8 @@ interface TACMemSplitter {
      *  The number of words is [length]/[wordSize].
      */
     class NonStackMemCmpInfo (
-        val op1: TACByteMapVariable,
-        val op2: TACByteMapVariable,
+        val op1: ByteMapTarget,
+        val op2: ByteMapTarget,
         val length: Long,
         val wordSize: Byte
     ): MemcmpInfo()
@@ -225,7 +262,7 @@ interface TACMemSplitter {
      */
     class MixedRegionsMemCmpInfo (
         val scalars: List<TACByteStackVariable>,
-        val byteMap: TACByteMapVariable,
+        val byteMap: ByteMapTarget,
         val scalarsReg: SbfRegister,
         val byteMapReg: SbfRegister,
         val stackOpRange: StackSlice?,  // for generating TAC metadata
@@ -251,8 +288,19 @@ interface TACMemSplitter {
     /** Class to represent a memset on the stack **/
     class StackZeroMemsetInfo(val stackOpRange: StackSlice, val length: Long): MemsetInfo()
 
-    /** Class to represent a memset on a non-stack memory region **/
-    class NonStackMemsetInfo(val byteMap: TACByteMapVariable, val value: Long, val length: Long): MemsetInfo()
+    /**
+     *  Class to represent a memset on a non-stack memory region.
+     *
+     *  @param offset byte offset relative to R1: writes go to `r1 + offset, ..., r1 + offset + length - 1`.
+     *  Defaults to 0 (regular memset). Used by `memcpy_zext`'s trailing zero-fill, where the fill starts
+     *  at `r1 + i` for the copied length `i`.
+     */
+    class NonStackMemsetInfo(
+        val byteMap: ByteMapTarget,
+        val value: Long,
+        val length: Long,
+        val offset: Long = 0,
+    ): MemsetInfo()
 
     /** Class to represent memset instructions that cannot be translated to TAC **/
     object UnsupportedMemsetInfo: MemsetInfo()

@@ -17,9 +17,35 @@
 
 package sbf
 
+import cli.ConversionException
+import cli.Converter
 import config.ConfigType
 import org.apache.commons.cli.Option
 import org.jetbrains.annotations.TestOnly
+
+/**
+ * Selects which TAC memory splitter is used to translate SBF memory accesses.
+ *
+ * - [PTA]:          one ByteMap per pointer-analysis cell; requires the pointer analysis to succeed.
+ * - [Scalar]:       one ByteMap per memory region (heap/input/globals/external) plus scalars for stack;
+ *                   driven by the scalar domain; strictly coarser than [PTA] but independent of PTA results.
+ * - [ScalarSingle]: same as [Scalar] for stack/intrinsics/range-assumes, but uses a single ByteMap for all
+ *                   non-stack memory. Trades model-level region non-aliasing for a TAC encoding that the
+ *                   bytemap inliner/scalarizer can actually optimize (no ite-dispatched stores).
+ * - [Dummy]:        a single ByteMap for all non-stack memory (no disambiguation). Selected by the legacy
+ *                   flag `--solanaUsePTA false`.
+ */
+enum class MemorySplitter(val configString: String) {
+    PTA(configString = "pta"),
+    Scalar(configString = "scalar"),
+    ScalarSingle(configString = "scalar-single"),
+    Dummy(configString = "dummy"),
+}
+
+val MemorySplitterConverter = Converter {
+    MemorySplitter.entries.find { mode -> mode.configString == it.lowercase() }
+        ?: throw ConversionException(it, MemorySplitter::class.java)
+}
 
 /** Static object that contains all the Solana CLI options **/
 object SolanaConfig {
@@ -97,14 +123,45 @@ object SolanaConfig {
     ) {}
 
     // PTA options
+    @Deprecated(
+        "Use SolanaConfig.MemorySplitter instead. The legacy CLI flag --solanaUsePTA is kept for " +
+            "backward compatibility; --solanaUsePTA false is equivalent to --solanaMemorySplitter dummy.",
+        ReplaceWith("MemorySplitter")
+    )
     val UsePTA = object : ConfigType.BooleanCmdLine(
         true,
         Option(
             "solanaUsePTA",
             true,
-            "Enable pointer analysis. If disabled the analysis might be unsound. [default: true]"
+            "DEPRECATED: use --solanaMemorySplitter instead. " +
+                "Enable pointer analysis. If disabled the analysis might be unsound. [default: true]"
         )
     ) {}
+
+    val MemorySplitter = ConfigType.CmdLine(
+        converter = MemorySplitterConverter,
+        default = sbf.MemorySplitter.PTA,
+        option = Option(
+            "solanaMemorySplitter",
+            true,
+            "Which TAC memory splitter to use: pta | scalar | scalar-single | dummy. " +
+                "`pta` uses the pointer analysis; `scalar` uses the scalar domain with one ByteMap per region; " +
+                "`scalar-single` uses the scalar domain with a single ByteMap for all non-stack memory " +
+                "(loses region non-aliasing but produces TAC the bytemap optimizers can handle); " +
+                "`dummy` uses a single ByteMap for all non-stack memory (no disambiguation). " +
+                "The legacy flag `--solanaUsePTA false` forces `dummy` regardless of this setting. [default: pta]"
+        )
+    )
+
+    /**
+     * Resolves the active memory splitter, honoring the legacy [UsePTA] flag.
+     *
+     * `--solanaUsePTA false` (legacy) forces [sbf.MemorySplitter.Dummy] regardless of [MemorySplitter].
+     * Otherwise, the value of [MemorySplitter] is returned.
+     */
+    @Suppress("DEPRECATION")
+    fun memorySplitter(): MemorySplitter =
+        if (!UsePTA.get()) { sbf.MemorySplitter.Dummy } else { MemorySplitter.get() }
 
     @TestOnly
     val OptimisticPTAJoin = object : ConfigType.BooleanCmdLine(
@@ -238,12 +295,18 @@ object SolanaConfig {
         )
     ) {}
 
+    @Deprecated(
+        "This option will be removed in a future release.  Remove uses of " +
+            "SolanaConfig.EnablePTAPseudoCanonicalize; the CLI flag " +
+            "--solanaEnablePTAPseudoCanonicalize is kept only for backwards-compatibility " +
+            "and currently has no effect on analysis behavior."
+    )
     val EnablePTAPseudoCanonicalize = object : ConfigType.BooleanCmdLine(
         true,
         Option(
             "solanaEnablePTAPseudoCanonicalize",
             true,
-            "This option does not affect soundness but it affects precision/performance of PTA analysis [default: true]"
+            "DEPRECATED: this option has no effect. [default: true]"
         )
     ) {}
 
@@ -264,6 +327,31 @@ object SolanaConfig {
             "If an error happens, then it prints extra information for developers. [default: true]"
         )
     ) {}
+
+    val PTAGraphVerbosity = object : ConfigType.IntCmdLine(
+        0,
+        Option(
+            "solanaPTAGraphVerbosity",
+            true,
+            "Verbosity level when printing the points-to graph. " +
+                "0 = minimal (registers + graph); 1 = + unmaterialized stack; " +
+                "2 = + untracked stack fields; 3 = + scratch registers. [default: 0]"
+        )
+    ) {
+        override fun check(newValue: Int) = newValue >= 0
+    }
+
+    val MaxSilencedPTAErrors = object : ConfigType.IntCmdLine(
+        0,
+        Option(
+            "solanaMaxSilencedPTAErrors",
+            true,
+            "Maximum number of PTA errors to silence by inserting an assert(false) at the error location, " +
+                "so the verifier can continue past each error and produce a counterexample for it. [default: 0]"
+        )
+    ) {
+        override fun check(newValue: Int) = newValue >= 0
+    }
 
     // CFG optimizations
     val SlicerIter = object : ConfigType.IntCmdLine(
@@ -568,6 +656,18 @@ object SolanaConfig {
         )
     ) {}
 
+    val PrintInvariantsAt: ConfigType.StringSetCmdLine = object : ConfigType.StringSetCmdLine(
+        null,
+        Option("solanaPrintInvariantsAt",
+            true,
+            "Set of strings. Each is matched verbatim against either a block label " +
+                "(as printed by the SBF CFG dump) or an instruction's bytecode address rendered " +
+                "as '0x' + lowercase hex. When set, the scalar and memory analyses print " +
+                "their internal state only at matching blocks/instructions. This option has only effect " +
+                "when either -Dlevel.sbf.scalar.analysis or -Dlevel.sbf.memory.analysis is enabled."
+        )
+    ) {}
+
     val PrintTACToStdOut = object : ConfigType.BooleanCmdLine(
         false,
         Option(
@@ -622,5 +722,6 @@ object SolanaConfig {
     fun optimisticScalarAnalysis(): Boolean = DefactoSemantics.get() || OptimisticScalarAnalysis.get()
 
     fun optimisticDealloc(): Boolean = OptimisticDealloc.get()
-    fun optimisticJoinWithStackPtr(): Boolean = OptimisticPTAJoinWithStackPtr.get()
+    fun optimisticJoinWithStackPtr(): Boolean = optimisticJoin() && OptimisticPTAJoinWithStackPtr.get()
 }
+

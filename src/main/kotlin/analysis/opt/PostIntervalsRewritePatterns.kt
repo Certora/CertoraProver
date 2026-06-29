@@ -20,23 +20,19 @@ package analysis.opt
 import analysis.LTACSymbol
 import analysis.opt.PatternRewriter.Key.*
 import analysis.opt.intervals.IntervalsRewriter.Companion.NON_ZERO_META
+import analysis.opt.intervals.IntervalsRewriter.Companion.isSurelyNonZero
 import analysis.patterns.Info
 import analysis.patterns.get
 import config.Config
 import utils.*
 import vc.data.TACExpr
-import vc.data.TACSymbol
 import vc.data.asTACExpr
 import vc.data.tacexprutil.isConst
 import vc.data.tacexprutil.isVar
-import java.math.BigInteger
 
 
 private fun Info.isNonZero(key: PatternRewriter.Key<LTACSymbol>): Boolean =
-    when (val sym = this[key]!!.symbol) {
-        is TACSymbol.Const -> sym.value != BigInteger.ZERO
-        is TACSymbol.Var -> sym.meta.contains(NON_ZERO_META)
-    }
+    this[key]!!.symbol.isSurelyNonZero()
 
 
 /**

@@ -98,8 +98,20 @@ fun ${fullClassName}.copy(overrides: Map<String, Any>?): ${fullClassName} {
 """.trimIndent())
         ksa.primaryConstructor!!.parameters.forEach { param ->
             val pname = param.name!!.asString()
-            writer.write("""
+            val excluded = param.annotations.any { a ->
+                a.shortName.getShortName() == ExcludeFromDynamicConversion::class.simpleName!! &&
+                    a.annotationType.resolve().declaration.qualifiedName?.asString() ==
+                        ExcludeFromDynamicConversion::class.qualifiedName
+            }
+            if (excluded) {
+                // Excluded property: honored via the dynamic conversion path only in dev/CI runs
+                // (see applyExcludedOverride / excludedDynamicConversionAllowed); else the override is ignored.
+                writer.write("""
+            "${pname}" -> applyExcludedOverride(res) { res.copy(${pname} = ${getConversionInfo(param)("v")}) }""")
+            } else {
+                writer.write("""
             "${pname}" -> res.copy(${pname} = ${getConversionInfo(param)("v")})""")
+            }
         }
         writer.write("""
             else -> throw DynamicConversionException("Unknown property \"${'$'}{k}\" for ${fullClassName}")

@@ -278,6 +278,10 @@ object HeuristicalFolding {
 
                 val isNonArithOrArray = e.isEligibleForFolding(allowAxiomatized = false)
 
+                // Map-typed assignments are left in non-DSA form by `DSAToSSA` (merge ITEs in the successor reference
+                // values defined only on some incoming paths). Folding them out of their original block would carry
+                // those non-dominating free vars into the use site, breaking DSA on primitives - see DSAChecker.
+                lhs.tag !is Tag.Map &&
                 (p.destructiveOptimizations || (!c.cmd.meta.containsKey(CVL_EXP) && !lhs.meta.containsKey(CVL_VAR) && lhs !in ufVariablesDoNotFold &&
                     !lhs.meta.containsKey(IS_RETURNDATA))) && lhs in definedOnce &&
                     // option 1: symbols, doesn't matter how many times used

@@ -91,21 +91,27 @@ fun toTAC (cfg: SbfCFG,
            globals: GlobalVariables = GlobalVariables(DefaultElfFileView)
 ): CoreTACProgram {
     val prog = MutableSbfCallGraph(mutableListOf(cfg), setOf(cfg.getName()), globals)
-    val memSummaries = MemorySummaries.readSpecFile(summaryFileContents,"unknown")
+    val memSummaries = MemorySummaries.readSpecFile(summaryFileContents, "unknown")
     CVTFunction.addSummaries(memSummaries)
     SolanaFunction.addSummaries(memSummaries)
     CompilerRtFunction.addSummaries(memSummaries)
     val sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
     val flagsFac = { BasicPTANodeFlags() }
-    val memAnalysis = WholeProgramMemoryAnalysis(
-        prog,
-        memSummaries,
-        sbfTypesFac,
-        flagsFac,
-        MemoryDomainOpts(useEqualityDomain = false),
-        processor = null)
-    memAnalysis.inferAll()
-    return sbfCFGsToTAC(prog, memSummaries, memAnalysis.getResults())
+    val memResults = if (SolanaConfig.MemorySplitter.get() == MemorySplitter.PTA) {
+        val memAnalysis = WholeProgramMemoryAnalysis(
+            prog,
+            memSummaries,
+            sbfTypesFac,
+            flagsFac,
+            MemoryDomainOpts(useEqualityDomain = false),
+            processor = null
+        )
+        memAnalysis.inferAll()
+        memAnalysis.getResults()
+    } else {
+        null
+    }
+    return sbfCFGsToTAC(prog, memSummaries, memResults)
 }
 
 fun toTACWithGlobalInference(prog: MutableSbfCallGraph, memSummaries: MemorySummaries): CoreTACProgram =

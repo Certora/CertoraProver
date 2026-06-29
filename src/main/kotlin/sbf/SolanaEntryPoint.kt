@@ -222,18 +222,22 @@ private fun solanaRuleToTAC(
     // Optionally, we annotate CFG with types. This is useful if the CFG will be printed.
     val printStdOut = SolanaConfig.PrintAnalyzedToStdOut.get()
     val printDot = SolanaConfig.PrintAnalyzedToDot.get()
-    val analyzedProg = if (printStdOut || printDot) {
-        annotateWithTypes(optProgWithoutCPIs, memSummaries).also {
-            if (printStdOut) {
-                sbfLogger.info { "[$target] Analyzed program \n$it\n" }
+
+    fun maybeAnnotateAndPrint(prog: SbfCallGraph): SbfCallGraph =
+        if (printStdOut || printDot) {
+            annotateWithTypes(prog, memSummaries).also {
+                if (printStdOut) {
+                    sbfLogger.info { "[$target] Analyzed program \n$it\n" }
+                }
+                if (printDot) {
+                    it.toDot(ArtifactManagerFactory().outputDir, onlyEntryPoint = true)
+                }
             }
-            if (printDot) {
-                it.toDot(ArtifactManagerFactory().outputDir, onlyEntryPoint = true)
-            }
+        } else {
+            prog
         }
-    } else {
-        optProgWithoutCPIs
-    }
+
+    val analyzedProg = maybeAnnotateAndPrint(optProgWithoutCPIs)
 
     if (hasSatisfies) {
         if (!analyzedProg.getCallGraphRootSingleOrFail().getBlocks().values.any { block ->
@@ -247,28 +251,39 @@ private fun solanaRuleToTAC(
         inlineAttachedLocations(analyzedProg, memSummaries)
     }
 
+
+    // 4. Perform memory analysis to map each memory operation to a memory partitioning.
+    val (analysisResults, progForTAC) = getMemoryAnalysisWithDebugAsserts(
+        target,
+        progWithLocations,
+        memSummaries,
+        sbfTypesFac,
+        ptaFlagsFac,
+        MemoryDomainOpts(useEqualityDomain = false),
+        processor = null,
+        maxNumPTAErrors = SolanaConfig.MaxSilencedPTAErrors.get()
+    ).let { (memAnalysis, prog) ->
+        // The use of `!==` (referential inequality) is on purpose: we reannotate the callgraph with types
+        // only if `getMemoryAnalysisWithDebugAsserts` changed it.
+        val annotated = if (prog !== progWithLocations) {
+            maybeAnnotateAndPrint(prog)
+        } else {
+            prog
+        }
+        memAnalysis?.getResults() to annotated
+    }
+
     if (SolanaConfig.PrintSbfToJson.get()) {
         // Dump the CFG to a json file
-        progWithLocations.getCallGraphRootSingleOrFail().let {
+        progForTAC.getCallGraphRootSingleOrFail().let {
             val outFilename = "${ArtifactManagerFactory().outputDir}${File.separator}${it.getName()}.sbf.json"
             printToFile(outFilename, it.toJson())
         }
     }
 
-    // 4. Perform memory analysis to map each memory operation to a memory partitioning
-    val analysisResults =
-        getMemoryAnalysis(
-            target,
-            progWithLocations,
-            memSummaries,
-            sbfTypesFac,
-            ptaFlagsFac,
-            MemoryDomainOpts(useEqualityDomain = false),
-            processor = null)?.getResults()
-
     // 5. Convert to TAC
     val coreTAC = timeIt(target, "translation of CoreTACProgram") {
-        sbfCFGsToTAC(progWithLocations, memSummaries, analysisResults)
+        sbfCFGsToTAC(progForTAC, memSummaries, analysisResults)
     }
 
     val mayBeUnrollLoops = if(Config.DestructiveOptimizationsMode.get().isTwoStageMode()){
@@ -301,7 +316,7 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
     ptaFlagsFac: () -> TFlags,
     opts: MemoryDomainOpts,
     processor: InstructionListener<MemoryDomain<TNum, TOffset, TFlags>>?
-): WholeProgramMemoryAnalysis<TNum, TOffset, TFlags>? = if (SolanaConfig.UsePTA.get()) {
+): WholeProgramMemoryAnalysis<TNum, TOffset, TFlags>? = if (SolanaConfig.memorySplitter() == MemorySplitter.PTA) {
 
     val analysis = timeIt(target, "whole-program memory analysis") {
         val analysis = WholeProgramMemoryAnalysis(program, memSummaries, sbfTypesFac, ptaFlagsFac, opts, processor)
@@ -338,6 +353,84 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
 }
 
 /**
+ * Same as [getMemoryAnalysis], but if the analysis fails (aka PTA errors) the function inserts failing assertions at
+ * instruction that causes the PTA error via [insertDebugAsserts].
+ *
+ * Returns the analysis paired with the (possibly transformed) callgraph on which the analysis succeeded.
+ */
+private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getMemoryAnalysisWithDebugAsserts(
+    target: String,
+    program: SbfCallGraph,
+    memSummaries: MemorySummaries,
+    sbfTypesFac: ISbfTypeFactory<TNum, TOffset>,
+    ptaFlagsFac: () -> TFlags,
+    opts: MemoryDomainOpts,
+    processor: InstructionListener<MemoryDomain<TNum, TOffset, TFlags>>?,
+    maxNumPTAErrors: Int
+): Pair<WholeProgramMemoryAnalysis<TNum, TOffset, TFlags>?, SbfCallGraph> {
+    if (SolanaConfig.memorySplitter() != MemorySplitter.PTA) {
+        return null to program
+    }
+    require(maxNumPTAErrors >= 0) { "maxNumPTAErrors must be non-negative, got $maxNumPTAErrors" }
+
+    // `maxNumPTAErrors` counts the errors we are willing to silence. The analysis itself runs at most one extra time.
+    val totalRuns = 1 + maxNumPTAErrors
+    var currentProgram = program
+    for (run in 1..totalRuns) {
+        val analysis = WholeProgramMemoryAnalysis(currentProgram, memSummaries, sbfTypesFac, ptaFlagsFac, opts, processor)
+        val maybeError = timeIt(target, "whole-program memory analysis") {
+            try {
+                analysis.inferAll()
+                null
+            } catch (e: PointerAnalysisError) {
+                e
+            }
+        }
+
+        if (maybeError == null) {
+            val blocksToDump = SolanaConfig.DumpPTAGraphsToDot.getOrNull()
+            if (!blocksToDump.isNullOrEmpty()) {
+                analysis.dumpPTAGraphsSelectively(ArtifactManagerFactory().outputDir, target) { b ->
+                    blocksToDump.contains(b.getLabel().toString())
+                }
+            }
+            return analysis to currentProgram
+        }
+
+        when (maybeError) {
+            // These errors are associated with a stack field.
+            // We need to extend insertDebugAsserts to support a stack field
+            is UnknownStackContentError,
+            is PointerStackEscapingError -> {
+                explainPTAError(maybeError, currentProgram, memSummaries)
+                throw maybeError
+            }
+            // All of these errors are associated with a register
+            is UnknownStackPointerError,
+            is UnknownPointerDerefError,
+            is UnknownGlobalDerefError,
+            is UnknownMemcpyLenError,
+            is DerefOfAbsoluteAddressError,
+            is StackCannotBeScalarizedAfterMemcpyError,
+            is UnknownPointerStoreError -> {
+                explainPTAError(maybeError, currentProgram, memSummaries)
+                if (run == totalRuns) {
+                    throw maybeError
+                }
+                val locInst = maybeError.devInfo.locInst
+                val ptrExp = maybeError.devInfo.ptrExp
+                if (locInst == null || ptrExp !is PtrExprErrReg) {
+                    throw maybeError
+                }
+                currentProgram = insertDebugAsserts(currentProgram, locInst, ptrExp.reg)
+            }
+            else -> throw maybeError
+        }
+    }
+    error("getMemoryAnalysisWithDebugAsserts: unreachable")
+}
+
+/**
  * Try to replace CPI calls (i.e., `invoke` or `invoke_signed calls`) with direct calls
  */
 private fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, Flags: IPTANodeFlags<Flags>> lowerCPICalls(
@@ -352,7 +445,7 @@ private fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, Flags: IPTANodeF
         return p1
     }
 
-    val p3 = timeIt(target, "lowering of CPI calls") {
+    return timeIt(target, "lowering of CPI calls") {
         // Run an analysis to infer global variables by use
         val p2 = runGlobalInferenceAnalysis(p1, memSummaries)
         // Remove/replace some special intrinsics
@@ -386,14 +479,6 @@ private fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, Flags: IPTANodeF
 
         val cpiCalls = processor.getCpis()
         substituteCpiCalls(memAnalysis, target, cpiCalls, inliningConfig)
-    }
-
-    // HACK: remove some annotations added by the memory analysis.
-    // These annotations are generated and consumed by the memory analysis.
-    return p3.transformSingleEntry {
-        val outCFG = it.clone(it.getName())
-        outCFG.removeAnnotations(listOf(SbfMeta.REG_TYPE))
-        outCFG
     }
 }
 

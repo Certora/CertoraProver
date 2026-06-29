@@ -228,6 +228,7 @@ fun main(args: Array<String>) {
             val cvtStopEventBuilder = CvtEvent.CvtStopEvent.Builder()
 
             Config.warnIfSetupPhaseFlagsEnabled()
+            Config.validateResourceFiles()
 
             // Log the SMT solver versions in the environment
             logSmtSolvers()
@@ -593,21 +594,17 @@ suspend fun handleCVLFlow(contractFilename: String, specFilename: String) {
 }
 
 fun runBuildScript() {
-    CustomBuildScript.get().let { customBuildScript ->
-        if (customBuildScript.isNotBlank()) {
-            val (exitcode, output) = safeCommandExec(listOf(customBuildScript), "build_script", true, true)
-            if (exitcode != 0) {
-                logger.error("Failed to run $customBuildScript, returned exit code $exitcode and output $output")
-            } else {
-                output.split("\n").drop(3).joinToString("\n").let { filteredOutput ->
-                    if (filteredOutput.isNotBlank()) {
-                        Logger.always("Ran $customBuildScript, output: $filteredOutput", respectQuiet = false)
-                    } else {
-                        Logger.always("Ran $customBuildScript", respectQuiet = false)
-                    }
-                }
-            }
-        }
+    // DEPRECATED: the -customBuildScript hook is no longer executed. The option is retained so
+    // existing configurations that set it do not error; setting it only emits a warning.
+    if (CustomBuildScript.get().isNotBlank()) {
+        CVTAlertReporter.reportAlert(
+            CVTAlertType.GENERAL,
+            CVTAlertSeverity.WARNING,
+            jumpToDefinition = null,
+            "The -customBuildScript option is deprecated and is no longer executed; it will be " +
+                "removed in a future version.",
+            hint = "Perform any build or preprocessing steps before invoking the tool.",
+        )
     }
 }
 
@@ -720,5 +717,40 @@ private fun Config.warnIfSetupPhaseFlagsEnabled() {
             hint = "These flags are typically only used during the project setup phase. " +
                 "Consider disabling these flags in production, or when running performance-intensive rules."
         )
+    }
+}
+
+/**
+ * Validate that every configured resource file (see [Config.ResourceFiles]) is a benign text file.
+ * Resource files are read by label by various checkers and should never be executables, archives or
+ * scripts, so we reject them early (before verification) with a [CertoraException]. Only resources
+ * that resolve to an existing file are type-checked here; their presence is enforced by the
+ * consumers that read them.
+ *
+ * NOTE: this function expects [report.CVTAlertReporter] to have been initialized.
+ */
+private fun Config.validateResourceFiles() {
+    val resources = ResourceFiles.getOrNull() ?: return
+    for (entry in resources) {
+        val path = entry.substringAfter(':').trim()
+        if (path.isEmpty()) {
+            continue
+        }
+        val file = File(ArtifactFileUtils.wrapPathWith(path, getSourcesSubdirInInternal()))
+        if (!file.isFile) {
+            continue
+        }
+        ResourceFileValidation.disallowedResourceReason(file)?.let { reason ->
+            val msg = "Resource file \"$path\" is not allowed because $reason. " +
+                "Resource files must be non-executable text files."
+            CVTAlertReporter.reportAlert(
+                CVTAlertType.GENERAL,
+                CVTAlertSeverity.ERROR,
+                jumpToDefinition = null,
+                message = msg,
+                hint = null
+            )
+            throw CertoraException(CertoraErrorType.BAD_CONFIG, msg)
+        }
     }
 }

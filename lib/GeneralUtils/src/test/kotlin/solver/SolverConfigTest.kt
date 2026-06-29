@@ -17,6 +17,7 @@
 
 package solver
 
+import ksp.dynamicconversion.excludedDynamicConversionAllowed
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -84,5 +85,42 @@ internal class SolverConfigTest {
         assertEquals(SolverConfig("yices:def"), SolverConfig.yices.default)
         assertEquals(SolverConfig("z3:def"), SolverConfig.z3.default)
         assertEquals(SolverConfig("z3:eq1"), SolverConfig.z3.eq1)
+    }
+
+    @Test
+    fun testCustomBinaryDynamicConversionGatedByEnv() {
+        // customBinary is @ExcludeFromDynamicConversion: settable via the `name{...}` syntax only in
+        // dev/CI runs; in normal runs the override is ignored (no error).
+        val cfg = parseOne("z3:def{customBinary=somebin}", SolverConfig.Converter())
+        if (excludedDynamicConversionAllowed()) {
+            assertEquals("somebin", cfg.customBinary)
+        } else {
+            assertNull(cfg.customBinary)
+            assertEquals(SolverConfig.z3.def, cfg)
+        }
+    }
+
+    @Test
+    fun testExcludedDynamicConversionGate() {
+        assertFalse(excludedDynamicConversionAllowed(null, null))
+        assertTrue(excludedDynamicConversionAllowed("1", null))
+        assertTrue(excludedDynamicConversionAllowed(null, "true"))
+        assertTrue(excludedDynamicConversionAllowed("x", "y"))
+    }
+
+    @Test
+    fun testDynamicConversionStillWorksForAllowedFields() {
+        // Non-excluded fields are still settable via the dynamic conversion path.
+        assertEquals(4, parseOne("z3:def{randomSeed=4}", SolverConfig.Converter()).randomSeed)
+        assertEquals(
+            listOf("--foo"),
+            parseOne("z3:def{clOptions=[--foo]}", SolverConfig.Converter()).clOptions
+        )
+    }
+
+    @Test
+    fun testCustomBinarySettableFromNamedCopy() {
+        // The regular named-argument copy(...) is unaffected: trusted code can still set it.
+        assertEquals("somebin", SolverConfig.cvc5.def.copy(customBinary = "somebin").customBinary)
     }
 }

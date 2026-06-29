@@ -1,0 +1,29 @@
+{
+  "assertMessages": {},
+  "rules": {
+    "check_u128_double_branch_simple": "SUCCESS",
+    "check_u128_ge_basic": "FAIL",
+    "check_u128_ge_fail": "FAIL",
+    "check_u128_ge_large_numbers": "SUCCESS",
+    "check_u128_ge_le_inverse": "SUCCESS",
+    "check_u128_ge_verified": "SUCCESS",
+    "check_u128_ge_with_native_math": "SUCCESS",
+    "check_u128_gt_basic": "FAIL",
+    "check_u128_gt_ge_relationship": "SUCCESS",
+    "check_u128_gt_large_numbers": "SUCCESS",
+    "check_u128_gt_verified": "SUCCESS",
+    "check_u128_gt_with_native_math": "SUCCESS",
+    "check_u128_gt_with_native_math_with_assert": "SUCCESS",
+    "check_u128_le_basic": "FAIL",
+    "check_u128_le_fail": "FAIL",
+    "check_u128_le_large_numbers": "SUCCESS",
+    "check_u128_le_verified": "SUCCESS",
+    "check_u128_le_with_native_math": "SUCCESS",
+    "check_u128_lt_basic": "FAIL",
+    "check_u128_lt_fail": "FAIL",
+    "check_u128_lt_le_relationship": "SUCCESS",
+    "check_u128_lt_with_native_math": "SUCCESS",
+    "check_u128_lt_with_native_math_with_assert": "SUCCESS",
+    "negative_test_check_u64_gt_basic": "FAIL"
+  }
+}

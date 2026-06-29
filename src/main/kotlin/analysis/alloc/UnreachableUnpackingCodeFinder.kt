@@ -24,6 +24,7 @@ import com.certora.collect.*
 import log.Logger
 import log.LoggerTypes
 import utils.mapNotNull
+import utils.mapToSet
 import vc.data.CoreTACProgram
 import vc.data.TACCmd
 import vc.data.TACSymbol
@@ -86,11 +87,16 @@ object UnreachableUnpackingCodeFinder {
                 } == true
             }
         }.collect(Collectors.toSet())
+        if (toRet.isEmpty()) {
+            return prog
+        }
         val patching = prog.toPatchingProgram()
         for(jump in toRet) {
             patching.replaceCommand(jump.ptr, listOf(TACCmd.Simple.JumpCmd(dst = jump.cmd.dst, meta = jump.cmd.meta)), treapSetOf(jump.cmd.dst))
-            patching.removeBlock(jump.cmd.elseDst)
         }
+        // Drop the whole unreachable subgraph, not just the [elseDst] heads: [removeBlock] is
+        // non-transitive, so removing only a head orphans blocks reachable solely through it.
+        patching.removeSubgraph(toRet.mapToSet { it.cmd.elseDst })
         val (code, graph) = patching.toCode(TACCmd.Simple.NopCmd)
         return prog.copy(
                 code = code,

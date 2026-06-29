@@ -17,22 +17,56 @@
 
 package report.globalstate
 
+import analysis.TACCommandGraph
 import datastructures.stdcollections.*
 import report.calltrace.CallTrace
 import report.calltrace.formatter.FormatterType.Companion.toFormatterType
 import report.calltrace.sarif.Sarif
 import solver.CounterexampleModel
+import tac.NBId
 import vc.data.*
 
 /**
  * A unit of the [CallTrace]. Represents the variables during the flow of the CounterExample TACProgram chosen by the SMT.
  */
-internal class VariablesState(private val model: CounterexampleModel) {
+internal class VariablesState(
+    private val model: CounterexampleModel,
+    graph: TACCommandGraph,
+    reachableBlocks: Set<NBId>,
+) {
     private val variableMap: MutableMap<TACSymbol.Var, DisplaySymbolWrapper> = mutableMapOf()
+
+    /**
+     * Vars that are only ever assigned in blocks the model did not take. The merge ITE that `DSAToSSA` emits in a
+     * common successor references per-predecessor temps `tmp_i` defined in each predecessor; when one predecessor is
+     * off the model's execution path (e.g. a reverted branch joined back via catch), that `tmp_i` will not be visited
+     * by the on-path walk and thus never registered in [variableMap]. The corresponding reachability flag picks the
+     * other arm at runtime, so an off-path operand should not poison the classification of the whole ITE.
+     */
+    private val definedOnlyOffPath: Set<TACSymbol.Var> = run {
+        val onPath = mutableSetOf<TACSymbol.Var>()
+        val offPath = mutableSetOf<TACSymbol.Var>()
+        graph.commands.forEach { (ptr, cmd) ->
+            val lhs = cmd.getLhs() ?: return@forEach
+            if (ptr.block in reachableBlocks) {
+                onPath += lhs
+            } else {
+                offPath += lhs
+            }
+        }
+        offPath - onPath
+    }
 
     fun computationalTypeForRHS(rhs: Set<TACSymbol.Var>) : ComputationalTypes = rhs.fold(ComputationalTypes.CONCRETE) { ret, symbol ->
         when(variableMap[symbol]?.computationalType) {
-            null, ComputationalTypes.UNKNOWN -> { return ComputationalTypes.UNKNOWN }
+            null -> {
+                if (symbol in definedOnlyOffPath) {
+                    return@fold ComputationalTypes.HAVOC_DEPENDENT
+                } else {
+                    return ComputationalTypes.UNKNOWN
+                }
+            }
+            ComputationalTypes.UNKNOWN -> { return ComputationalTypes.UNKNOWN }
             ComputationalTypes.DONT_CARE -> { throw IllegalStateException("Usage of DONT CARE symbol $symbol") }
             ComputationalTypes.HAVOC, ComputationalTypes.HAVOC_DEPENDENT -> { return@fold ComputationalTypes.HAVOC_DEPENDENT }
             ComputationalTypes.CONCRETE -> { return@fold ret }

@@ -26,6 +26,7 @@ import datastructures.stdcollections.*
 import datastructures.ProjectedMap
 import evm.EVM_ADDRESS_SIZE
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
+import spec.cvlast.typedescriptors.VMUnsignedNumericValueTypeDescriptor
 import utils.foldFirstOrNull
 import utils.mapNotNullToSet
 import vc.data.*
@@ -241,7 +242,15 @@ class SimpleQualifiedIntAbstractInterpreter<T: Any> private constructor (
                 .fold(toStep) { st, (ret, ty) ->
                     when (ty) {
                         is EVMTypeDescriptor.EVMNumericType -> {
-                            val range = IntValue(ty.minValue, ty.maxValue)
+                            // [IntValue] here is a 256-bit 2's-complement (unsigned-encoded) interval. For signed
+                            // types we can't bound it: negatives are sign-extended to the high end of the word, so
+                            // the value isn't a contiguous unsigned range (and [minValue]/[maxValue] are mathint
+                            // bounds with a negative lb, which would corrupt the domain). Hence Nondet for signed.
+                            val range = if (ty is VMUnsignedNumericValueTypeDescriptor) {
+                                IntValue(ty.minValue, ty.maxValue)
+                            } else {
+                                IntValue.Nondet
+                            }
                             st + (ret.s to SimpleQualifiedInt(range))
                         }
 

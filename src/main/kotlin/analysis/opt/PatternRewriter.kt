@@ -88,6 +88,8 @@ class PatternRewriter private constructor(private val prog: CoreTACProgram) {
         data object B : Key<LTACSymbol>()
         data object C : Key<LTACSymbol>()
         data object D : Key<LTACSymbol>()
+        data object E : Key<LTACSymbol>()
+        data object F : Key<LTACSymbol>()
         data object Xored : Key<LTACSymbol>()
         data object C1 : Key<BigInteger>()
         data object C2 : Key<BigInteger>()

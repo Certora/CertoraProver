@@ -642,6 +642,8 @@ sealed class TACBuiltInFunction : AmbiSerializable {
         override val paramSorts: List<Tag>
             get() = listOf(Tag.Int)
 
+        abstract val narrowRange: ClosedRange<BigInteger>
+
         override fun getLExpressionBuilder(conv: ToLExpression.Conv, meta: MetaMap?): (List<TACExpr>) -> LExpression =
             { args ->
                 val arg = conv(args.single(), meta)
@@ -670,7 +672,7 @@ sealed class TACBuiltInFunction : AmbiSerializable {
             super.eval(params).let {
                 // We completely trust whoever used this safeMathNarrow. If the value is out of bounds then we assume
                 // this is due to some vacuity regardless of this narrowing.
-                params.single().takeIf { it.inBounds(returnSort) }
+                params.single().takeIf { it in narrowRange }
             }
 
         /**
@@ -682,6 +684,7 @@ sealed class TACBuiltInFunction : AmbiSerializable {
         data class Implicit(override val returnSort: Tag.Bits) : SafeMathNarrow() {
             override val eName: BuiltInFuncName
                 get() = BuiltInFuncName.safe_math_narrow
+            override val narrowRange get() = BigInteger.ZERO..returnSort.maxUnsigned
         }
 
         /**
@@ -693,6 +696,7 @@ sealed class TACBuiltInFunction : AmbiSerializable {
         data class Assuming(override val returnSort: Tag.Bits, val upperBound: BigInteger = returnSort.maxUnsigned) : SafeMathNarrow() {
             override val eName: BuiltInFuncName
                 get() = BuiltInFuncName.safe_math_narrow_assuming
+            override val narrowRange get() = BigInteger.ZERO..upperBound
         }
     }
 

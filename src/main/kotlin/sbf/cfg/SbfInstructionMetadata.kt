@@ -57,8 +57,6 @@ object SbfMeta {
     val MANGLED_NAME = MetaKey<String>("mangled_name")
     // number of registers used by the call
     val KNOWN_ARITY = MetaKey<Int>("external_function_arity")
-    // type of a register (used by the pointer analysis)
-    val REG_TYPE =  MetaKey<Pair<Value.Reg, SbfRegisterType>>("reg_type")
     // Address of the instruction
     val SBF_ADDRESS = MetaKey<ULong>("sbf_bytecode_address")
     // Tag to be consumed by calltrace function
@@ -144,10 +142,6 @@ fun toString(metaData: MetaData): String {
             SbfMeta.PROMOTED_OVERFLOW_CHECK -> {
                 val cond: Condition = v.uncheckedAs()
                 strB.append(" /*${k.name}: $cond*/")
-            }
-            SbfMeta.REG_TYPE -> {
-                val (reg, type) = v.uncheckedAs<Pair<Value.Reg, SbfRegisterType>>()
-                strB.append(" /* type($reg)=$type */")
             }
             SbfMeta.SBF_DWARF_DEBUG_ANNOTATIONS -> {
                 metaData.getVal(SbfMeta.SBF_DWARF_DEBUG_ANNOTATIONS)?.let { scopeEnds ->

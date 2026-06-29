@@ -17,6 +17,8 @@
 
 package sbf
 
+import config.ConfigScope
+import config.ConfigScope.Companion.invoke
 import sbf.cfg.*
 import org.junit.jupiter.api.*
 import sbf.disassembler.Label
@@ -34,28 +36,30 @@ class TACSplitOrMergeCellsTest {
      */
     @Test
     fun test1() {
-        val r1 = Value.Reg(SbfRegister.R1)
-        val r2 = Value.Reg(SbfRegister.R2)
-        val r3 = Value.Reg(SbfRegister.R3)
-        val r10 = Value.Reg(SbfRegister.R10)
-        val cfg = MutableSbfCFG("test1")
-        val b1 = cfg.getOrInsertBlock(Label.Address(1))
-        cfg.setEntry(b1)
-        cfg.setExit(b1)
-        b1.add(SbfInstruction.Bin(BinOp.MOV, r1, r10, true))
-        b1.add(SbfInstruction.Bin(BinOp.SUB, r1, Value.Imm(64UL), true))
-        b1.add(SbfInstruction.Bin(BinOp.MOV, r2, r10, true))
-        b1.add(SbfInstruction.Bin(BinOp.SUB, r2, Value.Imm(60UL), true))
-        b1.add(SbfInstruction.Mem(Deref(4, r1, 0), Value.Imm(26UL), false))
-        b1.add(SbfInstruction.Mem(Deref(4, r2, 0), Value.Imm((-2147483648).toULong()), false))
-        b1.add(SbfInstruction.Mem(Deref(8, r1, 0), r3, true))
-        b1.add(SbfInstruction.Assert(Condition(CondOp.EQ, r3, Value.Imm((-9223372036854775782).toULong()))))
-        b1.add(SbfInstruction.Exit())
+        ConfigScope(SolanaConfig.MemorySplitter, MemorySplitter.PTA).use {
+            val r1 = Value.Reg(SbfRegister.R1)
+            val r2 = Value.Reg(SbfRegister.R2)
+            val r3 = Value.Reg(SbfRegister.R3)
+            val r10 = Value.Reg(SbfRegister.R10)
+            val cfg = MutableSbfCFG("test1")
+            val b1 = cfg.getOrInsertBlock(Label.Address(1))
+            cfg.setEntry(b1)
+            cfg.setExit(b1)
+            b1.add(SbfInstruction.Bin(BinOp.MOV, r1, r10, true))
+            b1.add(SbfInstruction.Bin(BinOp.SUB, r1, Value.Imm(64UL), true))
+            b1.add(SbfInstruction.Bin(BinOp.MOV, r2, r10, true))
+            b1.add(SbfInstruction.Bin(BinOp.SUB, r2, Value.Imm(60UL), true))
+            b1.add(SbfInstruction.Mem(Deref(4, r1, 0), Value.Imm(26UL), false))
+            b1.add(SbfInstruction.Mem(Deref(4, r2, 0), Value.Imm((-2147483648).toULong()), false))
+            b1.add(SbfInstruction.Mem(Deref(8, r1, 0), r3, true))
+            b1.add(SbfInstruction.Assert(Condition(CondOp.EQ, r3, Value.Imm((-9223372036854775782).toULong()))))
+            b1.add(SbfInstruction.Exit())
 
-        println("$cfg")
-        val tacProg = toTAC(cfg)
-        println(dumpTAC(tacProg))
-        Assertions.assertEquals(true, verify(tacProg))
+            println("$cfg")
+            val tacProg = toTAC(cfg)
+            println(dumpTAC(tacProg))
+            Assertions.assertEquals(true, verify(tacProg))
+        }
     }
 
     /**
@@ -68,30 +72,32 @@ class TACSplitOrMergeCellsTest {
      */
     @Test
     fun test2() {
-        val r0 = Value.Reg(SbfRegister.R0)
-        val r1 = Value.Reg(SbfRegister.R1)
-        val r2 = Value.Reg(SbfRegister.R2)
-        val r3 = Value.Reg(SbfRegister.R3)
-        val r10 = Value.Reg(SbfRegister.R10)
-        val cfg = MutableSbfCFG("test1")
-        val b1 = cfg.getOrInsertBlock(Label.Address(1))
-        cfg.setEntry(b1)
-        cfg.setExit(b1)
-        b1.add(SbfInstruction.Bin(BinOp.MOV, r1, r10, true))
-        b1.add(SbfInstruction.Bin(BinOp.SUB, r1, Value.Imm(64UL), true))
-        b1.add(SbfInstruction.Bin(BinOp.MOV, r2, r10, true))
-        b1.add(SbfInstruction.Bin(BinOp.SUB, r2, Value.Imm(60UL), true))
-        b1.add(SbfInstruction.Call("CVT_nondet_u32"))
-        b1.add(SbfInstruction.Mem(Deref(4, r1, 0), Value.Imm(26UL), false))
-        b1.add(SbfInstruction.Mem(Deref(4, r2, 0), r0, false))
-        b1.add(SbfInstruction.Mem(Deref(8, r1, 0), r3, true))
-        b1.add(SbfInstruction.Assert(Condition(CondOp.EQ, r3, Value.Imm(26UL))))
-        b1.add(SbfInstruction.Exit())
+        ConfigScope(SolanaConfig.MemorySplitter, MemorySplitter.PTA).use {
+            val r0 = Value.Reg(SbfRegister.R0)
+            val r1 = Value.Reg(SbfRegister.R1)
+            val r2 = Value.Reg(SbfRegister.R2)
+            val r3 = Value.Reg(SbfRegister.R3)
+            val r10 = Value.Reg(SbfRegister.R10)
+            val cfg = MutableSbfCFG("test1")
+            val b1 = cfg.getOrInsertBlock(Label.Address(1))
+            cfg.setEntry(b1)
+            cfg.setExit(b1)
+            b1.add(SbfInstruction.Bin(BinOp.MOV, r1, r10, true))
+            b1.add(SbfInstruction.Bin(BinOp.SUB, r1, Value.Imm(64UL), true))
+            b1.add(SbfInstruction.Bin(BinOp.MOV, r2, r10, true))
+            b1.add(SbfInstruction.Bin(BinOp.SUB, r2, Value.Imm(60UL), true))
+            b1.add(SbfInstruction.Call("CVT_nondet_u32"))
+            b1.add(SbfInstruction.Mem(Deref(4, r1, 0), Value.Imm(26UL), false))
+            b1.add(SbfInstruction.Mem(Deref(4, r2, 0), r0, false))
+            b1.add(SbfInstruction.Mem(Deref(8, r1, 0), r3, true))
+            b1.add(SbfInstruction.Assert(Condition(CondOp.EQ, r3, Value.Imm(26UL))))
+            b1.add(SbfInstruction.Exit())
 
-        println("$cfg")
-        val tacProg = toTAC(cfg)
-        println(dumpTAC(tacProg))
-        Assertions.assertEquals(false, verify(tacProg))
+            println("$cfg")
+            val tacProg = toTAC(cfg)
+            println(dumpTAC(tacProg))
+            Assertions.assertEquals(false, verify(tacProg))
+        }
     }
 
 }

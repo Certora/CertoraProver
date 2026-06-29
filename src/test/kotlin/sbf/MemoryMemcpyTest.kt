@@ -25,11 +25,16 @@ import sbf.support.UnknownStackContentError
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.*
 import sbf.SolanaConfig.ForgetOnUntrackedStackLoad
+import sbf.SolanaConfig.PTAGraphVerbosity
+import sbf.SolanaConfig.SanityChecks
+import sbf.analysis.MemoryAnalysis
 import sbf.callgraph.SolanaFunction
 import sbf.support.UnknownMemcpyLenError
+import sbf.testing.SbfTestDSL
 
 private val sbfTypesFac = ConstantSbfTypeFactory()
 private val nodeAllocator = PTANodeAllocator { BasicPTANodeFlags() }
+private val memDomainOpts = MemoryDomainOpts(false)
 private val globals = GlobalVariables(DefaultElfFileView)
 private val memSummaries = MemorySummaries()
 
@@ -1266,5 +1271,257 @@ class MemoryMemcpyTest {
         println("After memcpy(r1, r2, 8): $g")
 
         Assertions.assertEquals(true,stackC.getNode().getSucc(PTAField(PTAOffset(3040), 2)) != null)
+    }
+
+    /**
+     *  ```
+     *  *sp(3030,8) = ...
+     *  memcpy(dst = sp(3034), src = summ, len = 8)
+     *  ```
+     */
+    @Test
+    fun `memcpy from summarized partially overlapping a stack link should not leave bytes both untracked and unmaterialized`() {
+        ConfigScope(PTAGraphVerbosity, 2).use {
+            ConfigScope(SanityChecks, true).use {
+                val r10 = Value.Reg(SbfRegister.R10)
+                val r1 = Value.Reg(SbfRegister.R1)
+                val r2 = Value.Reg(SbfRegister.R2)
+                val r3 = Value.Reg(SbfRegister.R3)
+
+                val absVal = createMemoryDomain()
+                val stackC = absVal.getRegCell(r10)
+                check(stackC != null) { "memory domain cannot find the stack node" }
+                stackC.getNode().setWrite()
+                val g = absVal.getPTAGraph()
+
+                // Summarized source with one successor (so memcpySummToStack takes the
+                // non-empty-succs branch and inserts into unmaterializedStack).
+                val srcNode = g.mkSummarizedNode()
+                srcNode.setWrite()
+                val nSucc = g.mkNode()
+                nSucc.setWrite()
+                srcNode.mkLink(0, 8, nSucc.createCell(0))
+
+                // Materialized stack link that will be partially overlapped by the memcpy dst range.
+                val nOld = g.mkNode()
+                nOld.setWrite()
+                stackC.getNode().mkLink(3030, 8, nOld.createCell(0))
+
+                g.setRegCell(r2, srcNode.createSymCell(0))
+                g.setRegCell(r1, stackC.getNode().createSymCell(3034))
+
+                val scalars = createScalarDomain()
+                scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(8UL)))
+                println("Before memcpy(stack(3034), summ(0), 8): $g")
+                g.doMemcpy(createMemcpy(), scalars)
+                println("After memcpy: $g")
+                g.checkStackInvariants("")
+            }
+        }
+    }
+
+    /**
+     *  `memcpyExactToStack` from a non-stack source to stack: bytes that did NOT receive an
+     *  explicit link from the source must be tracked in `unmaterializedStack` so a later read
+     *  materializes a successor on demand.
+     *
+     *  Setup: source has links at `(0, 8)` and `(16, 8)` but not at `(8, 8)`. A memcpy of
+     *  24 bytes therefore copies two links to the destination and leaves bytes `[8, 15]`
+     *  uncovered, which become `unmaterializedStack[3048, 3055]` on the stack.
+     *
+     *  We verify the gap is unmaterialized (rather than just empty) by reading the gap at
+     *  two different sub-offsets: with the fix in place both reads materialize from the
+     *  SAME `unmaterializedStack` cell, so the returned cells share a node.
+     */
+    @Test
+    fun `memcpy from non-stack to stack marks uncovered bytes as unmaterializedStack`() {
+        println("====== TEST: memcpy from non-stack to stack with partial src layout marks gap as unmaterializedStack =======")
+
+        val r10 = Value.Reg(SbfRegister.R10)
+        val r1 = Value.Reg(SbfRegister.R1)
+        val r2 = Value.Reg(SbfRegister.R2)
+        val r3 = Value.Reg(SbfRegister.R3)
+
+        val absVal = createMemoryDomain()
+        val stackC = absVal.getRegCell(r10)
+        check(stackC != null) { "memory domain cannot find the stack node" }
+        stackC.getNode().setWrite()
+        val g = absVal.getPTAGraph()
+        val srcNode = g.mkNode()
+        srcNode.setWrite()
+        val n1 = g.mkNode()
+        n1.setWrite()
+        val n3 = g.mkNode()
+        n3.setWrite()
+        // src has links at (0, 8) and (16, 8) but NOT at (8, 8); bytes [8, 15] in src are uncovered.
+        srcNode.mkLink(0, 8, n1.createCell(0))
+        srcNode.mkLink(16, 8, n3.createCell(0))
+
+        g.setRegCell(r2, srcNode.createSymCell(0))
+        g.setRegCell(r1, stackC.getNode().createSymCell(3040))
+
+        val scalars = createScalarDomain()
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
+        g.doMemcpy(createMemcpy(), scalars)
+        println("After memcpy(r1,r2,24) -> $g")
+
+        // Covered bytes: the two explicit links were transferred.
+        checkPointsToNode(g, r1, 0, 8, n1, scalars)
+        checkPointsToNode(g, r1, 16, 8, n3, scalars)
+
+        // Gap [3048, 3055]: two reads at disjoint sub-offsets must materialize the same
+        // unmaterializedStack cell (which means they share a node).
+        val gap1 = load(g, r1, 8, 4, scalars)
+        val gap2 = load(g, r1, 12, 4, scalars)
+        check(gap1 != null) { "load from gap[8,4] returned null" }
+        check(gap2 != null) { "load from gap[12,4] returned null" }
+        Assertions.assertEquals(gap1.getNode().id, gap2.getNode().id)
+        // And it is a fresh node, not one of the source's link targets or the source itself.
+        Assertions.assertNotEquals(n1.id, gap1.getNode().id)
+        Assertions.assertNotEquals(n3.id, gap1.getNode().id)
+        Assertions.assertNotEquals(srcNode.id, gap1.getNode().id)
+    }
+
+    /**
+     *  Weak `memcpyExactToExact` from a non-stack source to the stack: bytes that did NOT
+     *  receive a transferred link must be tracked in `unmaterializedStack`, while existing
+     *  links on the dst (preserved by weak semantics) must remain materialized.
+     *
+     *  We trigger the weak path by giving r1 two possible stack offsets, which makes
+     *  `memcpyLifter` call `memcpyExactToWeakStack` for each of them. After the memcpy,
+     *  reading two disjoint sub-offsets of the gap must materialize the SAME
+     *  `unmaterializedStack` cell — the proof that the weak path filled the gap.
+     */
+    @Test
+    fun `weak memcpy from non-stack to stack marks uncovered bytes as unmaterializedStack`() {
+        println("====== TEST: weak memcpy from non-stack to stack with partial src layout marks gap as unmaterializedStack =======")
+
+        ConfigScope(SanityChecks, true).use {
+            val r10 = Value.Reg(SbfRegister.R10)
+            val r1 = Value.Reg(SbfRegister.R1)
+            val r2 = Value.Reg(SbfRegister.R2)
+            val r3 = Value.Reg(SbfRegister.R3)
+
+            val absVal = createMemoryDomain()
+            val stackC = absVal.getRegCell(r10)
+            check(stackC != null) { "memory domain cannot find the stack node" }
+            stackC.getNode().setWrite()
+            val g = absVal.getPTAGraph()
+            val srcNode = g.mkNode()
+            srcNode.setWrite()
+            val n1 = g.mkNode()
+            n1.setWrite()
+            val n3 = g.mkNode()
+            n3.setWrite()
+            // src has links at (0, 8) and (16, 8) but NOT at (8, 8); bytes [8, 15] in src are uncovered.
+            srcNode.mkLink(0, 8, n1.createCell(0))
+            srcNode.mkLink(16, 8, n3.createCell(0))
+
+            g.setRegCell(r2, srcNode.createSymCell(0))
+            // Multi-offset dst SymCell forces memcpyLifter to use the weak transformer,
+            // which lands in memcpyExactToWeakStack -> memcpyExactToExact.
+            g.setRegCell(r1, stackC.getNode().createSymCell(PTASymOffset(listOf(3040L, 4000L))))
+
+            val scalars = createScalarDomain()
+            scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
+            g.doMemcpy(createMemcpy(), scalars)
+            println("After memcpy(r1,r2,24) -> $g")
+
+            // Reset r1 to a single concrete stack offset so the subsequent loads have a
+            // well-defined dereference target.
+            g.setRegCell(r1, stackC.getNode().createSymCell(3040))
+
+            // Covered bytes: the two explicit src links were transferred to dst=3040.
+            checkPointsToNode(g, r1, 0, 8, n1, scalars)
+            checkPointsToNode(g, r1, 16, 8, n3, scalars)
+
+            // Gap [3048, 3055]: two reads at disjoint sub-offsets must materialize the same
+            // unmaterializedStack cell (which means they share a node).
+            val gap1 = load(g, r1, 8, 4, scalars)
+            val gap2 = load(g, r1, 12, 4, scalars)
+            check(gap1 != null) { "load from gap[8,4] returned null" }
+            check(gap2 != null) { "load from gap[12,4] returned null" }
+            Assertions.assertEquals(gap1.getNode().id, gap2.getNode().id)
+            // And it is a fresh node, not one of the source's link targets or the source itself.
+            Assertions.assertNotEquals(n1.id, gap1.getNode().id)
+            Assertions.assertNotEquals(n3.id, gap1.getNode().id)
+            Assertions.assertNotEquals(srcNode.id, gap1.getNode().id)
+        }
+    }
+
+    /**
+     *   1. memcpy from a summarized heap to stack(3896), len 8
+     *      -> `memcpySummToStack` creates `unmaterializedStack[3896, 3903]`.
+     *   2. memcpy from an exact heap to stack(3900), len 4
+     *      -> `memcpyExactToStack -> removeLinks` removes the **whole** unmat
+     *         interval `[3896, 3903]`, even though only the trailing 4 bytes
+     *         `[3900, 3903]` are overwritten.
+     *   3. read 4 bytes at stack(3896): the prefix `[3896, 3899]` was not
+     *      overwritten by the second memcpy.  With precision preserved, the load
+     *      materializes the summarized heap's successor (an accessed node).
+     *      Without it, the load returns a fresh node.
+     */
+    @Test
+    fun `memcpyExactToStack keeps unmaterialized bytes outside the write range`() {
+        val cfg = SbfTestDSL.makeCFG("test") {
+            bb(0) {
+                // Step 1: build a summarized heap and memcpy from it to stack(sp-200, 8).
+                "CVT_nondet_u64"()
+                r3 = r0
+                r1 = 8
+                "__rust_alloc"()
+                BinOp.ADD(r0, r3)
+                r0[0] = 5            // store at unknown offset -> heap becomes summarized
+                r2 = r0
+                r1 = r10
+                BinOp.SUB(r1, 200)
+                r3 = 8
+                "sol_memcpy_"()
+
+                // Step 2: build an exact heap and memcpy 4 bytes from it to stack(sp-196, 4).
+                r1 = 8
+                "__rust_alloc"()
+                r0[0, 4] = 7         // 4-byte store at fixed offset -> heap stays exact
+                r2 = r0
+                r1 = r10
+                BinOp.SUB(r1, 196)
+                r3 = 4
+                "sol_memcpy_"()
+
+                // Step 3: read 4 bytes at stack(sp-200).
+                r1 = r10
+                BinOp.SUB(r1, 200)
+                r4 = r1[0, 4]
+                goto (1)
+
+            }
+            bb(1) {
+                assert(CondOp.EQ(r4, 0UL)) // to keep alive r4 at the end of block 0
+                exit()
+            }
+        }
+        cfg.normalize()
+        println("$cfg")
+
+        ConfigScope(SanityChecks, true).use {
+            ConfigScope(PTAGraphVerbosity, 2).use {
+                val results = MemoryAnalysis(
+                    cfg,
+                    globals,
+                    MemorySummaries(),
+                    ConstantSbfTypeFactory(),
+                    nodeAllocator.flagsFactory,
+                    memDomainOpts,
+                    processor = null
+                ).getPost(Label.Address(0))
+                check(results != null) { "no abstract state at exit of block 0" }
+
+                val r4Cell = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4))
+                check(r4Cell != null) { "r4 is not a cell" }
+                // The load with r4 as lhs materializes the bytes [3896, 3899] so it shouldn't read from
+                // uninitialized memory (fresh node marked as external)
+                Assertions.assertEquals(false, r4Cell.getNode().flags.isMayExternal)
+            }
+        }
     }
 }

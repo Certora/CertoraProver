@@ -38,7 +38,10 @@ class DummyMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlag
     private val mem: TACVariable = vFac.getWholeMemoryByteMapVar()
 
     override fun getTACMemory(locInst: LocatedSbfInstruction) =
-        TACMemSplitter.NonStackLoadOrStoreInfo(mem as TACByteMapVariable, TACMemSplitter.HavocScalars(mapOf()))
+        TACMemSplitter.NonStackLoadOrStoreInfo(
+            TACMemSplitter.ByteMapTarget.Base(mem as TACByteMapVariable),
+            TACMemSplitter.HavocScalars(mapOf())
+        )
     override fun getTACMemoryFromSummary(locInst: LocatedSbfInstruction) =
         listOf<TACMemSplitter.SummaryArgInfo>()
     override fun getTACMemoryFromMemIntrinsic(locInst: LocatedSbfInstruction): TACMemSplitter.MemInstrinsicsInfo  {
@@ -46,7 +49,8 @@ class DummyMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlag
         check(inst is SbfInstruction.Call)
         return when (SolanaFunction.from(inst.name)) {
             SolanaFunction.SOL_MEMCPY -> {
-                TACMemSplitter.NonStackMemTransferInfo(mem as TACByteMapVariable, mem, null,
+                val memTarget = TACMemSplitter.ByteMapTarget.Base(mem as TACByteMapVariable)
+                TACMemSplitter.NonStackMemTransferInfo(memTarget, memTarget, null,
                                                         TACMemSplitter.HavocMapBytes(listOf()))
             }
             SolanaFunction.SOL_MEMCMP -> {
@@ -54,7 +58,8 @@ class DummyMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlag
                 if (lenType is SbfType.NumType) {
                     val len = lenType.value.toLongOrNull()
                     if (len != null) {
-                        TACMemSplitter.NonStackMemCmpInfo(mem as TACByteMapVariable, mem, len, SolanaConfig.WordSize.get().toByte())
+                        val memTarget = TACMemSplitter.ByteMapTarget.Base(mem as TACByteMapVariable)
+                        TACMemSplitter.NonStackMemCmpInfo(memTarget, memTarget, len, SolanaConfig.WordSize.get().toByte())
                     } else {
                         TACMemSplitter.UnsupportedMemCmpInfo
                     }
@@ -347,10 +352,12 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
                         val n = modifiedField.n
                         val field = modifiedField.f
                         val isStack = modifiedField.isStack
-                        val variable = if (isStack) {
-                            vFac.getByteStackVar(field.offset)
+                        val variable: TACMemSplitter.SummaryArgVariable = if (isStack) {
+                            TACMemSplitter.SummaryArgVariable.Stack(vFac.getByteStackVar(field.offset))
                         } else {
-                            vFac.getByteMapVar(n.createCell(field.offset))
+                            TACMemSplitter.SummaryArgVariable.NonStack(
+                                TACMemSplitter.ByteMapTarget.Base(vFac.getByteMapVar(n.createCell(field.offset)))
+                            )
                         }
                         TACMemSplitter.SummaryArgInfo(
                             modifiedField.r,
@@ -478,7 +485,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
             val c = memInfo.c.concretize()
             val base = c.getOffset()
             TACMemSplitter.NonStackLoadOrStoreInfo(
-                vFac.getByteMapVar(c),
+                TACMemSplitter.ByteMapTarget.Base(vFac.getByteMapVar(c)),
                 getVarsToHavocAsNonStack(memInfo.killedFields, base)
             )
         }
@@ -498,8 +505,8 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
         val srcC = memInfo.srcC.concretize()
 
         return if (!isSrcStack && !isDstStack) {
-            val dstVar = vFac.getByteMapVar(dstC)
-            val srcVar = vFac.getByteMapVar(srcC)
+            val dstVar = TACMemSplitter.ByteMapTarget.Base(vFac.getByteMapVar(dstC))
+            val srcVar = TACMemSplitter.ByteMapTarget.Base(vFac.getByteMapVar(srcC))
             TACMemSplitter.NonStackMemCmpInfo(dstVar, srcVar, length, wordSize)
         } else if (isSrcStack && isDstStack) {
             if (!srcC.isWordCompatible(length, wordSize) ||
@@ -534,7 +541,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
                 TACMemSplitter.UnsupportedMemCmpInfo
             } else {
                 val scalarVars = createStackVarsFromRange(stackC.getOffset(), length, wordSize)
-                val byteMapVar = vFac.getByteMapVar(nonStackC)
+                val byteMapVar = TACMemSplitter.ByteMapTarget.Base(vFac.getByteMapVar(nonStackC))
                 TACMemSplitter.MixedRegionsMemCmpInfo(
                     scalarVars,
                     byteMapVar,
@@ -546,19 +553,8 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
         }
     }
 
-    private fun createStackVarsFromRange(
-        start: PTAOffset,
-        length: Long,
-        wordSize: Byte
-    ): List<TACByteStackVariable> {
-        check(length.mod(wordSize.toInt()) == 0) {"precondition of createScalarVarsFromRange"}
-        val vars = ArrayList<TACByteStackVariable>()
-        for (i in 0 until length step wordSize.toLong()) {
-            val srcOffset = start + i
-            vars.add(vFac.getByteStackVar(srcOffset))
-        }
-        return vars
-    }
+    private fun createStackVarsFromRange(start: PTAOffset, length: Long, wordSize: Byte): List<TACByteStackVariable> =
+        sbf.tac.createStackVarsFromRange(start, length, wordSize, vFac)
 
     /**
      *  Create [TACMemSplitter.MemTransferInfo] object from [PTAMemoryInstInfo]
@@ -570,8 +566,8 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
         return if (!isSrcStack && !isDstStack) {
             val srcC = memInfo.srcC.concretize()
             val dstC = memInfo.dstC.concretize()
-            val dstVar = vFac.getByteMapVar(dstC)
-            val srcVar = vFac.getByteMapVar(srcC)
+            val dstVar = TACMemSplitter.ByteMapTarget.Base(vFac.getByteMapVar(dstC))
+            val srcVar = TACMemSplitter.ByteMapTarget.Base(vFac.getByteMapVar(srcC))
 
             TACMemSplitter.NonStackMemTransferInfo(
                 srcVar,
@@ -627,7 +623,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
                 val nonStackC = nonStackSc.concretize()
 
                 TACMemSplitter.MixedRegionsMemTransferInfo(
-                    vFac.getByteMapVar(nonStackC),
+                    TACMemSplitter.ByteMapTarget.Base(vFac.getByteMapVar(nonStackC)),
                     stackMap,
                     isDstStack,
                     len,
@@ -665,7 +661,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
                 TACMemSplitter.UnsupportedMemsetInfo
             }
         } else {
-            val byteMapVar = vFac.getByteMapVar(c)
+            val byteMapVar = TACMemSplitter.ByteMapTarget.Base(vFac.getByteMapVar(c))
             TACMemSplitter.NonStackMemsetInfo(byteMapVar, storedVal, len)
         }
     }
@@ -694,7 +690,16 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
             .takeIf { it !is TACMemSplitter.UnsupportedMemsetInfo }
             ?: return TACMemSplitter.UnsupportedMemcpyZExtInfo
 
-        return TACMemSplitter.SupportedMemcpyZExtInfo(tacMemcpy, tacMemset)
+        // The non-stack memset built from `ptaMemset` has the cell shifted by `i`, but the
+        // ByteMap-keyed-by-node lookup loses that shift. Restore the offset explicitly so the
+        // consumer writes at `r1 + i, ..., r1 + 7` rather than `r1 + 0, ..., r1 + (7-i)`.
+        val tacMemsetAdjusted = if (tacMemset is TACMemSplitter.NonStackMemsetInfo) {
+            TACMemSplitter.NonStackMemsetInfo(tacMemset.byteMap, tacMemset.value, tacMemset.length, offset = i)
+        } else {
+            tacMemset
+        }
+
+        return TACMemSplitter.SupportedMemcpyZExtInfo(tacMemcpy, tacMemsetAdjusted)
     }
 
     /**

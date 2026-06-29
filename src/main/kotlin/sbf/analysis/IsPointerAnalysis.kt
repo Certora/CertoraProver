@@ -18,43 +18,36 @@
 package sbf.analysis
 
 import datastructures.stdcollections.*
-import log.*
 import sbf.cfg.*
 import sbf.domains.*
 
 /**
-    Using [memoryAnalysis], finds all register uses where the value is definitely a pointer.  This is used to optimize
-    the TAC encoding of math operations; we can assume that pointer addition does not overflow.
+ *  Finds all register uses where the value is definitely a pointer. This is used to
+ *  optimize the TAC encoding of math operations: we can assume that pointer addition
+ *  does not overflow.
+ *
+ *  [analysis] can be any [IAnalysis] whose domain implements [ScalarValueProvider].
  */
-class IsPointerAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>>(
-    memoryAnalysis: MemoryAnalysis<TNum, TOffset, Flags>?
-) {
+class IsPointerAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, D>(
+    analysis: IAnalysis<D>?
+) where D : AbstractDomain<D>, D : ScalarValueProvider<TNum, TOffset> {
+
     private val pointerOps = mutableSetOf<LocatedSbfInstruction>()
 
     fun isPointerOp(locInst: LocatedSbfInstruction) = locInst in pointerOps
 
     init {
-        memoryAnalysis?.cfg?.getBlocks()?.forEachEntry { (label, block) ->
-            memoryAnalysis.getPre(label)?.analyze(
+        analysis?.getCFG()?.getBlocks()?.forEachEntry { (label, block) ->
+            analysis.getPre(label)?.analyze(
                 block,
-                object : InstructionListener<MemoryDomain<TNum, TOffset, Flags>> {
-                    override fun instructionEventBefore(
-                        locInst: LocatedSbfInstruction,
-                        pre: MemoryDomain<TNum, TOffset, Flags>
-                    ) {
+                object : InstructionListener<D> {
+                    override fun instructionEventBefore(locInst: LocatedSbfInstruction, pre: D) {
                         if (locInst.inst.readRegisters.any { pre.isSurelyPointer(locInst.inst, it) }) {
                             pointerOps += locInst
                         }
                     }
-                    override fun instructionEventAfter(
-                        locInst: LocatedSbfInstruction,
-                        post: MemoryDomain<TNum, TOffset, Flags>
-                    ) {}
-                    override fun instructionEvent(
-                        locInst: LocatedSbfInstruction,
-                        pre: MemoryDomain<TNum, TOffset, Flags>,
-                        post: MemoryDomain<TNum, TOffset, Flags>
-                    ) {}
+                    override fun instructionEventAfter(locInst: LocatedSbfInstruction, post: D) {}
+                    override fun instructionEvent(locInst: LocatedSbfInstruction, pre: D, post: D) {}
                 }
             )
         }

@@ -1,0 +1,17 @@
+{
+	"rules": {
+		"CheckConstants": "SUCCESS",
+		"checkConstDenominator": "SUCCESS",
+		"checkConstNumerator": "SUCCESS",
+		"checkDiv": "SUCCESS",
+		"checkDiv1": "SUCCESS",
+		"checkDiv2": "SUCCESS",
+		"checkDiv3": "SUCCESS",
+		"checkDiv4": "SUCCESS",
+		"envfreeFuncsStaticCheck": {
+			"SUCCESS": [
+				"solDiv(int256,int256)"
+			]
+		}
+	}
+}

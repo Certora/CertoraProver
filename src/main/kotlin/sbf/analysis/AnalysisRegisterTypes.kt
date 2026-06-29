@@ -18,7 +18,6 @@
 package sbf.analysis
 
 import datastructures.stdcollections.*
-import sbf.callgraph.CVTCalltrace
 import sbf.cfg.*
 import sbf.disassembler.Label
 import sbf.disassembler.SbfRegister
@@ -142,44 +141,24 @@ where D: AbstractDomain<D>,
      *
      * For each instruction, we extract types from both pre- and post- states:
      * - Pre-state: types for all read registers before the instruction executes
-     * - Post-state: refined types for certain read registers and all written registers
-     *
-     * Post-state refinement handles cases where operations like `castNumToPtr` may
-     * produce more precise types for source registers that aren't overwritten.
+     * - Post-state: types for all written registers
      */
     private inner class TypeAndStateExtractor : InstructionListener<D> {
 
-        override fun instructionEventAfter(locInst: LocatedSbfInstruction, post: D) {
-            // -- Refine types for read registers using post-state
-            val inst = locInst.inst
-            val regsToRefine = inst.readRegisters - inst.writeRegister
-            when (inst) {
+        private fun getAsScalarValue(inst: SbfInstruction, state: D, reg: Value.Reg): ScalarValue<TNum, TOffset> {
+            return when (inst) {
                 is SbfInstruction.Mem -> {
-                    // We use the post-state to update registers in regsToRefine
-                    types[locInst] = types[locInst]!!.mapValues { (r, ty) ->
-                        when (val v = Value.Reg(r)) {
-                            in regsToRefine -> post.getAsScalarValue(v).type()
-                            else -> ty
-                        }
+                    if (inst.access.base == reg) {
+                        state.getAsScalarValueWithNumToPtrCast(reg)
+                    } else {
+                        state.getAsScalarValue(reg)
                     }
                 }
-                is SbfInstruction.Call -> {
-                    CVTCalltrace.from(inst.name)?.let { calltraceFn ->
-                        val strings = calltraceFn.strings.map { it.string.r }
-                        // We use the post-state to update registers in regsToRefine that are known to contain strings
-                        types[locInst] = types[locInst]!!.mapValues { (r, ty) ->
-                            val v = Value.Reg(r)
-                            when  {
-                                v in regsToRefine && v.r in strings -> post.getAsScalarValue(v).type()
-                                else -> ty
-                            }
-                        }
-                    }
-                }
-                else -> {}
+                else -> state.getAsScalarValue(reg)
             }
+        }
 
-            // -- Update types for written registers
+        override fun instructionEventAfter(locInst: LocatedSbfInstruction, post: D) {
             typesWriteRegs[locInst] = locInst.inst.writeRegister.map{ r->r.r }.associateWith { r ->
                 post.getAsScalarValue(Value.Reg(r)).type()
             }.filterValues { type ->
@@ -189,9 +168,10 @@ where D: AbstractDomain<D>,
 
         override fun instructionEventBefore(locInst: LocatedSbfInstruction, pre: D) {
             // -- Update types using the pre-state
-            val usedRegisters = locInst.inst.readRegisters + locInst.inst.writeRegister
+            val inst = locInst.inst
+            val usedRegisters = inst.readRegisters + inst.writeRegister
             types[locInst] = allRegisters.map{ r->r.r }.associateWith { r ->
-                pre.getAsScalarValue(Value.Reg(r)).type()
+                getAsScalarValue(inst, pre, Value.Reg(r)).type()
             }.filter { (r, type) ->
                 // we don't keep an entry if the register is top and not used by the instruction
                 Value.Reg(r) in usedRegisters || !type.isTop()

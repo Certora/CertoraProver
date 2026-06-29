@@ -21,6 +21,7 @@ import datastructures.stdcollections.*
 import ksp.dynamicconversion.AddDynamicConversion
 import ksp.dynamicconversion.ConvertibleWith
 import ksp.dynamicconversion.DynamicConverter
+import ksp.dynamicconversion.ExcludeFromDynamicConversion
 import log.*
 import utils.RuntimeEnvInfo
 import java.io.Serializable
@@ -72,6 +73,9 @@ data class SolverConfig(
     /** Determines whether the SolverConfig can be skipped in a race if we do not have enough available cores. **/
     val canBeSkipped: (LogicFeatures, Duration) -> Boolean = { _, _ -> false },
     override val configList: List<Configurable>? = null,
+    // Only settable from trusted code via the regular named-argument copy(...); excluded from the
+    // dynamic copy(Map) path so it cannot be set through the -solver / CLI `name{...}` syntax.
+    @ExcludeFromDynamicConversion
     val customBinary: String? = null
 ) : Configurable, Serializable {
 

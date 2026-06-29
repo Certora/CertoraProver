@@ -70,7 +70,7 @@ class GlobalVarMapTest {
     }
 
     @Test
-    fun `unsized existing global is not replaced by new sized`() {
+    fun `unsized existing global is replaced by new sized`() {
         val unsized = gv("U", 200, 0)
         val newG = gv("U", 200, 10)
 
@@ -78,7 +78,7 @@ class GlobalVarMapTest {
 
         // unsized should be kept
         val found = m.findGlobalThatContains(200)
-        assertSame(unsized, found)
+        assertSame(newG, found)
     }
 
     // -------------------------------------------------------------

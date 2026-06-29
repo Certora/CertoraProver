@@ -298,7 +298,8 @@ object Config {
         Option(
             "customBuildScript",
             true,
-            "Script file to run in order to build or perform any kind of preprocessing prior to the tool"
+            "DEPRECATED and ignored: this hook is no longer executed. Perform any build or " +
+                "preprocessing steps before invoking the tool."
         )
     ) {}
 
@@ -2372,6 +2373,16 @@ object Config {
                 "prints: 0:nothing, 1:without annotations 2:including annotations [default = 0]"
         )
     )
+
+    val printCEX = ConfigType.BooleanCmdLine(
+        default = false,
+        option = Option(
+            "printCEX",
+            true,
+            "Prints the CEX to stdout. used only for debugging. [default = false]"
+        )
+    )
+
 
 
     val patternRewriter = object : ConfigType.IntCmdLine(

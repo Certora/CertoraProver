@@ -51,7 +51,6 @@ import org.jetbrains.annotations.TestOnly
 
 
 private val logger = Logger(LoggerTypes.SBF_SCALAR_ANALYSIS)
-private fun dbg(msg: () -> Any) { logger.info(msg)}
 
 private class ValueFactory<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     val sbfTypeFac: ISbfTypeFactory<TNum, TOffset>): IScalarValueFactory<ScalarValue<TNum, TOffset>> {
@@ -169,8 +168,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
     val globalState: GlobalState
 ) : MutableAbstractDomain<ScalarDomain<TNum, TOffset>>,
     ScalarValueProvider<TNum, TOffset>,
-    MutableScalarValueUpdater<TNum, TOffset>,
-    MemoryDomainScalarOps<TNum, TOffset> {
+    MutableScalarValueUpdater<TNum, TOffset> {
 
     constructor(
         sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
@@ -1364,7 +1362,10 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
     }
 
     override fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg): ScalarValue<TNum, TOffset> {
-        check(!isBottom()) {"getAsScalarValueWithNumToPtrCast cannot be called on bottom"}
+        if (isBottom()) {
+            return ScalarValue(sbfTypeFac.mkBottom())
+        }
+
         val scalarVal = getRegister(reg)
         val type = scalarVal.type()
         if (type is SbfType.NumType) {
@@ -1395,13 +1396,17 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         val baseType = baseScalarVal.type()
         checkStackInBounds(baseType, locInst)
         val loadedAsNumForPTA = inst.metaData.getVal(SbfMeta.LOADED_AS_NUM_FOR_PTA) != null
+        // SBF pointers are 64-bit, so a load narrower than 8 bytes cannot read a
+        // pointer — the loaded register is necessarily numeric. Folded into the
+        // existing PTA-metadata flag so all the arms below pick up both reasons.
+        val mustBeNum = loadedAsNumForPTA || width < 8
         when (baseType) {
             is SbfType.Bottom -> {}
-            is SbfType.Top -> forgetOrNum(lhs, loadedAsNumForPTA)
+            is SbfType.Top -> forgetOrNum(lhs, mustBeNum)
             is SbfType.NumType -> {
                 // Before GlobalInferenceAnalysis is run, it's totally possible to de-reference
                 // an absolute address that it's actually a global variable, but we don't know yet.
-                forgetOrNum(lhs, loadedAsNumForPTA)
+                forgetOrNum(lhs, mustBeNum)
             }
             is SbfType.PointerType -> {
                 when (baseType) {
@@ -1410,7 +1415,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                         val stackTOffsets = baseType.offset.add(offset.toLong())
                         check(!stackTOffsets.isBottom())
                         if (stackTOffsets.isTop()) {
-                            forgetOrNum(lhs, loadedAsNumForPTA)
+                            forgetOrNum(lhs, mustBeNum)
                         } else {
                             val stackOffsets = stackTOffsets.toLongList()
                             setRegister(lhs,
@@ -1418,7 +1423,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                                     val loadedAbsVal = base.getStackSingletonOrNull(ByteRange(stackOffset, width))
                                     when {
                                         loadedAbsVal != null -> acc.join(loadedAbsVal.zext(width.toLong()))
-                                        loadedAsNumForPTA -> acc.join(ScalarValue(sbfTypeFac.anyNum()))
+                                        mustBeNum -> acc.join(ScalarValue(sbfTypeFac.anyNum()))
                                         else -> {
                                             val interval = FiniteInterval.mkInterval(stackOffset, width.toLong())
                                             if (mayInitStack.intersects(interval)) {
@@ -1441,7 +1446,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                         // Under the (checked) assumption that stack pointers do not escape the stack:
                         // if we read from heap or input then the loaded value cannot a stack pointer
                         setRegister(lhs,
-                            ScalarValue( if (loadedAsNumForPTA) {
+                            ScalarValue(if (mustBeNum) {
                                 sbfTypeFac.anyNum()
                             } else {
                                 SbfType.nonStack()
@@ -1465,7 +1470,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
             }
             is SbfType.NonStack -> {
                 setRegister(lhs,
-                    ScalarValue( if (loadedAsNumForPTA) {
+                    ScalarValue(if (mustBeNum) {
                         sbfTypeFac.anyNum()
                     } else {
                         SbfType.nonStack()
@@ -1728,7 +1733,7 @@ fun<ScalarDomain: MutableAbstractDomain<ScalarDomain>> analyzeBlockMut(
     listener: InstructionListener<ScalarDomain>
 ): ScalarDomain {
 
-    dbg { "=== $domainName analyzing ${b.getLabel()} ===\nAt entry: $inState\n" }
+    logger.dbg(b) { "=== $domainName analyzing ${b.getLabel()} ===\nAt entry: $inState\n" }
 
     if (listener is DefaultInstructionListener) {
         // Fast path: shortcut when bottom is detected and avoid deep copies
@@ -1738,9 +1743,9 @@ fun<ScalarDomain: MutableAbstractDomain<ScalarDomain>> analyzeBlockMut(
 
         val outState = inState.deepCopy()
         for (locInst in b.getLocatedInstructions()) {
-            dbg { "${locInst.inst}\n" }
+            logger.dbg(locInst) { "${locInst.inst}\n" }
             transferFunction(outState, locInst)
-            dbg { "$outState\n" }
+            logger.dbg(locInst) { "$outState\n" }
             if (outState.isBottom()) {
                 break
             }
@@ -1751,9 +1756,9 @@ fun<ScalarDomain: MutableAbstractDomain<ScalarDomain>> analyzeBlockMut(
         for (locInst in b.getLocatedInstructions()) {
             val after = before.deepCopy()
             listener.instructionEventBefore(locInst, before)
-            dbg { "${locInst.inst}\n" }
+            logger.dbg(locInst) { "${locInst.inst}\n" }
             transferFunction(after, locInst)
-            dbg { "$after\n" }
+            logger.dbg(locInst) { "$after\n" }
             listener.instructionEventAfter(locInst, after)
             // Calling to this listener requires to make an extra copy
             // It's used by class AnnotateWithTypesListener defined in AnnotateCFG.kt
@@ -1783,7 +1788,7 @@ fun<ScalarDomain: AbstractDomain<ScalarDomain>> analyzeBlock(
     listener: InstructionListener<ScalarDomain>
 ): ScalarDomain {
 
-    dbg { "=== $domainName analyzing ${b.getLabel()} ===\nAt entry: $state\n" }
+    logger.dbg(b) { "=== $domainName analyzing ${b.getLabel()} ===\nAt entry: $state\n" }
 
     // Fast path: shortcut when bottom is detected
     if (listener is DefaultInstructionListener) {
@@ -1793,9 +1798,9 @@ fun<ScalarDomain: AbstractDomain<ScalarDomain>> analyzeBlock(
 
         var outState = state
         for (locInst in b.getLocatedInstructions()) {
-            dbg { "${locInst.inst}\n" }
+            logger.dbg(locInst) { "${locInst.inst}\n" }
             outState = transferFunction(outState, locInst)
-            dbg { "$outState\n" }
+            logger.dbg(locInst) { "$outState\n" }
             if (outState.isBottom()) {
                 break
             }
@@ -1806,11 +1811,11 @@ fun<ScalarDomain: AbstractDomain<ScalarDomain>> analyzeBlock(
     // Full tracking path: even if bottom is detected we call the listener
     var currentState = state
     for (locInst in b.getLocatedInstructions()) {
-        dbg { "${locInst.inst}\n" }
+        logger.dbg(locInst) { "${locInst.inst}\n" }
         val inState = currentState
         listener.instructionEventBefore(locInst, inState)
         val outState = transferFunction(inState, locInst)
-        dbg { "$outState\n" }
+        logger.dbg(locInst) { "$outState\n" }
         listener.instructionEventAfter(locInst, outState)
         listener.instructionEvent(locInst, inState, outState)
         currentState = outState

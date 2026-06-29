@@ -19,6 +19,7 @@ package analysis.dataflow
 
 import analysis.*
 import datastructures.stdcollections.*
+import statistics.toSDFeatureKey
 import utils.*
 import vc.data.*
 
@@ -27,7 +28,9 @@ class AllVariablesDefAnalysis(val graph: TACCommandGraph) : IAllVariablesDefAnal
     private val boundVarDefinitions: MutableMap<TACSymbol.Var, CmdPointer> = mutableMapOf()
 
     init {
-        mapBoundVariablesToDefined()
+        recordDefAnalysisPreprocessing("allVars".toSDFeatureKey()) {
+            mapBoundVariablesToDefined()
+        }
     }
 
     private fun addBoundVariables(v: TACSymbol.Var, ptr: CmdPointer) {

@@ -29,6 +29,7 @@ import datastructures.EnumSet
 import datastructures.nonEmptyListOf
 import datastructures.stdcollections.*
 import datastructures.toNonEmptyList
+import instrumentation.transformers.DSAChecker
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
@@ -347,6 +348,10 @@ class TACVerifier private constructor(
             2 -> TACProgramPrinter.standard().print(finalTac, "FINAL-TAC")
             else -> {}
         }
+
+        // Pre-solver invariant: non-map vars are in DSA. New passes between `DSAToSSA` and here must preserve this -
+        // see [DSAChecker] for the precise predicate and the reasoning behind the Map exemption.
+        DSAChecker.checkFinalDSA(finalTac)
 
         ArtifactManagerFactory().dumpMandatoryCodeArtifacts(
             finalTac,
@@ -1015,6 +1020,7 @@ class TACVerifier private constructor(
 
     companion object {
         private val solverExceptionArtifactCounter = AtomicInteger(0)
+
         suspend fun verify(
             scene: ISceneIdentifiers,
             tacObject: CoreTACProgram,

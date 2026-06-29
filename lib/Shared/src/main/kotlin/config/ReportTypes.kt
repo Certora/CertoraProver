@@ -228,6 +228,7 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     OPAQUE_IDENTITY_REMOVAL(LoggerTypes.NORMALIZER),
     OPAQUE_IDENTITY_REMOVAL_2(LoggerTypes.NORMALIZER),
     SBF_TO_TAC(LoggerTypes.SBF),
+    U128_PROMOTER(LoggerTypes.SBF_MATH_PROMOTION),
     DELETION_SUMMARY(LoggerTypes.INSTRUMENTATION),
     TRIVIAL_SHIFT_SIMPLIFY(LoggerTypes.PER_FUNCTION_SIMPLIFICATION),
     INLINE_DIRECT(LoggerTypes.INLINER),

@@ -68,6 +68,29 @@ class IntMathAxiomGenerator(val lxf: LExpressionFactory, private val liaGenerato
         if (e !is LExpression.ApplyExpr) {
             return
         }
+
+        // Register the bit-width of any addition/subtraction (or its already-normalized
+        // `simple_add_modulo` / `simple_sub_modulo` form) so that the corresponding modulo
+        // define-fun gets emitted. This has to run *before* the quantified-variable shortcut
+        // below: an addition that only ever occurs under a quantifier -- e.g. a static-array
+        // index `baseSlot + i` -- is otherwise never registered here, yet grounding can later
+        // materialize it as a `simple_add_modulo` application. Without its define-fun that symbol
+        // stays uninterpreted, so the grounded storage key no longer equals the matching
+        // direct-load key, producing spurious counterexamples (CERT-10116).
+        //
+        // Hoisting this past the shortcut is safe w.r.t. the timeout concern that motivates the
+        // shortcut (see below / [BitwiseAxiomGenerator]): unlike the axiom-emitting cases further
+        // down -- which stay gated -- this only records a tag and enables a *ground* define-fun
+        // (`simple_add_modulo(x) = ite(0 <= x < 2^256, x, x - 2^256)`). It adds no quantified
+        // axioms, and it is the same define-fun already emitted for every non-quantified addition.
+        when (val f = e.f) {
+            is NonSMTInterpretedFunctionSymbol.Vec.Add -> simpleAddTags += e.tag as Tag.Bits
+            is AxiomatizedFunctionSymbol.SimpleAddModulo -> simpleAddTags += f.tag
+            is NonSMTInterpretedFunctionSymbol.Binary.Sub -> simpleSubTags += e.tag as Tag.Bits
+            is AxiomatizedFunctionSymbol.SimpleSubModulo -> simpleSubTags += f.tag
+            else -> Unit
+        }
+
         if (!env.isEmpty() && // <- optimization to save the collect call below in case
             cachedFreeIdentifierCollector.collect(e).containsAny(env.quantifiedVariables)
         ) {
@@ -140,12 +163,6 @@ class IntMathAxiomGenerator(val lxf: LExpressionFactory, private val liaGenerato
                     lxf.registerFunctionSymbol(AxiomatizedFunctionSymbol.UninterpExp(Tag.Bit256))
                 }
             }
-
-            is NonSMTInterpretedFunctionSymbol.Binary.Sub ->
-                simpleSubTags += e.tag as Tag.Bits
-
-            is NonSMTInterpretedFunctionSymbol.Vec.Add ->
-                simpleAddTags += e.tag as Tag.Bits
 
             else -> Unit
         }

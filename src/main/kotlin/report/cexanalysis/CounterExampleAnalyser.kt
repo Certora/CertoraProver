@@ -18,6 +18,7 @@ package report.cexanalysis
 
 import analysis.CmdPointer
 import analysis.TACProgramPrinter
+import config.Config
 import datastructures.stdcollections.*
 import log.*
 import report.RuleAlertReport
@@ -101,29 +102,33 @@ class CounterExampleAnalyser(
             "Generated imprecision alerts : $imprecisionAlerts\n" +
                 "Generated overflow alerts : $overflowAlerts"
         }
+        fun cexDump() = cex.pathBlocksList?.let { pathBlocks ->
+            val pathBlocksSet = pathBlocks.toSet()
+            TACProgramPrinter.standard()
+                .dontShowBlocks { it !in pathBlocksSet }
+                .dontShowCmds { (ptr, _) -> ptr.block == cex.lastPtr!!.block && ptr.pos > cex.lastPtr.pos }
+                .highlight { it.ptr in unneeded }
+                .extraLines {
+                    imprecisions[it.ptr]
+                        ?.let { listOf(it.greenBg) }
+                        .orEmpty()
+                }
+                .extraLines {
+                    overflows[it.ptr]
+                        ?.let { listOf(it.yellowBg) }
+                        .orEmpty()
+                }
+                .extraLhsInfo { ptr ->
+                    cex.g.getLhs(ptr)?.let(cex::invoke)
+                        ?.let { "($it)".yellow }.orEmpty()
+                }
+        }
+
         logger.trace {
-            if (cex.pathBlocksList != null) {
-                val pathBlocksSet = cex.pathBlocksList.toSet()
-                TACProgramPrinter.standard()
-                    .dontShowBlocks { it !in pathBlocksSet }
-                    .dontShowCmds { (ptr, _) -> ptr.block == cex.lastPtr!!.block && ptr.pos > cex.lastPtr.pos }
-                    .highlight { it.ptr in unneeded }
-                    .extraLines {
-                        imprecisions[it.ptr]
-                            ?.let { listOf(it.greenBg) }
-                            .orEmpty()
-                    }
-                    .extraLines {
-                        overflows[it.ptr]
-                            ?.let { listOf(it.yellowBg) }
-                            .orEmpty()
-                    }
-                    .extraLhsInfo { ptr ->
-                        cex.g.getLhs(ptr)?.let(cex::invoke)
-                            ?.let { "($it)".yellow }.orEmpty()
-                    }
-                    .toString(code, "CEX-Analysis")
-            }
+            cexDump()?.toString(code, "CEX-Analysis") ?: "No CEX"
+        }
+        if (Config.printCEX.get()) {
+            cexDump()?.print(code, "CEX-Analysis") ?: "No CEX"
         }
     }
 }

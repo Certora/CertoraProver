@@ -36,13 +36,16 @@ internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
     } else {
         sbfTacB.mkConst(len)
     }
-    val srcV = info.source
-    val dstV = info.destination
-
     val cmds = mutableListOf<TACCmd.Simple>()
-    cmds += Debug.startFunction("memcpy","(dst=nonStack, src=nonStack, len=$len)")
-    cmds += havocByteMapLocation(info.locationsToHavoc.vars, dstV, dstReg)
-    cmds += TACCmd.Simple.ByteLongCopy(dstReg, srcReg, lenS, dstV.tacVar, srcV.tacVar)
+    cmds += Debug.startFunction("memcpy", "(dst=nonStack, src=nonStack, len=$len)")
+    cmds += withReadableByteMap(info.source, "memcpy_src") { srcV ->
+        withWritableByteMap(info.destination, "memcpy_dst") { dstV ->
+            val inner = mutableListOf<TACCmd.Simple>()
+            inner += havocByteMapLocation(info.locationsToHavoc.vars, dstV, dstReg)
+            inner += TACCmd.Simple.ByteLongCopy(dstReg, srcReg, lenS, dstV.tacVar, srcV.tacVar)
+            inner
+        }
+    }
     cmds += Debug.endFunction("memcpy")
     return cmds
 }
@@ -118,31 +121,35 @@ internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
 
     val havocMap = (info.locationsToHavoc as TACMemSplitter.HavocScalars).vars
     when (havocMap.size) {
-        0 -> {}
-        1 -> cmds += havocScalars(havocMap.toList().single().second)
+        0    -> {}
+        1    -> cmds += havocScalars(havocMap.toList().single().second)
         else -> cmds += weakHavocScalars(dstReg, zeroC, havocMap)
     }
 
-    val byteVarsAtSrc = mapLoads(info.byteMap, srcReg, 1, len, cmds)
-    byteVarsAtSrc.forEachIndexed { i, srcV ->
-        if (dstRange.size == 1) {
-            // one single destination
-            val dstSlice = dstRange.toList().single().second
-            val dstV = vFac.getByteStackVar(PTAOffset(dstSlice.lb + i)).tacVar
-            cmds += assign(dstV, srcV.asSym())
-        } else {
-            // for each destination byte we create an ite with the old and new value from the source map
-            for ((dstOffset, dstSlice) in dstRange) {
+    cmds += withReadableByteMap(info.byteMap, "memcpyNonStackToStack") { byteMapVar ->
+        val inner = mutableListOf<TACCmd.Simple>()
+        val byteVarsAtSrc = mapLoads(byteMapVar, srcReg, 1, len, inner)
+        byteVarsAtSrc.forEachIndexed { i, srcV ->
+            if (dstRange.size == 1) {
+                // one single destination
+                val dstSlice = dstRange.toList().single().second
                 val dstV = vFac.getByteStackVar(PTAOffset(dstSlice.lb + i)).tacVar
-                cmds += weakAssign(dstV, pointsToStack(dstReg, zeroC, dstOffset), srcV.asSym())
+                inner += assign(dstV, srcV.asSym())
+            } else {
+                // for each destination byte we create an ite with the old and new value from the source map
+                for ((dstOffset, dstSlice) in dstRange) {
+                    val dstV = vFac.getByteStackVar(PTAOffset(dstSlice.lb + i)).tacVar
+                    inner += weakAssign(dstV, pointsToStack(dstReg, zeroC, dstOffset), srcV.asSym())
+                }
             }
         }
+        inner
     }
     cmds += Debug.endFunction("memcpy")
     return cmds
 }
 
-/** Emit TAC code for memcpy from stack to non-stack **/
+/** Emit TAC code for `memcpy` from stack to non-stack **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
 internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> memcpyStackToNonStack(
     info: TACMemSplitter.MixedRegionsMemTransferInfo
@@ -157,18 +164,25 @@ internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
 
     val cmds = mutableListOf<TACCmd.Simple>()
     cmds += Debug.startFunction("memcpy", "(dst=non-stack, src=Stack$srcRange, len=$len)")
-    cmds += havocByteMapLocation((info.locationsToHavoc as TACMemSplitter.HavocMapBytes).vars, info.byteMap, sbfTacB.mkVar(
-        SbfRegister.R1))
-    // for each source byte we create an ite to resolve the actual byte and stores in the destination map
-    for (i in 0 until len) {
-        // create an ite that accesses to the right byte at the source
-        val stackLocs = srcRange.map {
-            it.key to vFac.getByteStackVar(PTAOffset(it.value.lb + i)).tacVar.asSym()
-        }.toMap()
-        val srcBV = vFac.mkFreshIntVar()
-        cmds += assign(srcBV, resolveStackAccess(srcReg, zeroC, stackLocs))
-        // store in the destination map
-        cmds += mapStores(info.byteMap, dstReg, PTAOffset(i), srcBV)
+    cmds += withWritableByteMap(info.byteMap, "memcpyStackToNonStack") { byteMapVar ->
+        val inner = mutableListOf<TACCmd.Simple>()
+        inner += havocByteMapLocation(
+            (info.locationsToHavoc as TACMemSplitter.HavocMapBytes).vars,
+            byteMapVar,
+            sbfTacB.mkVar(SbfRegister.R1),
+        )
+        // for each source byte we create an ite to resolve the actual byte and stores in the destination map
+        for (i in 0 until len) {
+            // create an ite that accesses to the right byte at the source
+            val stackLocs = srcRange.map {
+                it.key to vFac.getByteStackVar(PTAOffset(it.value.lb + i)).tacVar.asSym()
+            }.toMap()
+            val srcBV = vFac.mkFreshIntVar()
+            inner += assign(srcBV, resolveStackAccess(srcReg, zeroC, stackLocs))
+            // store in the destination map
+            inner += mapStores(byteMapVar, dstReg, PTAOffset(i), srcBV)
+        }
+        inner
     }
     cmds += Debug.endFunction("memcpy")
     return cmds

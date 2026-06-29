@@ -219,10 +219,17 @@ class U128Summarizer(mkFreshIntVar: (String) -> TACSymbol.Var) {
         val cmds = mutableListOf<TACCmd.Simple>()
         cmds += Debug.startFunction(name = inst.name)
 
-        // Save r0 with its pre-call value
-        val savedR0Map = spec.savedR0.variable as? TACByteMapVariable ?: return listOf()
-        cmds += mapStores(savedR0Map, bufferPtr, spec.savedR0.offset, r0)
+        // Extract a ByteMapTarget from a summary arg.
+        // Return null if the arg is a stack scalar (U128 specs always target non-stack memory).
+        fun resolveMap(v: TACMemSplitter.SummaryArgVariable): TACMemSplitter.ByteMapTarget? =
+            when (v) {
+                is TACMemSplitter.SummaryArgVariable.Stack -> null
+                is TACMemSplitter.SummaryArgVariable.NonStack -> v.target
+            }
 
+        // Save r0 with its pre-call value
+        val savedR0Map = resolveMap(spec.savedR0.variable) ?: return listOf()
+        cmds += store(savedR0Map, bufferPtr, spec.savedR0.offset, r0, spec.savedR0.width.toShort())
         cmds += assign(sbfTacB.mkVar(spec.savedR0.reg), bufferPtr.asSym())
 
         // 1. Merge low and high halves
@@ -236,14 +243,14 @@ class U128Summarizer(mkFreshIntVar: (String) -> TACSymbol.Var) {
 
         when (spec) {
             is BinaryOpResultSpec.U128 -> {
-                val resLowMap  = spec.resLow.variable  as? TACByteMapVariable ?: return listOf()
-                val resHighMap = spec.resHigh.variable as? TACByteMapVariable ?: return listOf()
-                cmds += mapStores(resLowMap,  bufferPtr, spec.resLow.offset,  resLow)
-                cmds += mapStores(resHighMap, bufferPtr, spec.resHigh.offset, resHigh)
+                val resLowMap  = resolveMap(spec.resLow.variable)  ?: return listOf()
+                val resHighMap = resolveMap(spec.resHigh.variable) ?: return listOf()
+                cmds += store(resLowMap,  bufferPtr, spec.resLow.offset,  resLow, spec.resLow.width.toShort())
+                cmds += store(resHighMap, bufferPtr, spec.resHigh.offset, resHigh, spec.resHigh.width.toShort())
             }
             is BinaryOpResultSpec.U64 -> {
-                val resMap = spec.res.variable as? TACByteMapVariable ?: return listOf()
-                cmds += mapStores(resMap, bufferPtr, spec.res.offset, resLow)
+                val resMap = resolveMap(spec.res.variable) ?: return listOf()
+                cmds += store(resMap, bufferPtr, spec.res.offset, resLow, spec.res.width.toShort())
             }
         }
         cmds += Debug.endFunction(name = inst.name)
