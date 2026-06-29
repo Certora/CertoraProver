@@ -1026,16 +1026,6 @@ def validate_prover_version(value: str) -> str:
     return value
 
 
-def validate_job_definition(value: str) -> str:
-    """
-    A job definition may consist only of letters, numbers and underscores
-    """
-    if not re.match(r"^\w+$", value):
-        raise Util.CertoraUserInputError(f"illegal 'job_definition' argument {value}, job definition may consist only "
-                                         "of letters, numbers and underscores")
-    return value
-
-
 def validate_false(value: str) -> str:
     """
     This is used when there's a jar flag with a default value of true that we want to set to

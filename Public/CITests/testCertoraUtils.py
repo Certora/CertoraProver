@@ -280,10 +280,6 @@ TEST_VALUES: Dict[Callable, Dict[str, Any]] = {
         'valid': ['legal', 'legal/1', 'legal-/9', 'a_b'], 'invalid': ['$', 'a!', 'bad.bad', 'a/b//c', '9/a', 'a\\b']
     },
 
-    Vf.validate_job_definition: {
-        'valid': ['job', '1', '_', 'job1_2'], 'invalid': ['$', 'a!', 'job-1']
-    },
-
     Vf.validate_compiler_map: {
         'valid': [
             {'A.sol': 'solc6.1', 'B': 'solc6.1', 'C': 'solc5.12'}

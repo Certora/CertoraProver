@@ -1706,7 +1706,7 @@ class BackendAttributes(AttrUtil.Attributes):
     )
 
     JOB_DEFINITION = AttrUtil.AttributeDefinition(
-        attr_validation_func=Vf.validate_job_definition,
+        arg_type=AttrUtil.AttrArgType.STRING,
         argparse_args={
             'action': AttrUtil.UniqueStore
         },
