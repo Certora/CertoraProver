@@ -226,7 +226,7 @@ class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
             val preservedCFGs: Set<MutableSbfCFG> =
                 getTransitivelyPreservedCFGs().mapNotNull {
                     if (it !in cfgMap) {
-                        sbfLogger.warn { "Did not find preserved CFG `$it` in cfgMap" }
+                        sbfLogger.debug { "Did not find preserved CFG `$it` in cfgMap" }
                     }
                     cfgMap[it]
                 }.toSet()

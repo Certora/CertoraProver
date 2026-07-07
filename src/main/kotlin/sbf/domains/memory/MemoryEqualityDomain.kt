@@ -1342,7 +1342,8 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
 
     override fun analyze(
         b: SbfBasicBlock,
-        listener: InstructionListener<MemEqualityPredicateDomain<Flags>>
+        listener: InstructionListener<MemEqualityPredicateDomain<Flags>>,
+        cfgInfo: CFGInfo
     ): MemEqualityPredicateDomain<Flags> {
         error(
             "MemEqualityPredicateDomain requires info from MemoryDomain. " +

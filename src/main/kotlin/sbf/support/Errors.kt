@@ -352,9 +352,9 @@ private class FormattedErrorMessage(private val locInst: LocatedSbfInstruction?,
         if (devMsg != "" && SolanaConfig.PrintDevMsg.get()) {
             val address = locInst?.inst?.metaData?.getVal(SbfMeta.SBF_ADDRESS)
             if (address != null) {
-                strB.append("\nDev message(0x${address.toString(16)}):")
+                strB.append("\nDev message(0x${address.toString(16)}): ")
             } else {
-                strB.append("\nDev message:")
+                strB.append("\nDev message: ")
             }
             strB.append("$devMsg\n")
         }

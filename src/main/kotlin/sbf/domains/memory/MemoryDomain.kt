@@ -525,7 +525,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
      * To improve the design, we should do that second reduction also here so that when `doLoad` and `doStore` are called,
      * all the cells have been reconstructed.
      */
-    private fun analyzeMem(locInst: LocatedSbfInstruction) {
+    private fun analyzeMem(locInst: LocatedSbfInstruction, cfgInfo: CFGInfo) {
         check(!isBottom()) {"called analyzeMem on bottom in memory domain"}
         val stmt = locInst.inst
         check(stmt is SbfInstruction.Mem) {"Memory domain expects a memory instruction instead of $stmt"}
@@ -541,7 +541,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
         // the scalar value of the base before it might have been overwritten.
         val baseType = scalars.getAsScalarValueWithNumToPtrCast(base).type()
 
-        scalars.analyze(locInst)
+        scalars.analyze(locInst, cfgInfo)
 
         if (scalars.isBottom()) {
             setToBottom()
@@ -553,7 +553,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
             } else {
                 val value = stmt.value
                 val valueType = scalars.getAsScalarValue(value).type()
-                ptaGraph.doStore(locInst, base, value, baseType, valueType)
+                ptaGraph.doStore(locInst, base, value, baseType, valueType, cfgInfo)
             }
         }
     }
@@ -566,7 +566,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
              it is SbfInstruction.Exit}
     }
 
-    private fun analyze(b: SbfBasicBlock, locInst: LocatedSbfInstruction) {
+    private fun analyze(b: SbfBasicBlock, locInst: LocatedSbfInstruction, cfgInfo: CFGInfo = CFGInfo()) {
         val inst = locInst.inst
         logger.dbg(locInst) { "$inst\n" }
         if (!isBottom()) {
@@ -588,7 +588,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
                 is SbfInstruction.Jump.ConditionalJump -> {}
                 is SbfInstruction.Assume -> analyzeAssume(locInst)
                 is SbfInstruction.Assert -> analyzeAssert(locInst)
-                is SbfInstruction.Mem -> analyzeMem(locInst)
+                is SbfInstruction.Mem -> analyzeMem(locInst, cfgInfo)
                 is SbfInstruction.Jump.UnconditionalJump -> {}
                 is SbfInstruction.Exit -> {}
                 is SbfInstruction.Debug -> {}
@@ -599,10 +599,9 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
 
     override fun analyze(
         b: SbfBasicBlock,
-        listener: InstructionListener<MemoryDomain<TNum, TOffset, Flags>>
+        listener: InstructionListener<MemoryDomain<TNum, TOffset, Flags>>,
+        cfgInfo: CFGInfo
     ): MemoryDomain<TNum, TOffset, Flags> {
-
-
         logger.dbg(b) { "=== Memory Domain analyzing ${b.getLabel()} ===\n$this\n" }
         if (listener is DefaultInstructionListener) {
             if (isBottom()) {
@@ -616,7 +615,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
 
             for (locInst in b.getLocatedInstructions()) {
                 out.checkConsistencyBetweenSubdomains("Before $locInst")
-                out.analyze(b, locInst)
+                out.analyze(b, locInst, cfgInfo)
                 if (out.isBottom()) {
                     break
                 }
@@ -631,7 +630,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
             for (locInst in b.getLocatedInstructions()) {
                 listener.instructionEventBefore(locInst, out)
                 out.checkConsistencyBetweenSubdomains("Before $locInst")
-                out.analyze(b, locInst)
+                out.analyze(b, locInst, cfgInfo)
                 listener.instructionEventAfter(locInst, out)
             }
             return out

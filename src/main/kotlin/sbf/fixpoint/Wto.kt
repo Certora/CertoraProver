@@ -246,6 +246,24 @@ class Wto(val cfg: SbfCFG) {
         return containingCycleMap[label] != null
     }
 
+    /**
+     * Return the labels of the innermost WTO cycle enclosing [label], transitively flattened
+     * across any nested sub-cycles. Returns `null` if [label] is not inside any cycle.
+     */
+    fun innermostCycleBlocks(label: Label): Set<Label>? {
+        val root = containingCycleMap[label] ?: return null
+        val acc = mutableSetOf<Label>()
+        val stack = ArrayDeque<WtoComponent>()
+        stack.addLast(root)
+        while (stack.isNotEmpty()) {
+            when (val c = stack.removeLast()) {
+                is WtoVertex -> acc.add(c.label)
+                is WtoCycle  -> c.getComponents().forEach { stack.addLast(it) }
+            }
+        }
+        return acc
+    }
+
     /** Return the set of cycles that contains label **/
     @Suppress("NAME_SHADOWING")
     fun nesting(label: Label): WtoNesting {

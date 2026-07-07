@@ -229,7 +229,7 @@ class ScalarBaseDomain<ScalarValue>(
             setToTop()
         } else {
             if (scratchRegisters.size != other.scratchRegisters.size) {
-                throw ScalarDomainError("joinOrWiden failed because disagreement on the number of scratch registers")
+                throw ScalarDomainError("joinOrWiden: scratch register count mismatch")
             }
 
             val outRegisters = ArrayList<ScalarValue>(NUM_OF_SBF_REGISTERS)
@@ -262,7 +262,7 @@ class ScalarBaseDomain<ScalarValue>(
             return false
         } else {
             if (scratchRegisters.size != other.scratchRegisters.size) {
-                throw ScalarDomainError("lessOrEqual failed because disagreement on the number of scratch registers")
+                throw ScalarDomainError("lessOrEqual: scratch register count mismatch")
             }
 
             registers.forEachIndexed { i, it ->
@@ -349,7 +349,7 @@ class ScalarBaseDomain<ScalarValue>(
 
     private fun popScratchReg(): ScalarValue {
         if (scratchRegisters.isEmpty()) {
-            throw ScalarDomainError("stack of scratch registers cannot be empty")
+            throw ScalarDomainError("scratch register stack is empty")
         }
 
         val lastIdx = scratchRegisters.lastIndex
@@ -393,7 +393,7 @@ class ScalarBaseDomain<ScalarValue>(
 
         val regsToRestore = SbfRegister.registersToSaveOrRestore
         if (scratchRegisters.size < regsToRestore.size) {
-            throw ScalarDomainError("The number of calls to save/restore scratch registers must match: $scratchRegisters")
+            throw ScalarDomainError("number of save/restore scratch register calls must match: $scratchRegisters")
         }
 
         // We pop r10-r6 even if the abstract state is top
@@ -581,7 +581,7 @@ class ScalarBaseDomain<ScalarValue>(
                         ?: throw UnknownMemcpyLenError(
                             DevErrorInfo(
                                 locInst, PtrExprErrReg(r3),
-                                "${stmt.name} on stack without knowing exact length: $lenType"
+                                "Scalar domain: statically unknown length in r3 ($lenType) at $stmt"
                             )
                         )
                 }
@@ -592,7 +592,7 @@ class ScalarBaseDomain<ScalarValue>(
                     DevErrorInfo(
                         locInst,
                         PtrExprErrReg(r1),
-                        "memcpy on stack without knowing destination offset"
+                        "Scalar domain: statically unknown stack offset in r1 (memcpy destination) at $stmt"
                     )
                 )
             }

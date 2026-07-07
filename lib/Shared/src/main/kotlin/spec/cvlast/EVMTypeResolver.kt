@@ -92,6 +92,12 @@ object EVMTypeResolver {
 
         val internalFuncContracts = mutableSetOf<String>()
 
+        // Records, per (typeSource, name), every (importingContractName, type) pair seen while iterating the scene.
+        // Only consulted for keys that actually conflict, to re-expose each definition qualified by the importing
+        // contract. Non-conflicting names are never touched, so no existing resolution behavior changes.
+        val occurrencesByKey = mutableMapOf<Pair<TypeSource, String>, MutableList<Pair<String, SolidityTypeDescription.UserDefined>>>()
+        val conflictedKeys = mutableSetOf<Pair<TypeSource, String>>()
+
         /**
          * Adds to [typeSource] the type [ty] under the name [nm], so in the spec file `contract.nm` will refer to type [ty]
          */
@@ -111,11 +117,13 @@ object EVMTypeResolver {
                 if(currCvl != cvl.resultOrNull()) {
                     CVLWarningLogger.generalWarning(
                         "Conflicting types with name ${(typeSource as? TypeSource.Contract)?.let { "$it." }.orEmpty()}$nm, " +
-                            "neither will be available within the spec"
+                            "neither will be available within the spec. Qualify by the originating contract instead " +
+                            "(e.g. `SomeContract.$nm`)."
                     )
                     ids[nm] = null
                     cvlImportedTypes[typeSource]?.remove(nm)
                     evmTypes[typeSource]?.remove(nm)
+                    conflictedKeys.add(typeSource to nm)
                     return
                 }
             }
@@ -153,11 +161,11 @@ object EVMTypeResolver {
                     // A user-defined type that's declared within some contract/library should be populated in the declaring contract.
                     // A top-level user-defined type needs to be populated in all contracts that have access to it (i.e. that
                     // don't shadow the top-level declaration).
-                    populateInContract(
-                        typeDesc.containingContract?.let { TypeSource.Contract(it) } ?: TypeSource.FileScope,
-                        typeDesc.userDeclaredName,
-                        typeDesc
-                    )
+                    val ts = typeDesc.containingContract?.let { TypeSource.Contract(it) } ?: TypeSource.FileScope
+                    // Remember which contract imported this type, so a later conflict can be disambiguated by it.
+                    occurrencesByKey.computeIfAbsent(ts to typeDesc.userDeclaredName) { mutableListOf() }
+                        .add(contr.src.name to typeDesc)
+                    populateInContract(ts, typeDesc.userDeclaredName, typeDesc)
                 }
             }
 
@@ -173,7 +181,19 @@ object EVMTypeResolver {
             }
         }
 
-
+        // Conflict-gated disambiguation: a name is only reachable here if it had conflicting definitions across
+        // contracts and was therefore purged above (so it is already unavailable unqualified). For each such name,
+        // re-expose every definition under the (real) contract that imported it, keyed by the bare type name, so a
+        // spec can write `ImportingContract.Rounding` to select a specific definition. Names that did not conflict
+        // are absent from `conflictedKeys`, so this is purely additive and changes no existing resolution.
+        conflictedKeys.toList().forEach { (typeSource, nm) ->
+            val declaringScope = (typeSource as? TypeSource.Contract)?.contract
+            occurrencesByKey[typeSource to nm]?.forEach { (importingContract, ty) ->
+                if (importingContract != declaringScope) {
+                    populateInContract(TypeSource.Contract(importingContract), nm, ty)
+                }
+            }
+        }
 
         class EVMResolver(val contracts: Set<SolidityContract>) : AbstractTypeResolver() {
             override val factory: VMDescriptorFactory
@@ -250,7 +270,17 @@ object EVMTypeResolver {
                         } else if (evmTypes[TypeSource.FileScope]?.get(id) != null) {
                             "Top level type $id is not valid in spec context".asError()
                         } else {
-                            "Type $_contract.$id is not a valid type".asError()
+                            // The name may be unavailable because it conflicted across contracts and was purged;
+                            // in that case it is re-exposed under each importing contract, so point the user there.
+                            val candidates = cvlImportedTypes.entries.filter { (c, t) ->
+                                c is TypeSource.Contract && t.keys.contains(id)
+                            }.map { (c, _) -> "$c.$id" }
+                            if (candidates.isNotEmpty()) {
+                                "Type $_contract.$id is not a valid type. Did you mean " +
+                                    "`${candidates.joinToString(separator = "`, or `")}`?"
+                            } else {
+                                "Type $_contract.$id is not a valid type"
+                            }.asError()
                         }
                     }
                 }

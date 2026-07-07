@@ -24,8 +24,12 @@ import analysis.ip.*
 import analysis.worklist.StepResult
 import analysis.worklist.VisitingWorklistIteration
 import com.certora.collect.*
+import config.Config
 import datastructures.stdcollections.*
 import log.*
+import report.CVTAlertReporter
+import report.CVTAlertSeverity
+import report.CVTAlertType
 import spec.cvlast.QualifiedMethodSignature
 import tac.MetaKey
 import tac.NBId
@@ -139,20 +143,34 @@ abstract class GenericInternalSummarizer<K, S,
     }
 
     /**
-     * A node corresponding to an inlined callee, which can have direct [callees] and explicit summaries that appear
-     * within its body [explicitSummaries]. The [id] is same that is used for
-     * [NodeType.InlinedCall], and is the value of the [InternalFunctionStartAnnot.id]
-     * field that generated this.
+     * A node corresponding to an inlined callee. The [id] is the same that is used for [NodeType.InlinedCall], and
+     * is the value of the [InternalFunctionStartAnnot.id] field that generated this. [Resolved] is the normal case,
+     * where the function's own end annotation was found while walking its body. [Unresolved] is when the walk
+     * instead reached an *enclosing* function's exit, so this function's own exit — and thus where its body ends —
+     * could not be located.
      */
-    private data class FunctionNode<K, S>(
-        override val specCallSummToInternalSummSig: SummarySelection<K, S>?,
-        override val where: CmdPointer,
-        val explicitSummaries: Set<NodeType.ExplicitSummary>,
-        val callees: Set<Int>,
-        val id: Int
-    ) : StaticEntry<K, S>() {
+    private sealed class FunctionNode<K, S> : StaticEntry<K, S>() {
+        abstract val id: Int
         override val entryType: NodeType
             get() = NodeType.InlinedCall(id)
+
+        /**
+         * [callees] are the immediate callees appearing in the body, and [explicitSummaries] the explicit internal
+         * call summaries appearing directly in it.
+         */
+        data class Resolved<K, S>(
+            override val specCallSummToInternalSummSig: SummarySelection<K, S>?,
+            override val where: CmdPointer,
+            val explicitSummaries: Set<NodeType.ExplicitSummary>,
+            val callees: Set<Int>,
+            override val id: Int
+        ) : FunctionNode<K, S>()
+
+        data class Unresolved<K, S>(
+            override val specCallSummToInternalSummSig: SummarySelection<K, S>?,
+            override val where: CmdPointer,
+            override val id: Int
+        ) : FunctionNode<K, S>()
     }
 
 
@@ -167,6 +185,20 @@ abstract class GenericInternalSummarizer<K, S,
     ) : StaticEntry<K, S>() {
         override val entryType: NodeType
             get() = NodeType.ExplicitSummary(summaryLocation = where)
+    }
+
+    /**
+     * The outcome of walking an internal function's body. [Located] has its immediate [Located.callees] and the
+     * explicit summaries [Located.explicitSummaries] appearing directly in it. [ExitNotLocated] is when the walk
+     * reached an enclosing function's exit before the function's own, so its boundary could not be located.
+     */
+    private sealed class InternalFunctionBody {
+        data class Located(
+            val callees: Set<Int>,
+            val explicitSummaries: Set<NodeType.ExplicitSummary>
+        ) : InternalFunctionBody()
+
+        object ExitNotLocated : InternalFunctionBody()
     }
 
     /**
@@ -235,6 +267,22 @@ abstract class GenericInternalSummarizer<K, S,
         }
 
         /**
+         * The start commands of each internal function, keyed by id. A single id can have several starts: the
+         * same function is inlined once per call site, and additional copies appear when a caller into which it
+         * is inlined is itself inlined at multiple sites. Used to decide whether a function whose exit we
+         * encounter while walking another function's body is an *enclosing* function (one of its starts
+         * dominates ours) — which happens when a callee tail-fuses its return into its caller under via-IR.
+         */
+        val startById = code.parallelLtacStream().mapNotNull { lc ->
+            lc.toFuncStart()?.let { it.id to lc }
+        }.toList().groupBy({ it.first }, { it.second })
+        // Pull these out of the analysis cache here: lazily initializing the cache from inside the parallel
+        // stream below interacts badly with the Java parallel-streaming machinery.
+        val dom = code.analysisCache.domination
+        val graph = code.analysisCache.graph
+        val reachability = code.analysisCache.reachability
+
+        /**
          * Find all function starts and explicit internal call summaries.
          */
         code.parallelLtacStream().filter {
@@ -268,8 +316,10 @@ abstract class GenericInternalSummarizer<K, S,
              */
             val currentCallIdx = it.ptr.block.calleeIdx
             val currStart = it.maybeAnnotation(startMeta)!!
-            val (immediateCallees, inlinedSummaries) = object : VisitingWorklistIteration<CmdPointer, NodeType, Pair<Set<Int>, Set<NodeType.ExplicitSummary>>>() {
-                override fun process(it: CmdPointer): StepResult<CmdPointer, NodeType, Pair<Set<Int>, Set<NodeType.ExplicitSummary>>> {
+            val currStartBlock = it.ptr.block
+            val currStartExits = exitFinder.getExits(currStart.id, it.ptr)
+            val body = object : VisitingWorklistIteration<CmdPointer, NodeType, InternalFunctionBody>() {
+                override fun process(it: CmdPointer): StepResult<CmdPointer, NodeType, InternalFunctionBody> {
                     val lc = code.analysisCache.graph.elab(it)
                     val start = lc.maybeAnnotation(startMeta)
                     val end = lc.maybeAnnotation(endMeta)
@@ -298,8 +348,33 @@ abstract class GenericInternalSummarizer<K, S,
                         )) {
                             return this.cont(listOf())
                         }
+                        /*
+                         * A function's return can be fused into an enclosing function's (e.g. a body that is
+                         * `return inner()`), so on that path it has no exit annotation of its own and the walk
+                         * reaches the *enclosing* function's exit. That is a valid boundary, not an incoherent
+                         * graph, when:
+                         *   (a) end's function encloses currStart — its start dominates currStart's start; and
+                         *   (b) none of currStart's own exits are reachable from this exit point, i.e. currStart
+                         *       does not continue past it (this rejects improperly-nested regions such as
+                         *       enter A, enter B, exit A, exit B, where B's exit is reachable from A's exit).
+                         * A sibling/unrelated function's end fails (a) and still hits the strict check below.
+                         */
+                        if (currStart.id != end.id) {
+                            val enclosesCurrStart = startById[end.id].orEmpty().any { enclosingStart ->
+                                dom.dominates(enclosingStart.ptr.block, currStartBlock)
+                            }
+                            val currStartContinuesPast = currStartExits.any { exit ->
+                                exit.ptr.block in reachability[lc.ptr.block].orEmpty()
+                            }
+                            if (enclosesCurrStart && !currStartContinuesPast) {
+                                return halt(InternalFunctionBody.ExitNotLocated)
+                            }
+                        }
                         check(currStart.id == end.id) {
-                            "Incoherent graph, hit ${end.id} @ $it, expecting to find end for $currStart"
+                            val hitStarts = startById[end.id].orEmpty().mapNotNull { it.toFuncStart() }
+                            val blockEndIds = graph.elab(lc.ptr.block).commands
+                                .mapNotNull { c -> c.maybeAnnotation(endMeta)?.id }
+                            "Incoherent graph, hit ${end.id} (starts: $hitStarts) @ $it; end-ids in block: $blockEndIds; expecting to find end for $currStart"
                         }
                         return this.cont(listOf())
                     } else if(lc.cmd is TACCmd.Simple.SummaryCmd && lc.cmd.summ is InternalCallSummary) {
@@ -316,7 +391,7 @@ abstract class GenericInternalSummarizer<K, S,
                     }
                 }
 
-                override fun reduce(results: List<NodeType>): Pair<Set<Int>, Set<NodeType.ExplicitSummary>> {
+                override fun reduce(results: List<NodeType>): InternalFunctionBody {
                     val inlinedCallees = mutableSetOf<Int>()
                     val explicitSummaries =
                         mutableSetOf<NodeType.ExplicitSummary>()
@@ -326,19 +401,23 @@ abstract class GenericInternalSummarizer<K, S,
                             is NodeType.InlinedCall -> inlinedCallees.add(r.id)
                         }
                     }
-                    return inlinedCallees to explicitSummaries
+                    return InternalFunctionBody.Located(inlinedCallees, explicitSummaries)
                 }
             }.submit(code.analysisCache.graph.succ(it.ptr))
-            /**
-             * Return a node that captures the summary information, immediate callees, and the explicit summaries.
-             */
-            FunctionNode(
-                id = currStart.id,
-                callees = immediateCallees,
-                explicitSummaries = inlinedSummaries,
-                specCallSummToInternalSummSig = specCallSummToInternalSummSig,
-                where = it.ptr
-            )
+            when (body) {
+                is InternalFunctionBody.Located -> FunctionNode.Resolved(
+                    specCallSummToInternalSummSig = specCallSummToInternalSummSig,
+                    where = it.ptr,
+                    explicitSummaries = body.explicitSummaries,
+                    callees = body.callees,
+                    id = currStart.id
+                )
+                InternalFunctionBody.ExitNotLocated -> FunctionNode.Unresolved(
+                    specCallSummToInternalSummSig = specCallSummToInternalSummSig,
+                    where = it.ptr,
+                    id = currStart.id
+                )
+            }
         }.sequential().forEach { ent ->
             /**
              * Record that, at ent.where, we have a summary to apply of the given type. Note that this summary
@@ -346,17 +425,21 @@ abstract class GenericInternalSummarizer<K, S,
              */
             if (ent.specCallSummToInternalSummSig != null && !alreadyHandled(
                     ent.specCallSummToInternalSummSig!!,
-                    code.analysisCache.graph.elab(ent.where)
+                    graph.elab(ent.where)
                 )) {
-                toSummarize[ent.where] = SummaryPayload(
-                    ent.entryType,
-                    ent.specCallSummToInternalSummSig!!
-                )
+                if (ent is FunctionNode.Unresolved) {
+                    reportUnresolvedExitSummary(graph.elab(ent.where).toFuncStart()!!)
+                } else {
+                    toSummarize[ent.where] = SummaryPayload(
+                        ent.entryType,
+                        ent.specCallSummToInternalSummSig!!
+                    )
+                }
             }
             /**
              * Update our global graph of "function nodes" to callees and explicit summaries
              */
-            if(ent is FunctionNode) {
+            if(ent is FunctionNode.Resolved) {
                 callRelation[ent.id] = ent.callees
                 containsSummary[ent.id] = ent.explicitSummaries
             }
@@ -433,6 +516,34 @@ abstract class GenericInternalSummarizer<K, S,
             it(this)
         }
         return summarizeInternalFunctionLoop(intermediateCode, true)
+    }
+
+    /** Ids of internal functions for which an unresolved-exit summary has already been reported. */
+    private val reportedUnresolvedExitSummaries = mutableSetOf<Int>()
+
+    /**
+     * Handle a summary requested for the internal function [funcStart] whose exit could not be located (see
+     * [FunctionNode.Unresolved]). Fails the run under [Config.ErrorOnUnlocatableInternalFunctionBoundary],
+     * otherwise reports a warning (once per function) and leaves the function un-summarized.
+     */
+    private fun reportUnresolvedExitSummary(funcStart: START) {
+        val message = "A summary was requested for the internal function `${funcStart.which}`, but its exit " +
+            "could not be located, so its extent is unknown and it cannot be summarized."
+        fun report(severity: CVTAlertSeverity) = CVTAlertReporter.reportAlert(
+            type = CVTAlertType.SUMMARIZATION,
+            severity = severity,
+            jumpToDefinition = null,
+            message = message,
+            hint = null,
+        )
+        if (Config.ErrorOnUnlocatableInternalFunctionBoundary.get()) {
+            report(CVTAlertSeverity.ERROR)
+            throw IllegalStateException(message)
+        }
+        // Report once per function.
+        if (reportedUnresolvedExitSummaries.add(funcStart.id)) {
+            report(CVTAlertSeverity.WARNING)
+        }
     }
 
     /**

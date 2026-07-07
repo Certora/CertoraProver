@@ -3021,6 +3021,7 @@ class BufferTraceInstrumentation private constructor(
             patcher.addVarDecls(iv.allVars.toSet())
         }
         patcher.addVarDecls(globalStateVars.toSet())
+        patcher.addVarDecl(TACKeyword.MEMORY.toVar())
 
 
         val withInst = patcher.toCode(code)

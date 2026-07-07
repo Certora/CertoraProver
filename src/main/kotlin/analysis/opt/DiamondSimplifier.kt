@@ -149,6 +149,7 @@ object DiamondSimplifier {
                         when (it.cmd.disposition()) {
                             NON_MERGEABLE -> true
                             DESTRUCTIVELY_MERGEABLE_ANNOT -> !destructive
+                            MERGEABLE_ASSUME -> !allowAssumes
                             MERGEABLE -> true
                             IRRELEVANT -> false
                         }
@@ -180,6 +181,7 @@ object DiamondSimplifier {
                                 }
                             }
                             DESTRUCTIVELY_MERGEABLE_ANNOT -> if (!destructive) { nonMergeableAnnotations.add(lcmd) }
+                            MERGEABLE_ASSUME -> if (!allowAssumes) { return@diamond null }
                             MERGEABLE -> {}
                             IRRELEVANT -> return@command
                         }
@@ -327,8 +329,10 @@ object DiamondSimplifier {
     private enum class CommandDisposition(val precedence: Int) {
         /** May have effects that cannot be merged */
         NON_MERGEABLE(0),
-        /** May have effects that cannot be merged, unless desrtuctive optimizations are enabled */
+        /** May have effects that cannot be merged, unless desrtuctive optimizations are enabled (not used for expressions) */
         DESTRUCTIVELY_MERGEABLE_ANNOT(1),
+        /** May have effects that cannot be merged, unless assumes are mergeable (only used for expressions) */
+        MERGEABLE_ASSUME(1),
         /** Has effects that we know how to merge */
         MERGEABLE(2),
         /** Does not have any interesting effects; may be merged, and doesn't count toward overall command count. */
@@ -379,7 +383,7 @@ object DiamondSimplifier {
                     is TACBuiltInFunction.TwosComplement.Unwrap -> MERGEABLE
                     is TACBuiltInFunction.SafeMathPromotion -> MERGEABLE
                     is TACBuiltInFunction.SafeMathNarrow.Implicit -> NON_MERGEABLE
-                    is TACBuiltInFunction.SafeMathNarrow.Assuming -> MERGEABLE
+                    is TACBuiltInFunction.SafeMathNarrow.Assuming -> MERGEABLE_ASSUME
                     is TACBuiltInFunction.SignedPromotion -> MERGEABLE
                     is TACBuiltInFunction.UnsignedPromotion -> MERGEABLE
                     is TACBuiltInFunction.SafeSignedNarrow -> NON_MERGEABLE
