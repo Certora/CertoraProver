@@ -1107,7 +1107,18 @@ object FunctionFlowAnnotator {
             c, source, w, handledStarts, toAnnotateAsHandled
         ))
 
+        // Primary and fallback (alternativeAnalysis) detection can both resolve the same internal function;
+        // the fallback's dedup on the source-hint pointer does not catch every such overlap. Two start
+        // annotations for the same function (same signature) at the same command are that duplicate, so keep
+        // only the first — emitting both produces overlapping start/exit pairs whose exits collide in a shared
+        // block, which the internal-function summarizer rejects as an incoherent graph. Distinct functions that
+        // happen to start at the same command (e.g. a tail-jump into a callee of a callee) differ in signature
+        // and are both kept.
+        val annotatedStarts = mutableSetOf<Pair<CmdPointer, QualifiedMethodSignature>>()
         for(toInst in toInstrument) {
+            if(!annotatedStarts.add(toInst.entryAnnot.first to toInst.entryAnnot.second.methodSignature)) {
+                continue
+            }
             toPrefix.computeIfAbsent(toInst.entryAnnot.first) {
                 mutableListOf()
             }.addAll(listOfNotNull(

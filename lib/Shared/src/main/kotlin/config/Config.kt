@@ -190,6 +190,17 @@ object Config {
         pythonName = "--auto_dispatcher"
     ) {}
 
+    val ErrorOnUnlocatableInternalFunctionBoundary = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "errorOnUnlocatableInternalFunctionBoundary",
+            true,
+            "When a requested summary targets an internal function whose boundary cannot be located (e.g. its " +
+                "return was fused into a caller under via-IR), fail the run instead of skipping the summary with " +
+                "a warning [default: false]"
+        )
+    ) {}
+
     val SourceFilesInCallResolution: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
         false,
         Option(
