@@ -39,6 +39,7 @@ import analysis.storage.StorageAnalysisResult.NonIndexedPath
 import datastructures.*
 import datastructures.stdcollections.*
 import evm.EVM_BITWIDTH256
+import evm.EVM_BYTE_SIZE
 import log.*
 import scene.ContractId
 import scene.ITACMethod
@@ -910,11 +911,13 @@ class SplitRewriter(
                 // is checked to be still valid at that point via `checkQuery` of `PackedArrayRewriter`.
                 UnfolderResult(info[LOGICAL_INDEX]!!.symbol.asSym(), listOf())
             } else {
-                // This happens for static arrays only (as far as I've noticed), and even then it is rare.
+                // This happens for static arrays only (as far as I've noticed), one example is when it fits
+                // in a single slot, and the physical index folds to the constant 0.
+                val elementSizeInBytes = info[BITWIDTH]!! / EVM_BYTE_SIZE.toInt()
                 unfoldToSingleVar("logicalIndex", TACExprFactUntyped {
                     Add(
                         Mul(cmd.indexOfArrayAccess!!.asSym(), info[PER_SLOT]!!.asTACExpr),
-                        info.lhs(INDEX_WITHIN_SLOT_CMD).asSym()
+                        Div(info.lhs(FIRST_BYTE_WITHIN_SLOT_CMD).asSym(), elementSizeInBytes.asTACExpr)
                     )
                 })
             }

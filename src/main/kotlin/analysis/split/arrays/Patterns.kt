@@ -87,7 +87,7 @@ class Patterns(splitContext: SplitContext) {
                         .onlyIf { get(PER_SLOT_MINUS1)!!.toBigInteger().isPowOf2Minus1 }
                         .andDo { set(PER_SLOT, get(PER_SLOT_MINUS1)!! + 1) },
                 )
-            ).lastCmd(INDEX_WITHIN_SLOT_CMD)
+            ).lastCmd(FIRST_BYTE_WITHIN_SLOT_CMD)
 
             val startBit = c(256) exp startByte
 
@@ -180,7 +180,7 @@ sealed class PackingInfoKey<K> : InfoKey<K>() {
     data object BOOL_VALUE_CMD : PackingInfoKey<LTACCmd>()
     data object BYTES_SHIFT : PackingInfoKey<Int>()
     data object MUL_SHIFT : PackingInfoKey<BigInteger>()
-    data object INDEX_WITHIN_SLOT_CMD : PackingInfoKey<LTACCmd>()
+    data object FIRST_BYTE_WITHIN_SLOT_CMD : PackingInfoKey<LTACCmd>()
     data object SIGN_EXTEND: InfoKey<Int>()
 }
 

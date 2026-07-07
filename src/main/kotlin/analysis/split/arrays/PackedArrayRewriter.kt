@@ -345,11 +345,11 @@ class PackedArrayRewriter(private val cx: SplitContext) {
                 LOGICAL_INDEX2,
             ) && assignmentStillHolds(
                 PHYSICAL_INDEX_CMD,
-                INDEX_WITHIN_SLOT_CMD,
+                FIRST_BYTE_WITHIN_SLOT_CMD,
                 READ_CMD,
                 VALUE_CMD,
                 BOOL_VALUE_CMD,
-                INDEX_WITHIN_SLOT_CMD
+                FIRST_BYTE_WITHIN_SLOT_CMD
             ) && // these two should be the same variable (but only if LOGICAL_INDEX2 actually exists)
                 (info[LOGICAL_INDEX2]?.let { it.symbol == info[LOGICAL_INDEX]!!.symbol } ?: true)
             ).also {
