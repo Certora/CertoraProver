@@ -220,6 +220,11 @@ class SimpleCanonicalization private constructor(
         infix fun equivTo(other: CanonicalProgram) : Boolean {
             return code.blockgraph == other.code.blockgraph && code.code == other.code.code
         }
+
+        fun mergeDecls(vars: Set<TACSymbol.Var>) = CanonicalProgram(
+            code = code.copy(symbolTable = code.symbolTable.mergeDecls(vars)),
+            variableMapping = variableMapping
+        )
     }
 
     private fun Int.toBlock() = BlockIdentifier(

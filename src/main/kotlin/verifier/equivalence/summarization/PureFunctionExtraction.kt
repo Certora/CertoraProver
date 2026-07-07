@@ -477,17 +477,18 @@ object PureFunctionExtraction {
         }
         val mca = prog.analysisCache[MustBeConstantAnalysis]
 
+        var newVars = treapSetOf<TACSymbol.Var>()
         val argSyms = startArgs.mapIndexed { idx, internalArg ->
             when (internalArg) {
                 is TACSymbol.Const -> internalArg
                 is TACSymbol.Var -> {
                     canon.variableMapping(internalArg) ?: mca.mustBeConstantAt(
                         start, internalArg
-                    )?.asTACSymbol() ?: TACSymbol.Var("certora!Unused$idx", Tag.Bit256)
+                    )?.asTACSymbol() ?: TACSymbol.Var("certora!Unused$idx", Tag.Bit256).also { newVars += it }
                 }
             }
         }
-        return mk(canon, argSyms, exitVars)
+        return mk(canon.mergeDecls(newVars), argSyms, exitVars)
     }
 
     /**
