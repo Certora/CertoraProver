@@ -20,19 +20,40 @@ package analysis.opt
 import analysis.LTACSymbol
 import analysis.opt.PatternRewriter.Key.*
 import analysis.opt.intervals.IntervalsRewriter.Companion.NON_ZERO_META
-import analysis.opt.intervals.IntervalsRewriter.Companion.isSurelyNonZero
+import analysis.opt.intervals.IntervalsRewriter.Companion.isSurelyPos
 import analysis.patterns.Info
 import analysis.patterns.get
 import config.Config
 import utils.*
 import vc.data.TACExpr
+import vc.data.TACSymbol
 import vc.data.asTACExpr
 import vc.data.tacexprutil.isConst
 import vc.data.tacexprutil.isVar
+import java.math.BigInteger
 
 
-private fun Info.isNonZero(key: PatternRewriter.Key<LTACSymbol>): Boolean =
-    this[key]!!.symbol.isSurelyNonZero()
+/**
+ * The div-comparison rewrites are only sound for a strictly positive divisor (for a negative [IntDiv]
+ * divisor the inequality direction would flip). Since the rewrites are restricted to constant divisors,
+ * positivity is a direct check on the constant's value; variable divisors are not rewritten.
+ */
+private fun Info.isPositiveConst(key: PatternRewriter.Key<LTACSymbol>): Boolean =
+    when (val sym = this[key]!!.symbol) {
+        is TACSymbol.Const -> sym.value > BigInteger.ZERO
+        is TACSymbol.Var -> false
+    }
+
+/**
+ * Like [isPositiveConst], but also accepts a variable divisor that [analysis.opt.intervals.IntervalsRewriter]
+ * has proven to be strictly positive. Used by divEq, which (unlike the inequality patterns) may rewrite a
+ * variable divisor when purify-division is enabled.
+ */
+private fun Info.isPositive(key: PatternRewriter.Key<LTACSymbol>): Boolean =
+    when (val sym = this[key]!!.symbol) {
+        is TACSymbol.Const -> sym.value > BigInteger.ZERO
+        is TACSymbol.Var -> sym.isSurelyPos()
+    }
 
 
 /**
@@ -41,11 +62,16 @@ private fun Info.isNonZero(key: PatternRewriter.Key<LTACSymbol>): Boolean =
  *
  * Note that the 5 div rewrite patterns rely on [Config.Smt.UseBV] being false, because if we use a 256 bit
  * bitvector representation, the multiplication may overflow, making these patterns wrong.
+ *
+ * The four inequality patterns only fire for a positive constant divisor (see [isPositiveConst]): a positive
+ * divisor keeps the inequality direction correct for both `Div` and `IntDiv`, and a constant divisor turns the
+ * resulting multiplication into the linear `const·C`. For a variable divisor the rewrite merely trades one
+ * nonlinear form (`Div`) for another (`var·var`), and empirically it seems to not help.
  */
 fun PatternRewriter.postIntervalsRewriterPatternList() = listOfNotNull(
 
     /**
-     * `A / B < C`  ~~>  `A < B·C`     (when B != 0)
+     * `A / B < C`  ~~>  `A < B·C`     (when B is a positive constant)
      * Multiplication is in the integer domain so it can't overflow.
      */
     patternOnlyIf(
@@ -55,7 +81,7 @@ fun PatternRewriter.postIntervalsRewriterPatternList() = listOfNotNull(
             maybeNarrow(lSym(A) bothDivs lSym(B)) lt lSym(C)
         },
         handle = {
-            runIf(info.isNonZero(B)) {
+            runIf(info.isPositiveConst(B)) {
                 Lt(sym(A), IntMul(sym(B), sym(C)))
             }
         },
@@ -63,7 +89,7 @@ fun PatternRewriter.postIntervalsRewriterPatternList() = listOfNotNull(
     ),
 
     /**
-     * `A / B <= C`  ~~>  `A < B·(C+1)`     (when B != 0)
+     * `A / B <= C`  ~~>  `A < B·(C+1)`     (when B is a positive constant)
      */
     patternOnlyIf(
         cond = !Config.Smt.UseBV.get(),
@@ -72,7 +98,7 @@ fun PatternRewriter.postIntervalsRewriterPatternList() = listOfNotNull(
             maybeNarrow(lSym(A) bothDivs lSym(B)) le lSym(C)
         },
         handle = {
-            runIf(info.isNonZero(B)) {
+            runIf(info.isPositiveConst(B)) {
                 Lt(sym(A), IntMul(sym(B), IntAdd(sym(C), 1.asTACExpr)))
             }
         },
@@ -80,7 +106,7 @@ fun PatternRewriter.postIntervalsRewriterPatternList() = listOfNotNull(
     ),
 
     /**
-     * `A / B > C`  ~~>  `A >= B·(C+1)`     (when B != 0)
+     * `A / B > C`  ~~>  `A >= B·(C+1)`     (when B is a positive constant)
      */
     patternOnlyIf(
         cond = !Config.Smt.UseBV.get(),
@@ -89,7 +115,7 @@ fun PatternRewriter.postIntervalsRewriterPatternList() = listOfNotNull(
             maybeNarrow(lSym(A) bothDivs lSym(B)) gt lSym(C)
         },
         handle = {
-            runIf(info.isNonZero(B)) {
+            runIf(info.isPositiveConst(B)) {
                 Ge(sym(A), IntMul(sym(B), IntAdd(sym(C), 1.asTACExpr)))
             }
         },
@@ -97,7 +123,7 @@ fun PatternRewriter.postIntervalsRewriterPatternList() = listOfNotNull(
     ),
 
     /**
-     * `A / B >= C`  ~~>  `A >= B·C`     (when B != 0)
+     * `A / B >= C`  ~~>  `A >= B·C`     (when B is a positive constant)
      */
     patternOnlyIf(
         cond = !Config.Smt.UseBV.get(),
@@ -106,7 +132,7 @@ fun PatternRewriter.postIntervalsRewriterPatternList() = listOfNotNull(
             maybeNarrow(lSym(A) bothDivs lSym(B)) ge lSym(C)
         },
         handle = {
-            runIf(info.isNonZero(B)) {
+            runIf(info.isPositiveConst(B)) {
                 Ge(sym(A), IntMul(sym(B), sym(C)))
             }
         },
@@ -114,7 +140,12 @@ fun PatternRewriter.postIntervalsRewriterPatternList() = listOfNotNull(
     ),
 
     /**
-     * `A / B == C`  ~~>  `B·C <= A < B·(C+1)`     (when B != 0)
+     * `A / B == C`  ~~>  `B·C <= A < B·(C+1)`     (when B is positive)
+     *
+     * Like the inequality patterns above, the bracketing only holds for a positive divisor, so this is gated on
+     * [isPositive]. But unlike them it is additionally gated behind the (default-false) purify-division flags,
+     * and it may fire for a variable divisor: with [Config.PurifyConstDivisions] for a positive constant divisor,
+     * and with [Config.PurifyDivisions] also for a variable divisor proven positive.
      */
     patternOnlyIf(
         cond = !Config.Smt.UseBV.get() && (Config.PurifyDivisions.get() || Config.PurifyConstDivisions.get()),
@@ -123,7 +154,7 @@ fun PatternRewriter.postIntervalsRewriterPatternList() = listOfNotNull(
             maybeNarrow(lSym(A) bothDivs lSym(B)) eq lSym(C)
         },
         handle = {
-            runIf(info.isNonZero(B) &&
+            runIf(info.isPositive(B) &&
                 ((Config.PurifyDivisions.get() && sym(B).isVar) ||
                 (Config.PurifyConstDivisions.get() && sym(B).isConst))
             ) {
