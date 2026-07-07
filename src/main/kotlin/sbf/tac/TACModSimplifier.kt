@@ -281,28 +281,29 @@ object TACModSimplifier {
             }
         }
 
-        // Find assignments of the form: `lhs := loc.mod(2^64)`, where `lhs` and `loc` are pointers according to the
-        // above analysis, and annotate `loc` to indicate that it cannot have overflowed.
+        // Find assignments of the form: `a := b.mod(2^64)`, where `a` is a pointer according to the above analysis, and
+        // annotate `b` to indicate that it cannot have overflowed.
         return code.parallelLtacStream().mapNotNull { (ptr, cmd) ->
+            // Look for `a := b.mod(2^64)`
             if (cmd !is TACCmd.Simple.AssigningCmd.AssignExpCmd) { return@mapNotNull null }
             if (cmd.rhs !is TACExpr.BinOp.Mod) { return@mapNotNull null }
             if (cmd.rhs.o2 !is TACExpr.Sym) { return@mapNotNull null }
             if (mbc.mustBeConstantAt(ptr, cmd.rhs.o2.s) != modz64.modulus) { return@mapNotNull null }
-            val loc = cmd.rhs.o1 as? TACExpr.Sym.Var ?: return@mapNotNull null
-            if (loc.s !in ptrAnalysis.cmdOut[ptr].orEmpty()) { return@mapNotNull null }
-            if (cmd.lhs in ptrAnalysis.cmdIn[ptr].orEmpty()) { return@mapNotNull null }
 
-            // Check if this pointer value is already annotated
-            val locDef = def.defSitesOf(loc.s, ptr).singleOrNull() ?: return@mapNotNull null
+            // Check if `a` is a pointer
+            val a = cmd.lhs
+            if (a !in ptrAnalysis.cmdIn[ptr].orEmpty()) { return@mapNotNull null }
+
+            // Check if `b` is already annotated
+            val b = cmd.rhs.o1 as? TACExpr.Sym.Var ?: return@mapNotNull null
+            val locDef = def.defSitesOf(b.s, ptr).singleOrNull() ?: return@mapNotNull null
             val locDefCmd = graph.toCommand(locDef) as? TACCmd.Simple.AssigningCmd.AssignExpCmd ?: return@mapNotNull null
             if (locDefCmd.rhs is TACExpr.AnnotationExp<*>) { return@mapNotNull null }
 
-            // `loc.mod(2^64) ~~> loc.cannotOverflow64().mod(2^64)
+            // Rewrite `b.mod(2^64) ~~> b.cannotOverflow64().mod(2^64)
             ptr to TXF {
-                cmd.rhs.o1
-                    .annotated(CANNOT_OVERFLOW_64_REASON, "inferred pointer")
-                    .mod(cmd.rhs.o2)
-            }.let { ExprUnfolder.unfoldTo(it, cmd.lhs, cmd.meta) }
+                b.annotated(CANNOT_OVERFLOW_64_REASON, "inferred pointer").mod(modz64.modulus.asTACExpr)
+            }.let { ExprUnfolder.unfoldTo(it, a, cmd.meta) }
         }.patchForEach(code) { (ptr, cmds) -> replaceCommand(ptr, cmds) }
     }
 
