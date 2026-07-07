@@ -39,9 +39,9 @@ fun removeMemmove(cfg: MutableSbfCFG) {
     }
     if (replacedInstructions.isNotEmpty()) {
         sbfLogger.warn {
-            "Unsupported intrinsic — memmove modeled as memcpy. If source\n" +
-            "and destination regions overlap, verification results cannot be\n" +
-            "trusted. Ensure regions are non-overlapping or treat results with\n" +
+            "Unsupported intrinsic — memmove modeled as memcpy. If source " +
+            "and destination regions overlap, verification results cannot be " +
+            "trusted. Ensure regions are non-overlapping or treat results with " +
             "caution.\n" +
             "Replaced instructions:\n" +
             replacedInstructions.joinToString("\n") { "  $it" }

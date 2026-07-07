@@ -23,6 +23,7 @@ import sbf.disassembler.Label
 import sbf.cfg.SbfCFG
 import sbf.cfg.Value
 import sbf.domains.AbstractDomain
+import sbf.domains.CFGInfo
 import sbf.domains.InstructionListener
 import sbf.domains.MutableAbstractDomain
 import sbf.sbfLogger
@@ -119,7 +120,8 @@ open class FixpointSolverOperations<T>(
         block: SbfBasicBlock,
         inState: T,
         outMap: MutableMap<Label, T>,
-        deadMap: Map<Label,LiveRegisters>?
+        deadMap: Map<Label,LiveRegisters>?,
+        cfgInfo: CFGInfo
     ) {
 
         if (debugFixpo) {
@@ -135,7 +137,7 @@ open class FixpointSolverOperations<T>(
         }
 
         val outState = deadVariablePruner(
-            inState.analyze(block),
+            inState.analyze(block, cfgInfo = cfgInfo),
             block.getLabel(),
             deadMap
         )

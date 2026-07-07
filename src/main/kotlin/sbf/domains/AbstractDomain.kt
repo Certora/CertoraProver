@@ -83,10 +83,13 @@ interface AbstractDomain<T> {
      *
      * @param b The basic block to analyze
      * @param listener Callback for instruction processing events
+     * @param cfgInfo CFG-level facts about [b] (e.g. enclosing loop). Defaults to an empty
+     *        [CFGInfo] so callers that do not run inside a fixpoint solver do not need to supply it.
      */
     fun analyze(
         b: SbfBasicBlock,
-        listener: InstructionListener<T> = DefaultInstructionListener()
+        listener: InstructionListener<T> = DefaultInstructionListener(),
+        cfgInfo: CFGInfo = CFGInfo()
     ): T
 
     /**
@@ -119,6 +122,20 @@ interface MutableAbstractDomain<T>: AbstractDomain<T> {
 data class GlobalState(
     val globals: GlobalVariables,
     val memSummaries: MemorySummaries
+)
+
+/**
+ * CFG-level facts propagated through the fixpoint solver into transfer functions.
+ *
+ * Holds structural information about the CFG currently being analyzed that transfer functions
+ * may wish to consult (e.g. whether the block is inside a loop).
+ */
+data class CFGInfo(
+    /**
+     * Labels of the innermost WTO cycle enclosing the block (transitively flattened across
+     * nested sub-cycles), or null if the block is not inside any loop.
+     */
+    val enclosingLoop: Set<Label>? = null,
 )
 
 /**

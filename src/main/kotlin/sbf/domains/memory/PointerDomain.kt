@@ -1712,7 +1712,7 @@ class HeapAllocation<Flags: IPTANodeFlags<Flags>>(private val allocator: PTANode
      */
     fun lowLevelAlloc(offset: Constant, locInst: LocatedSbfInstruction?): PTASymCell<Flags> {
         if (usedHighLevel) {
-            throw ConflictingHeapUsage(DevErrorInfo(locInst, null," cannot use both low-level and high-level heap allocation APIs"))
+            throw ConflictingHeapUsage(DevErrorInfo(locInst, null, "Pointer domain: cannot use both low-level and high-level heap allocation APIs"))
         }
         usedLowLevel = true
         val o = offset.toLongOrNull()
@@ -1735,7 +1735,7 @@ class HeapAllocation<Flags: IPTANodeFlags<Flags>>(private val allocator: PTANode
      */
     fun highLevelAlloc(locInst: LocatedSbfInstruction, i: Int = 0): PTASymCell<Flags> {
         if (usedLowLevel) {
-            throw ConflictingHeapUsage(DevErrorInfo(locInst, null," cannot use both low-level and high-level heap allocation APIs"))
+            throw ConflictingHeapUsage(DevErrorInfo(locInst, null, "Pointer domain: cannot use both low-level and high-level heap allocation APIs"))
         }
         usedHighLevel = true
 
@@ -2039,7 +2039,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
 
     private fun concretizeCell(sc: PTASymCell<Flags>, devMsg: String, locInst: LocatedSbfInstruction?): PTACell<Flags> {
         if (!sc.isConcrete() && sc.getNode() == getStack()) {
-            throw UnknownPointerDerefError(DevErrorInfo(locInst, null,  devMsg))
+            throw UnknownPointerDerefError(DevErrorInfo(locInst, null, "Pointer domain: $devMsg"))
         }
         return sc.concretize()
     }
@@ -2923,7 +2923,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                     }
                 }
                 is SbfType.PointerType.Global -> {
-                    val gv = pointerType.global ?: throw UnknownGlobalDerefError(DevErrorInfo(locInst, PtrExprErrReg(reg),""))
+                    val gv = pointerType.global ?: throw UnknownGlobalDerefError(DevErrorInfo(locInst, PtrExprErrReg(reg), "Pointer domain: global pointer $reg has no known base"))
                     val sc = globalAlloc.alloc(gv, pointerType.offset.toLongOrNull().let {Constant(it)})
                     setRegCell(reg, sc)
                 }
@@ -2946,7 +2946,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 }
             }
 
-            val devMsg = "dereference of an absolute address " +
+            val devMsg = "Pointer domain: dereference of an absolute address " +
                 if (address != null) {
                     "$address (0x${address.toString(16)})"
                 } else {
@@ -3392,7 +3392,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                     }
 
                     throw UnknownStackContentError(DevErrorInfo(locInst, errExp,
-                        "load: reading from a stack offset ${field.offset} that points to nowhere."))
+                        "Pointer domain: load reading from a stack offset ${field.offset} that points to nowhere"))
                 }
                 loadFromUnmatMem(locInst, lhs, field, derefC) -> {
                     return
@@ -3510,7 +3510,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         } else {
             // If the access is on the stack then we try to get all possible offsets. Otherwise, we throw an exception.
             if (derefSc.getOffset().isTop()) {
-                throw UnknownPointerDerefError(DevErrorInfo(locInst, null, "$derefSc in $inst"))
+                throw UnknownPointerDerefError(DevErrorInfo(locInst, null, "Pointer domain: statically unknown stack offset $derefSc at $inst"))
             }
             val offsets = derefSc.getOffset().toLongList()
             check(offsets.isNotEmpty()) { "list of offsets should not be empty in $inst" }
@@ -3544,7 +3544,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                     DevErrorInfo(
                         locInst,
                         PtrExprErrReg(base),
-                        "load: the base $base does not point to a graph node in $this"
+                        "Pointer domain: load base $base does not point to a graph node at $inst"
                     )
                 )
         // sanity check
@@ -3732,7 +3732,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         if (src.getNode() != getStack() && dst.getNode() == getStack()) {
             val dstPtrExpr = PtrExprErrStackDeref(PTAField(dst.getOffset(), width))
             throw PointerStackEscapingError(
-                DevErrorInfo(locInst, dstPtrExpr,"stack is escaping: $dst is being stored into $src")
+                DevErrorInfo(locInst, dstPtrExpr, "Pointer domain: stack is escaping: $dst is being stored into $src")
             )
         }
     }
@@ -3950,7 +3950,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             } else {
                 // If valueSc is null then value must be a register
                 check(value is Value.Reg)
-                throw UnknownPointerStoreError(DevErrorInfo(locInst, PtrExprErrReg(value), "Storing a value with unknown provenance at $inst"))
+                throw UnknownPointerStoreError(DevErrorInfo(locInst, PtrExprErrReg(value), "Pointer domain: storing a value with unknown provenance at $inst"))
             }
         } else {
             // Get concrete cell for the value being stored
@@ -3964,7 +3964,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
 
     private fun storeToSymCell(locInst: LocatedSbfInstruction,
                                derefSc: PTASymCell<Flags>,
-                               valueSc: PTASymCell<Flags>?) {
+                               valueSc: PTASymCell<Flags>?,
+                               cfgInfo: CFGInfo) {
 
         if (derefSc.getNode() != getStack()) {
             // If the access is not on the stack then calling concretizeCell is okay because it should not collapse
@@ -3978,7 +3979,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             } else {
                 // If the access is on the stack then we try to get all possible offsets, otherwise we throw an exception.
                 if (derefSc.getOffset().isTop()) {
-                    throw UnknownPointerDerefError(DevErrorInfo(locInst, null, "$derefSc in ${locInst.inst}"))
+                    val loopHint = cfgInfo.enclosingLoop?.let { "inside loop $it" } ?: "not inside a loop"
+                    throw UnknownPointerDerefError(DevErrorInfo(locInst, null, "Pointer domain: statically unknown stack offset $derefSc at ${locInst.inst} ($loopHint)"))
                 }
                 // All stores are weak updates
                 val offsets = derefSc.getOffset().toLongList()
@@ -3995,7 +3997,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 base: Value.Reg,
                 value: Value,
                 baseType: SbfType<TNum, TOffset>,
-                valueType: SbfType<TNum, TOffset>) {
+                valueType: SbfType<TNum, TOffset>,
+                cfgInfo: CFGInfo = CFGInfo()) {
         val inst = locInst.inst
         check(inst is SbfInstruction.Mem && !inst.isLoad) { "doStore expects a Store instruction instead of $inst" }
 
@@ -4005,7 +4008,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 DevErrorInfo(
                     locInst,
                     PtrExprErrReg(base),
-                    "store: the base $base does not point to a graph node in $this"
+                    "Pointer domain: store base $base does not point to a graph node at $inst"
                 )
             )
         // sanity check
@@ -4022,7 +4025,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         // Mark node as written
         baseSc.getNode().setWrite()
 
-        storeToSymCell(locInst, derefSc, valueSc)
+        storeToSymCell(locInst, derefSc, valueSc, cfgInfo)
     }
 
     /**
@@ -4225,7 +4228,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 DevErrorInfo(
                     locInst,
                     PtrExprErrReg(r1),
-                    "memcpy: r1 does not point to a graph node in $this"
+                    "Pointer domain: memcpy r1 does not point to a graph node at ${locInst.inst}"
                 )
             )
         val srcSc = getRegCell(r2, scalars.getAsScalarValue(r2).type(), locInst, stopIfError = true)
@@ -4233,7 +4236,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 DevErrorInfo(
                     locInst,
                     PtrExprErrReg(r2),
-                    "memcpy: r2 does not point to a graph node in $this"
+                    "Pointer domain: memcpy r2 does not point to a graph node at ${locInst.inst}"
                 )
             )
 
@@ -4554,7 +4557,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         DevErrorInfo(
                             locInst,
                             PtrExprErrReg(Value.Reg(SbfRegister.R2)),
-                            msg= "cannot scalarize stack after memcpy"
+                            msg = "Pointer domain: cannot scalarize stack after memcpy at $inst"
                         )
                     )
                 }
@@ -4654,7 +4657,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         DevErrorInfo(
                             locInst,
                             PtrExprErrReg(r3),
-                            "${inst.name}: r3 is not statically known in $this"
+                            "Pointer domain: statically unknown length in r3 at $inst"
                         )
                     )
                 }
@@ -4664,7 +4667,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         DevErrorInfo(
                             locInst,
                             PtrExprErrReg(r1),
-                            "${inst.name}: r1 points to unknown stack offset in $this"
+                            "Pointer domain: statically unknown stack offset in r1 at $inst"
                         )
                     )
                 }
@@ -4674,7 +4677,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         DevErrorInfo(
                             locInst,
                             PtrExprErrReg(r2),
-                            "${inst.name}: r2 points to unknown stack offset $this"
+                            "Pointer domain: statically unknown stack offset in r2 at $inst"
                         )
                     )
                 }
@@ -4693,7 +4696,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         DevErrorInfo(
                             locInst,
                             PtrExprErrReg(r3),
-                            "${inst.name}: r3 is not statically known in $this"
+                            "Pointer domain: statically unknown length in r3 at $inst"
                         )
                     )
                 }
@@ -4703,7 +4706,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         DevErrorInfo(
                             locInst,
                             PtrExprErrReg(r2),
-                            "${inst.name}: r2 points to unknown stack offset $this"
+                            "Pointer domain: statically unknown stack offset in r2 at $inst"
                         )
                     )
                 }
@@ -4729,7 +4732,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         DevErrorInfo(
                             locInst,
                             PtrExprErrReg(r3),
-                            "${inst.name}: r3 is not statically known in $this"
+                            "Pointer domain: statically unknown length in r3 at $inst"
                         )
                     )
                 }
@@ -4738,7 +4741,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                     throw UnknownPointerDerefError(
                         DevErrorInfo(locInst,
                             PtrExprErrReg(r1),
-                            "${inst.name}: r1 points to unknown stack offset in $this"
+                            "Pointer domain: statically unknown stack offset in r1 at $inst"
                         )
                     )
                 }
@@ -4831,9 +4834,9 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         val r3 = Value.Reg(SbfRegister.R3)
 
         val sc1 = getRegCell(r1, scalars.getAsScalarValue(r1).type(), locInst)
-            ?: throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r1), "memcmp: r1 does not point to a graph node in $this"))
+            ?: throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r1), "Pointer domain: memcmp r1 does not point to a graph node at ${locInst.inst}"))
         val sc2 = getRegCell(r2, scalars.getAsScalarValue(r2).type(), locInst)
-            ?: throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r2),"memcmp: r2 does not point to a graph node in $this"))
+            ?: throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r2), "Pointer domain: memcmp r2 does not point to a graph node at ${locInst.inst}"))
         val len = (scalars.getAsScalarValue(r3).type() as? SbfType.NumType)?.value?.toLongOrNull()
         if (len != null) {
             val c1 = concretizeCell(sc1, "concretization of r1 in memcmp", locInst)
@@ -4862,7 +4865,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 DevErrorInfo(
                     locInst,
                     PtrExprErrReg(r1),
-                    "memset: r1 does not point to a graph node in $this"
+                    "Pointer domain: memset r1 does not point to a graph node at $inst"
                 )
             )
 
@@ -4907,7 +4910,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 DevErrorInfo(
                     locInst,
                     PtrExprErrReg(r1),
-                    "${inst.name}: r1 does not point to a graph node in $this"
+                    "Pointer domain: ${inst.name} r1 does not point to a graph node at $inst"
                 )
             )
         val srcSc = getRegCell(r2, scalars.getAsScalarValue(r2).type(), locInst, stopIfError = true)
@@ -4915,7 +4918,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 DevErrorInfo(
                     locInst,
                     PtrExprErrReg(r2),
-                    "${inst.name}: r2 does not point to a graph node in $this"
+                    "Pointer domain: ${inst.name} r2 does not point to a graph node at $inst"
                 )
             )
 

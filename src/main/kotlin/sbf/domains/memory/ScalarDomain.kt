@@ -47,6 +47,18 @@ import org.jetbrains.annotations.TestOnly
  *    the stack. The analysis optimistically assumes that if the destination is "top" then it doesn't affect the stack.
  *    Note that this assumption is reasonable due to two main reasons: (a) we prove separately that stack pointers do
  *    not escape and (b) it is reasonable to assume that uninitialized/external memory does not contain stack pointers.
+ *
+ * ## Regarding errors ##
+ *
+ * The scalar domain throws exceptions in two distinct categories:
+ *
+ * 1. **Internal errors** — should never happen at runtime. These signal a bug in the analysis itself
+ *    (e.g. invariants broken, unreachable code reached). Examples: [SolanaError], [ScalarDomainError].
+ *
+ * 2. **Expected limitations** — situations the scalar analysis is intentionally not designed to handle
+ *    (e.g. statically unknown stack offsets, unknown `memcpy` lengths). These are recoverable: callers
+ *    typically catch them and fall back to a more conservative analysis or report a user-facing error.
+ *    Examples: [UnknownStackPointerError], [UnknownMemcpyLenError].
  */
 
 
@@ -266,7 +278,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
 
         val offset = (value.type() as? SbfType.PointerType.Stack<TNum, TOffset>)?.offset ?: return
         if (offset.isBottom()) {
-            throw SolanaError("Stack offset is bottom and this is unexpected")
+            throw SolanaError("Scalar domain: stack offset is bottom")
         }
         if (!offset.isTop()) {
             offset.toLongList().forEach { o ->
@@ -543,11 +555,11 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
             is SbfType.PointerType -> {
                 if (!ptrType.samePointerType(operandType)) {
                     throw ScalarDomainError(
-                        "cannot mix pointer from different memory regions ($ptrType and $operandType)"
+                        "cannot mix pointers from different memory regions ($ptrType and $operandType) in $inst"
                     )
                 }
                 if (op != BinOp.SUB) {
-                    throw ScalarDomainError("Unexpected pointer arithmetic in $inst")
+                    throw ScalarDomainError("unexpected pointer arithmetic in $inst")
                 }
 
                 // subtraction of pointers of the same type is okay
@@ -753,7 +765,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                 DevErrorInfo(
                     locInst,
                     PtrExprErrReg(lenReg),
-                    "Statically unknown length in $lenReg"
+                    "Scalar domain: statically unknown length in $lenReg at ${locInst.inst}"
                 )
             )
 
@@ -769,7 +781,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                 DevErrorInfo(
                     locInst,
                     PtrExprErrReg(reg),
-                    "Statically unknown stack offset $reg"
+                    "Scalar domain: statically unknown stack offset in $reg at ${locInst.inst}"
                 )
             )
         }
@@ -1486,7 +1498,8 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         baseScalarVal: ScalarValue<TNum, TOffset>,
         offset: Short,
         width: Byte,
-        value: Value
+        value: Value,
+        cfgInfo: CFGInfo
     ) {
         val inst = locInst.inst
         check(inst is SbfInstruction.Mem && !inst.isLoad)
@@ -1496,19 +1509,19 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         when (baseType) {
             is SbfType.Bottom -> {}
             is SbfType.Top -> {
-                logger.info { "Top store -- ${locInst.inst}" }
+
                 if (!SolanaConfig.optimisticScalarAnalysis()) {
                     throw UnknownPointerDerefError(
                         DevErrorInfo(
                             locInst,
                             PtrExprErrReg(baseReg),
-                            "ScalarDomain: $inst to \"top\" pointer"
+                            "Scalar domain: $inst to \"top\" pointer"
                         )
                     )
                 }
-
                 // do nothing: we **optimistically** assume that this store cannot overwrite stack locations
                 // that will be later read
+                logger.info { "type($base)=$baseType: optimistically assume that ${locInst.inst} cannot modify the stack" }
             }
             is SbfType.NumType -> {
                 // Before GlobalInferenceAnalysis is run, it's totally possible to de-reference
@@ -1525,13 +1538,14 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                             DevErrorInfo(
                                 locInst,
                                 PtrExprErrReg(baseReg),
-                                "ScalarDomain: memory access using an absolute address that is statically unknown at $inst"
+                                "Scalar domain: memory access using an absolute address that is statically unknown at $inst"
                             )
                         )
                     }
-
                     // do nothing: we **optimistically** assume that this store cannot overwrite stack locations
                     // that will be later read
+                    logger.info { "type($base)=$baseType: optimistically assume that ${locInst.inst} cannot modify the stack" }
+
                 } else {
                     val absAddresses = baseType.value.toLongList()
                     if (absAddresses.any { a -> a in SBF_STACK_START until SBF_HEAP_START }) {
@@ -1539,7 +1553,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                             DevErrorInfo(
                                 locInst,
                                 PtrExprErrReg(baseReg),
-                                "ScalarDomain: unsupported stack access using absolute address $absAddresses at $inst"
+                                "Scalar domain: unsupported stack access using absolute address $absAddresses at $inst"
                             )
                         )
                     }
@@ -1556,11 +1570,12 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                         check(!stackTOffsets.isBottom())
 
                         if (stackTOffsets.isTop()) {
+                            val loopHint = cfgInfo.enclosingLoop?.let { "inside loop $it" } ?: "not inside a loop"
                             throw UnknownStackPointerError(
                                 DevErrorInfo(
                                     locInst,
                                     PtrExprErrReg(baseReg),
-                                    "ScalarDomain: $inst to stack but \"top\" offset"
+                                    "Scalar domain: statically unknown stack offset in $baseReg at $inst ($loopHint)"
                                 )
                             )
                         }
@@ -1603,7 +1618,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         }
     }
 
-    private fun analyzeMem(locInst: LocatedSbfInstruction) {
+    private fun analyzeMem(locInst: LocatedSbfInstruction, cfgInfo: CFGInfo) {
         check(!isBottom()) {"analyzeMem cannot be called on bottom"}
         val stmt = locInst.inst
         check(stmt is SbfInstruction.Mem)
@@ -1625,7 +1640,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         if (isLoad) {
             analyzeLoad(locInst, baseScalarVal, offset, width.toByte(), value as Value.Reg)
         } else {
-            analyzeStore(locInst, baseReg, baseScalarVal, offset, width.toByte(), value)
+            analyzeStore(locInst, baseReg, baseScalarVal, offset, width.toByte(), value, cfgInfo)
         }
     }
 
@@ -1668,7 +1683,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         base.updateStack(ByteRange(offset, width), value, isWeak = false)
     }
 
-    fun analyze(locInst: LocatedSbfInstruction) {
+    fun analyze(locInst: LocatedSbfInstruction, cfgInfo: CFGInfo = CFGInfo()) {
         val s = locInst.inst
         if (!isBottom()) {
             when (s) {
@@ -1685,7 +1700,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                 is SbfInstruction.Jump.ConditionalJump -> {}
                 is SbfInstruction.Assume -> analyzeAssume(s)
                 is SbfInstruction.Assert -> analyzeAssert(s)
-                is SbfInstruction.Mem -> analyzeMem(locInst)
+                is SbfInstruction.Mem -> analyzeMem(locInst, cfgInfo)
                 is SbfInstruction.Jump.UnconditionalJump -> {}
                 is SbfInstruction.Exit -> {}
                 is SbfInstruction.Debug -> {}
@@ -1695,14 +1710,15 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
 
     override fun analyze(
         b: SbfBasicBlock,
-        listener: InstructionListener<ScalarDomain<TNum, TOffset>>
+        listener: InstructionListener<ScalarDomain<TNum, TOffset>>,
+        cfgInfo: CFGInfo
     ): ScalarDomain<TNum, TOffset> =
         analyzeBlockMut(
             domainName = "ScalarDomain",
             b,
             inState = this,
             transferFunction = { mutState, locInst ->
-                mutState.analyze(locInst)
+                mutState.analyze(locInst, cfgInfo)
             },
             listener
         )

@@ -213,7 +213,7 @@ class RegisterStackEqualityDomain(
 
     private fun popScratchReg(): RegisterStackEqualityDomain {
         if (scratchRegisters.isEmpty()) {
-            throw ScalarDomainError("stack of scratch registers cannot be empty")
+            throw ScalarDomainError("scratch register stack is empty")
         }
         val lastIdx = scratchRegisters.lastIndex
         return RegisterStackEqualityDomain(
@@ -237,7 +237,7 @@ class RegisterStackEqualityDomain(
         val n = regsToRestore.size
         if (scratchRegisters.size < n) {
             throw ScalarDomainError(
-                "The number of calls to save/restore scratch registers must match: $scratchRegisters"
+                "number of save/restore scratch register calls must match: $scratchRegisters"
             )
         }
         val lastIdx = scratchRegisters.lastIndex
@@ -720,10 +720,10 @@ class ScalarRegisterStackEqualityDomain<TNum: INumValue<TNum>, TOffset: IOffset<
         }
     }
 
-    fun analyze(locInst: LocatedSbfInstruction): ScalarRegisterStackEqualityDomain<TNum, TOffset> {
+    fun analyze(locInst: LocatedSbfInstruction, cfgInfo: CFGInfo = CFGInfo()): ScalarRegisterStackEqualityDomain<TNum, TOffset> {
         // this might be expensive if ultimately we don't use a listener.
         val outScalars = scalars.deepCopy()
-        outScalars.analyze(locInst)
+        outScalars.analyze(locInst, cfgInfo)
         val outEqualities = if (!outScalars.isBottom()) {
             equalities.analyze(locInst, scalars)
         } else {
@@ -739,13 +739,14 @@ class ScalarRegisterStackEqualityDomain<TNum: INumValue<TNum>, TOffset: IOffset<
 
     override fun analyze(
         b: SbfBasicBlock,
-        listener: InstructionListener<ScalarRegisterStackEqualityDomain<TNum, TOffset>>
+        listener: InstructionListener<ScalarRegisterStackEqualityDomain<TNum, TOffset>>,
+        cfgInfo: CFGInfo
     ): ScalarRegisterStackEqualityDomain<TNum, TOffset> =
         analyzeBlock(
             domainName = "ScalarDomain x RegisterStackEqualityDomain",
             b,
             state = this,
-            transferFunction = { state, locInst -> state.analyze(locInst) },
+            transferFunction = { state, locInst -> state.analyze(locInst, cfgInfo) },
             listener
         )
 

@@ -21,6 +21,7 @@ import sbf.analysis.LiveRegisters
 import sbf.cfg.*
 import sbf.disassembler.*
 import sbf.domains.AbstractDomain
+import sbf.domains.CFGInfo
 import sbf.sbfLogger
 import datastructures.stdcollections.*
 import sbf.domains.InstructionListener
@@ -53,7 +54,8 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
     private fun solveWtoVertex(node: WtoVertex, wto: Wto,
                                inMap: MutableMap<Label, T>,
                                outMap: MutableMap<Label, T>,
-                               deadMap: Map<Label, LiveRegisters>?) {
+                               deadMap: Map<Label, LiveRegisters>?,
+                               cfgInfoMap: Map<Label, CFGInfo>) {
         if (debugFixpo) {
             sbfLogger.info { "Analyzed ${node.label}" }
         }
@@ -66,13 +68,14 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
         // Join all predecessors
         val inState = getInState(b, inMap, outMap)
         // Compute transfer functions for the whole basic block. outMap is updated
-        analyzeBlock(b, inState, outMap, deadMap)
+        analyzeBlock(b, inState, outMap, deadMap, cfgInfoMap.getValue(label))
     }
 
     private fun processWtoVertex(node: WtoVertex,
                                  wto: Wto,
                                  inMap: MutableMap<Label, T>,
-                                 processor: InstructionListener<T>) {
+                                 processor: InstructionListener<T>,
+                                 cfgInfoMap: Map<Label, CFGInfo>) {
         val label = node.label
         val b = wto.cfg.getBlock(label)
         check(b != null) {
@@ -82,7 +85,7 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
         check(inState != null) {
             "Cannot find abstract state for $label in CFG ${wto.cfg.getName()}"
         }
-        inState.analyze(b, processor)
+        inState.analyze(b, processor, cfgInfoMap.getValue(label))
     }
 
     private fun extrapolate(b: SbfBasicBlock, numAscendingIterations: UInt,
@@ -114,7 +117,8 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
     private fun solveWtoCycle(node: WtoCycle, wto: Wto,
                               inMap: MutableMap<Label, T>,
                               outMap: MutableMap<Label, T>,
-                              deadMap: Map<Label, LiveRegisters>?) {
+                              deadMap: Map<Label, LiveRegisters>?,
+                              cfgInfoMap: Map<Label, CFGInfo>) {
         if (debugFixpo) {
             sbfLogger.info { "Starting analysis (ascending phase) of loop ${node.head().label}" }
         }
@@ -144,10 +148,10 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
         var ascendingIterations = 0U
         while (true) {
             inMap[b.getLabel()] = inState
-            analyzeBlock(b, inState, outMap, deadMap)
+            analyzeBlock(b, inState, outMap, deadMap, cfgInfoMap.getValue(b.getLabel()))
             for (c in node.getComponents()) {
                 if (c !is WtoVertex || c.label != b.getLabel()) { // don't analyze twice the head
-                    solveWtoComponent(c, wto, inMap, outMap, deadMap)
+                    solveWtoComponent(c, wto, inMap, outMap, deadMap, cfgInfoMap)
                 }
             }
 
@@ -179,10 +183,10 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
         }
         while (descendingIterations < options.descendingIterations) {
             inMap[b.getLabel()] = inState
-            analyzeBlock(b, inState, outMap, deadMap)
+            analyzeBlock(b, inState, outMap, deadMap, cfgInfoMap.getValue(b.getLabel()))
             for (c in node.getComponents()) {
                 if (c !is WtoVertex || c.label != b.getLabel()) { // don't analyze twice the head
-                    solveWtoComponent(c, wto, inMap, outMap, deadMap)
+                    solveWtoComponent(c, wto, inMap, outMap, deadMap, cfgInfoMap)
                 }
             }
             // Join all predecessors
@@ -206,7 +210,8 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
     private fun processWtoCycle(node: WtoCycle,
                                 wto: Wto,
                                 inMap: MutableMap<Label, T>,
-                                processor: InstructionListener<T>) {
+                                processor: InstructionListener<T>,
+                                cfgInfoMap: Map<Label, CFGInfo>) {
         val cfg = wto.cfg
         val label = node.head().label
         val b = cfg.getBlock(label)
@@ -218,11 +223,11 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
             "Cannot find abstract state for $label in CFG ${wto.cfg.getName()}"
         }
         // process the head
-        inState.analyze(b, processor)
+        inState.analyze(b, processor, cfgInfoMap.getValue(label))
         // process recursively the rest of the component
         for (c in node.getComponents()) {
             if (c !is WtoVertex || c.label != b.getLabel()) { // don't process twice the head
-                processWtoComponent(c, wto, inMap, processor)
+                processWtoComponent(c, wto, inMap, processor, cfgInfoMap)
             }
         }
     }
@@ -230,20 +235,22 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
     private fun solveWtoComponent(c: WtoComponent, wto: Wto,
                                   inMap: MutableMap<Label, T>,
                                   outMap: MutableMap<Label, T>,
-                                  deadMap: Map<Label, LiveRegisters>?) {
+                                  deadMap: Map<Label, LiveRegisters>?,
+                                  cfgInfoMap: Map<Label, CFGInfo>) {
         when (c) {
-            is WtoVertex -> solveWtoVertex(c, wto, inMap, outMap, deadMap)
-            is WtoCycle -> solveWtoCycle(c, wto, inMap, outMap, deadMap)
+            is WtoVertex -> solveWtoVertex(c, wto, inMap, outMap, deadMap, cfgInfoMap)
+            is WtoCycle -> solveWtoCycle(c, wto, inMap, outMap, deadMap, cfgInfoMap)
         }
     }
 
     private fun processWtoComponent(c: WtoComponent,
                                     wto: Wto,
                                     inMap: MutableMap<Label, T>,
-                                    processor: InstructionListener<T>) {
+                                    processor: InstructionListener<T>,
+                                    cfgInfoMap: Map<Label, CFGInfo>) {
         when (c) {
-            is WtoVertex -> processWtoVertex(c, wto, inMap, processor)
-            is WtoCycle -> processWtoCycle(c, wto, inMap, processor)
+            is WtoVertex -> processWtoVertex(c, wto, inMap, processor, cfgInfoMap)
+            is WtoCycle -> processWtoCycle(c, wto, inMap, processor, cfgInfoMap)
         }
     }
 
@@ -282,10 +289,15 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
             null
         }
 
+        // Precompute CFG-level facts per block once, so transfer functions can consult them.
+        val cfgInfoMap: Map<Label, CFGInfo> = cfg.getBlocks().keys.associateWith { lbl ->
+            CFGInfo(enclosingLoop = wto.innermostCycleBlocks(lbl))
+        }
+
         for (c in wto.getComponents()) {
-            solveWtoComponent(c, wto, inMap, outMap, deadMap)
+            solveWtoComponent(c, wto, inMap, outMap, deadMap, cfgInfoMap)
             if (processor != null) {
-                processWtoComponent(c, wto, inMap, processor)
+                processWtoComponent(c, wto, inMap, processor, cfgInfoMap)
             }
         }
 

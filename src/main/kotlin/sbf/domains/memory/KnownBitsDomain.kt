@@ -1040,7 +1040,7 @@ class ScalarKnownBitsDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> pr
      *
      * Currently, the reduction goes only one direction: from scalars to known bits.
      **/
-    fun analyze(locInst: LocatedSbfInstruction) {
+    fun analyze(locInst: LocatedSbfInstruction, cfgInfo: CFGInfo = CFGInfo()) {
         val inst = locInst.inst
         logger.dbg(locInst) { "$inst\n" }
         if (!isBottom()) {
@@ -1051,21 +1051,22 @@ class ScalarKnownBitsDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> pr
             // If the code changes, and it can also refine Bin Or Un instructions then we need to copy
             // knownBits before changes.
             refineWithConstants(locInst, scalars, knownBits)  // reduction from knownBits to scalars
-            scalars.analyze(locInst)
+            scalars.analyze(locInst, cfgInfo)
         }
         logger.dbg(locInst) { "$this\n" }
     }
 
     override fun analyze(
         b: SbfBasicBlock,
-        listener: InstructionListener<ScalarKnownBitsDomain<TNum, TOffset>>
+        listener: InstructionListener<ScalarKnownBitsDomain<TNum, TOffset>>,
+        cfgInfo: CFGInfo
     ): ScalarKnownBitsDomain<TNum, TOffset> =
         analyzeBlockMut(
             domainName = "ScalarDomain x KnownBitsDomain",
             b,
             inState = this,
             transferFunction = { mutState, locInst ->
-                mutState.analyze(locInst)
+                mutState.analyze(locInst, cfgInfo)
             },
             listener
         )
