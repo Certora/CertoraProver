@@ -178,8 +178,12 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
                     is TACCmd.Simple.AnnotationCmd
                         -> Unit
 
-                    else -> mapper.map(cmd).takeIf { it != cmd }?.let {
-                        patcher.replace(ptr, it)
+                    else -> {
+                        mapper.map(cmd).takeIf { it != cmd }?.let {
+                            patcher.replace(ptr, it)
+                        }
+                        // any other write to a variable (e.g. a havoc) invalidates the constant we tracked for it
+                        cmd.getLhs()?.let(constants::remove)
                     }
                 }
             }
