@@ -186,7 +186,6 @@ class CVLSymbolTable(
     private fun checkName(name: CallableName, range: Range): VoidResult<CVLError> = checkName(name.methodId, range)
 
     private fun checkName(name: String, range: Range): VoidResult<CVLError> {
-        val nameIsKeyword = CVLKeywords.find(name)
         if (CVLKeywords.values().any { kw -> kw != CVLKeywords.wildCardExp && name == kw.name }) {
             return DeclaredKeyword(name, range).asError()
         }
@@ -199,6 +198,24 @@ class CVLSymbolTable(
             ).asError()
         }
 
+        return checkNameIsNotReserved(name, range)
+    }
+
+    /**
+     * The subset of [checkName] for names we don't get to choose: contract functions are named by the
+     * Solidity source, so a method that happens to share its name with a CVL keyword (e.g. a contract
+     * function `nativeBalances`) must not be rejected — keywords resolve in the [NON_FUNCTION_LIKE]
+     * namespace at ast scope, while contract functions register as [FUNCTION_LIKE] in their contract's
+     * scope, so the two never collide. The CVL-type-name check is skipped for the same reason: a method
+     * named `env` or `mathint` is legal Solidity, and CVL types resolve syntactically, never through the
+     * [FUNCTION_LIKE] tables. The `certora*` reserved names are still checked: those clash with
+     * prover-internal instrumentation regardless of where the name came from.
+     *
+     * Note this only governs *registration*. Methods named after lexer tokens (`lastStorage`,
+     * `lastReverted`) still can't be referenced by name in a spec — they stay reachable through
+     * parametric rules only.
+     */
+    private fun checkNameIsNotReserved(name: String, range: Range): VoidResult<CVLError> {
         val nameIsReserved =
             name in (reserved).minus(CVLReservedVariables.certorafallback_0.name) // allowed to use certorafallback_0 due to invoke_fallback. TODO improve
         if (nameIsReserved) {
@@ -855,7 +872,7 @@ class CVLSymbolTable(
      */
     fun register(importedFunction: ContractFunction, scope: CVLScope): VoidResult<CVLError> {
         checkNotFinalized()
-        return checkName(importedFunction.functionIdentifier, Range.Empty()).bind {
+        return checkNameIsNotReserved(importedFunction.functionIdentifier.methodId, Range.Empty()).bind {
             registerFunction(importedFunction, scope)
         }
     }
