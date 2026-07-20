@@ -1458,7 +1458,7 @@ class CertoraBuildGenerator:
             if not self.context.strict_solc_optimizer and self.get_solc_via_ir_value(contract_file_path):
                 # The default optimizer steps (taken from libsolidity/interface/OptimiserSettings.h) but with the
                 # full inliner step removed
-                solc0_8_34_to_0_8_35 = ("dfDvulfnTUtnIfxa[r]EscLMVcul[j]Trpeulxa[r]cLvifMCTUca[r]LSsTFOtfDnca[r]"
+                solc0_8_34_to_0_8_36 = ("dfDvulfnTUtnIfxa[r]EscLMVcul[j]Trpeulxa[r]cLvifMCTUca[r]LSsTFOtfDnca[r]"
                                         "IulcscCTUtvifMx[scCTUt]TOntnfDIulvifMjmul[jul]VcTOculjmul")
                 solc0_8_26_to_0_8_33 = ("dhfoDgvulfnTUtnIfxa[r]EscLMVcul[j]Trpeulxa[r]cLCTUca[r]LSsTFOtfDnca[r]" +
                                         "IulcscCTUtx[scCTUt]TOntnfDIuljmul[jul]VcTOculjmul")
@@ -1485,7 +1485,7 @@ class CertoraBuildGenerator:
 
                 err_msg = \
                     f"Unsupported solc version {major}.{minor}.{patch} for `solc_via_ir`. " \
-                    f"Supported versions: 0.6.7 – 0.8.25.\n" \
+                    f"Supported versions: 0.6.7 – 0.8.36.\n" \
                     f"Use `solc_via_ir_map` to disable `solc_via_ir` for specific files with older compiler versions."
 
                 yul_optimizer_steps = None
@@ -1511,8 +1511,8 @@ class CertoraBuildGenerator:
                     yul_optimizer_steps = solc0_8_13_to_0_8_25
                 elif minor == 8 and 26 <= patch <= 33:
                     yul_optimizer_steps = solc0_8_26_to_0_8_33
-                elif minor == 8 and 34 <= patch <= 35:
-                    yul_optimizer_steps = solc0_8_34_to_0_8_35
+                elif minor == 8 and 34 <= patch <= 36:
+                    yul_optimizer_steps = solc0_8_34_to_0_8_36
                 assert yul_optimizer_steps is not None, \
                     'Yul Optimizer steps missing for requested Solidity version. Please contact Certora team.'
 
