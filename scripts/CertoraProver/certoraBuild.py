@@ -922,6 +922,16 @@ class CertoraBuildGenerator:
                     if not is_not_payable and state_mutability in ["view", "pure", "nonpayable"]:
                         is_not_payable = True  # definitely not payable
 
+                # Mirror the function-finder logic above: in the autofinder pass the instrumented AST's
+                # byte offsets are shifted, so reuse the original (non-autofinder) getter's source bytes
+                # rather than reading them off the instrumented node. SourceBytes must stay in original
+                # source coordinates. Only the first pass (no original contract) reads the AST directly.
+                if original_contract is not None:
+                    found_getter = original_contract.find_method(getter_name, solidity_type_args)
+                    getter_source_bytes = found_getter.source_bytes if found_getter is not None else None
+                else:
+                    getter_source_bytes = SourceBytes.from_ast_node(public_state_var)
+
                 funcs.append(
                     Func(
                         name=getter_name,
@@ -940,7 +950,7 @@ class CertoraBuildGenerator:
                         # according to Solidity docs, getter functions have external visibility
                         visibility="external",
                         contractName=contract_name,
-                        source_bytes=SourceBytes.from_ast_node(public_state_var),
+                        source_bytes=getter_source_bytes,
                         ast_id=None,
                         original_file=c_file,
                         location=None,
