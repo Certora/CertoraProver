@@ -1,0 +1,5 @@
+{
+	"rules": {
+		"Equivalence of Gsm and GsmB on buy(address,bytes)": "SUCCESS"
+	}
+}

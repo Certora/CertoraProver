@@ -2932,9 +2932,23 @@ class BufferTraceInstrumentation private constructor(
          * If this read was also a write, do that and then merge the original command
          * replacement with that instrumentation.
          */
-        val hashUpdateAndOriginalCommand = (bufferUpdateWork?.let {
+        val updateAndOriginalCommand = bufferUpdateWork?.let {
             doBufferUpdate(s.where, it, null)
-        }?.mergeOriginal(originalCommandReplacement) ?: originalCommandReplacement) andThen withGCMaybe
+        }?.mergeOriginal(originalCommandReplacement) ?: originalCommandReplacement
+
+        /**
+         * The GC setup is straight-line, so it must not follow a block terminator: when the command at `s.where` is a
+         * [ConditionalBlockSummary] (e.g. a copy-loop summary consumed here), it terminates the block with >1 successor,
+         * and appending the GC setup after it leaves the block ending in a non-terminator with multiple successors.
+         * The GC setup only touches later reads' instrumentation variables, so it commutes with the summary; emit it
+         * before.
+         */
+        val origIsConditionalSummary = (origCommand as? TACCmd.Simple.SummaryCmd)?.summ is ConditionalBlockSummary
+        val hashUpdateAndOriginalCommand = if (origIsConditionalSummary) {
+            withGCMaybe andThen updateAndOriginalCommand
+        } else {
+            updateAndOriginalCommand andThen withGCMaybe
+        }
 
         /**
          * Finally, call the [TraceInclusionManager.postInstrument] hook.
