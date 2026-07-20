@@ -164,6 +164,12 @@ class TreeViewReporter(
     // XXX: this path used to configurable, but I believe it's now hardcoded in some of our infrastructure.
     private val versionedFile get() = VersionedFile("treeViewStatus.json")
 
+    /** Registered lazily once so repeated overwrites don't re-log; the resolved path is then written directly. */
+    private val unsatCoreMapPath: String? by lazy {
+        ArtifactManagerFactory().registerArtifact("unsat_core_map.json", StaticArtifactLocation.Reports)
+            ?.let { ArtifactManagerFactory().getRegisteredArtifactPathOrNull(it) }
+    }
+
     private val tree: TreeViewTree =
         TreeViewTree(contractName, specFile, ContractsTable(scene), GlobalCallResolutionReportView.Builder())
 
@@ -371,6 +377,8 @@ class TreeViewReporter(
         val liveCheckFileName: String? = null,
         val splitProgress: Int? = null,
         val outputFiles: List<String> = listOf(),
+        // In-memory only (not serialized into the node); surfaced by hotUpdate into unsat_core_map.json.
+        val unsatCoreTacFiles: List<String> = listOf(),
         val ruleAlerts: List<RuleAlertReport> = listOf(),
         val highestNotificationLevel: RuleAlertReport? = null,
         val location: TreeViewLocation? = null,
@@ -417,6 +425,7 @@ class TreeViewReporter(
      */
     data class JSONSerializableTreeNode(
         val name: String,
+        val ruleId: String?,
         val children: List<JSONSerializableTreeNode>,
         val output: JsonArrayBuilder.() -> Unit,
         val uiId: Int,
@@ -436,6 +445,8 @@ class TreeViewReporter(
 
         override val treeViewRepBuilder = TreeViewRepJsonObjectBuilder {
             put(TreeViewReportAttribute.NAME(), name)
+
+            put(TreeViewReportAttribute.RULE_ID(), ruleId)
 
             putJsonArray(TreeViewReportAttribute.CHILDREN(), children)
             putJsonArray(TreeViewReportAttribute.OUTPUT(), output)
@@ -568,7 +579,10 @@ class TreeViewReporter(
                             status = computeFinalStatus(solverResult.result, solverResult.rule),
                             verifyTime = solverResult.verifyTime,
                             ruleAlerts = solverResult.ruleAlerts,
-                            outputFiles = ruleOutput
+                            outputFiles = ruleOutput,
+                            unsatCoreTacFiles = (solverResult as? RuleCheckResult.Single.Basic)
+                                ?.unsatCoreStats?.unsatCores?.mapNotNull { it.unsatCoreTxtFile }
+                                ?: emptyList()
                         ).letIf(solverResult.result != SolverResult.TIMEOUT) {
                             it.copy(splitProgress = null) // should have been propagated at this point, but making sure
                         }
@@ -698,6 +712,7 @@ class TreeViewReporter(
 
             return JSONSerializableTreeNode(
                 name = displayName,
+                ruleId = currTreeViewResult.rule?.ruleIdentifier?.toString(),
                 children = childJsonResults.toList(),
                 output = { currTreeViewResult.outputFiles.forEach { add(it) } },
                 uiId = currTreeViewResult.uuid,
@@ -935,6 +950,24 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
         fileVersion++
     }
 
+    /** Only [hotUpdate] calls this — single writer under this reporter's lock, so writes never race. */
+    private fun writeUnsatCoreMap() {
+        val entries = tree.treeViewNodeResults().mapNotNull { node ->
+            val rule = node.rule ?: return@mapNotNull null
+            node.unsatCoreTacFiles.takeIf { it.isNotEmpty() }?.let { rule.ruleIdentifier.toString() to it }
+        }
+        if (entries.isEmpty()) {
+            return
+        }
+        val path = unsatCoreMapPath ?: return
+        val json = buildJsonObject {
+            entries.forEach { (ruleId, files) ->
+                putJsonArray(ruleId) { files.forEach { add(it) } }
+            }
+        }.toString()
+        ArtifactFileUtils.getWriterForFile(path, overwrite = true).use { it.append(json) }
+    }
+
     fun updateDisplayName(rule: IRule, displayName: String) {
         tree.updateDisplayName(rule.ruleIdentifier, displayName)
     }
@@ -1021,6 +1054,7 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
 
                 tree.sanityCheck()
                 writeToFile(tree.toJsonString())
+                writeUnsatCoreMap()
             }
         }
     }
