@@ -85,6 +85,10 @@ class UnsatCoreAnalysis private constructor(
     private val baseCodeMap = generateCodeMap(originalTac, originalTac.name)
 
     companion object {
+        /** Pre-sanitization artifact name of a codemap's UnsatCore `.txt` dump. */
+        fun unsatCoreTxtArtifactName(codeMapName: String): String =
+            "UnsatCoreTAC$OUTPUT_NAME_DELIMITER$codeMapName.txt"
+
         suspend operator fun invoke(
             splitsInputData: Map<SplitAddress, UnsatCoreInputData>,
             originalTac: CoreTACProgram
@@ -327,17 +331,18 @@ class UnsatCoreAnalysis private constructor(
 
                 // Print and dump unsat core using dedicated printer.
                 // Failures here are non-fatal — the printer is a diagnostic tool and must not crash the prover.
-                runCatching {
+                val unsatCoreTxtWrite = runCatching {
                     val printer = UnsatCorePrinter(originalTac, codeMap, contextLength = 5)
                     logger.info { printer.print(enableColors = true) }
                     val ucOutputNoColors = printer.print(enableColors = false)
                     ArtifactManagerFactory().registerArtifact(
-                        "UnsatCoreTAC$OUTPUT_NAME_DELIMITER${codeMap.name}.txt",
+                        unsatCoreTxtArtifactName(codeMap.name),
                         StaticArtifactLocation.Reports
                     ) { name ->
                         ArtifactFileUtils.getWriterForFile(name, true).use { it.append(ucOutputNoColors) }
                     }
-                }.onFailure { e ->
+                }
+                unsatCoreTxtWrite.onFailure { e ->
                     logger.warn { "UnsatCorePrinter failed for ${codeMap.name}: $e" }
                 }
 
@@ -350,6 +355,9 @@ class UnsatCoreAnalysis private constructor(
                     missingCmdsFromSpec = softCmdsFromSpec.minus(cmdsFromSpec),
                     missingCmdsFromSol = softCmdsFromSol.minus(cmdsFromSol),
                     callIdsNotTouchingUnsatCore = baseCodeMap.callIdNames.map { it.toString() }.toSet().minus(callIdsTouching),
+                    unsatCoreTxtFile = unsatCoreTxtWrite.getOrNull()?.let {
+                        ArtifactFileUtils.sanitizePath(unsatCoreTxtArtifactName(codeMap.name))
+                    },
                 )
             }.toSet(),
             softConstraintsFromSpec = softCmdsFromSpec,

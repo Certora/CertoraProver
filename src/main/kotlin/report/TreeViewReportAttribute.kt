@@ -27,6 +27,7 @@ enum class TreeViewReportAttribute(private val repString: String) {
     STATUS("status"),
     MESSAGE("message"),
     ID("id"),
+    RULE_ID("ruleId"),
     OUTPUT("output"),
     CONTRACT("contract"),
     SPEC("spec"),

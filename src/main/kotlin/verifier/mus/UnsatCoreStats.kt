@@ -79,6 +79,7 @@ data class SingleUnsatCoreStats(
     val missingCmdsFromSpec: Set<UnsatCoreCmdFromSpec>,
     val missingCmdsFromSol: Set<UnsatCoreCmdFromSol>,
     val callIdsNotTouchingUnsatCore: Set<String>,
+    val unsatCoreTxtFile: String? = null,
 )
 
 @JvmInline

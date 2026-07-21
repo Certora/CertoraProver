@@ -1991,15 +1991,29 @@ class BufferTraceInstrumentation private constructor(
                             }
 
                             /**
-                             * But due to loop unrolling, there will be multiple such writes,
-                             * so find the one that is dominated by all others. We probably can, and should,
-                             * weaken this to reachability.
+                             * Due to loop unrolling there can be multiple such writes: each unrolled iteration gets its
+                             * own copy. The contents observed by this read are those of the *last* write executed before
+                             * it, so select the candidate that dominates this read with no other candidate on a path
+                             * between them. At most one candidate can match: dominators of the read are totally ordered,
+                             * and of two ordered candidates the earlier has the later one in between.
+                             *
+                             * In practice this selects the write this read was born with: [Simplifier.simplifyMcopy]
+                             * (and [InternalFunctionRerouter]) emit the write into the mcopy buffer immediately before
+                             * the read of it, in the same block. [single] can thus only throw if some transformation
+                             * separated such a pair, e.g. leaving the buffer written on two merging branches with the
+                             * read after the merge (so no candidate dominates the read), or with another write squeezed
+                             * between the pair (so the read's contents are path dependent). No sound single choice
+                             * exists in either case.
                              */
-                            val definingCopy = potentialDefinitions.withIndex().single { (idx, src) ->
-                                src !is ShadowLongRead && potentialDefinitions.withIndex().all { (otherIdx, otherSrc) ->
-                                    otherIdx == idx || g.cache.domination.dominates(otherSrc.where, src.where)
-                                }
-                            }.value
+                            val definingCopy = potentialDefinitions.single { src ->
+                                src !is ShadowLongRead &&
+                                    g.cache.domination.dominates(src.where, lc.ptr) &&
+                                    potentialDefinitions.none { other ->
+                                        // A same-`where` candidate is [src] itself or its [ShadowLongRead] twin, not
+                                        // an intervening write.
+                                        other.where != src.where && reach.canReach(src.where, other.where)
+                                    }
+                            }
 
                             val translatedReturnLongRead = sources.singleOrNull {
                                 it is ShadowLongRead && it.parentId == definingCopy.id
@@ -2918,9 +2932,23 @@ class BufferTraceInstrumentation private constructor(
          * If this read was also a write, do that and then merge the original command
          * replacement with that instrumentation.
          */
-        val hashUpdateAndOriginalCommand = (bufferUpdateWork?.let {
+        val updateAndOriginalCommand = bufferUpdateWork?.let {
             doBufferUpdate(s.where, it, null)
-        }?.mergeOriginal(originalCommandReplacement) ?: originalCommandReplacement) andThen withGCMaybe
+        }?.mergeOriginal(originalCommandReplacement) ?: originalCommandReplacement
+
+        /**
+         * The GC setup is straight-line, so it must not follow a block terminator: when the command at `s.where` is a
+         * [ConditionalBlockSummary] (e.g. a copy-loop summary consumed here), it terminates the block with >1 successor,
+         * and appending the GC setup after it leaves the block ending in a non-terminator with multiple successors.
+         * The GC setup only touches later reads' instrumentation variables, so it commutes with the summary; emit it
+         * before.
+         */
+        val origIsConditionalSummary = (origCommand as? TACCmd.Simple.SummaryCmd)?.summ is ConditionalBlockSummary
+        val hashUpdateAndOriginalCommand = if (origIsConditionalSummary) {
+            withGCMaybe andThen updateAndOriginalCommand
+        } else {
+            updateAndOriginalCommand andThen withGCMaybe
+        }
 
         /**
          * Finally, call the [TraceInclusionManager.postInstrument] hook.
