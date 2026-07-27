@@ -112,4 +112,50 @@ class PostIntervalsRewriterPatternsTest : TACBuilderAuxiliaries() {
         }
         checkStat(prog, "divLt", count = 0)
     }
+
+    /**
+     * The comparison identities are floor-division identities. [IntDiv] rounds toward zero, so none of them may
+     * fire when its dividend can be negative.
+     */
+    @Test
+    fun testIntDivComparisonsNotRewrittenWhenDividendMayBeNegative() {
+        checkStat(TACProgramBuilder {
+            k assign IntDiv(iS, number(5))
+            x assign Lt(kS, jS)
+        }, "divLt", count = 0)
+
+        checkStat(TACProgramBuilder {
+            k assign IntDiv(iS, number(5))
+            x assign Le(kS, jS)
+        }, "divLe", count = 0)
+
+        checkStat(TACProgramBuilder {
+            k assign IntDiv(iS, number(5))
+            x assign Gt(kS, jS)
+        }, "divGt", count = 0)
+
+        checkStat(TACProgramBuilder {
+            k assign IntDiv(iS, number(5))
+            x assign Ge(kS, jS)
+        }, "divGe", count = 0)
+
+        ConfigScope(Config.PurifyConstDivisions, true).use {
+            checkStat(TACProgramBuilder {
+                k assign IntDiv(iS, number(5))
+                x assign Eq(kS, jS)
+            }, "divEq", count = 0)
+        }
+    }
+
+    /**
+     * Preserve the useful [IntDiv] optimization when the dividend is a known non-negative constant.
+     */
+    @Test
+    fun testIntDivLtRewrittenWhenDividendIsNonNegative() {
+        val prog = TACProgramBuilder {
+            k assign IntDiv(number(7), number(5))
+            x assign Lt(kS, jS)
+        }
+        checkStat(prog, "divLt")
+    }
 }
