@@ -1,0 +1,13 @@
+{
+    "rules": {
+        "cvl_mirror_must_have_counterexample": "FAIL",
+        "envfreeFuncsStaticCheck": {
+            "SUCCESS": [
+                "quotient(int256)",
+                "solidityAssertion(int256)"
+            ]
+        },
+        "quotient_of_minus_one_is_zero": "SUCCESS",
+        "solidity_semantics_has_counterexample": "FAIL"
+    }
+}

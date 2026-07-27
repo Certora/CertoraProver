@@ -15,7 +15,7 @@ rule solidity_semantics_has_counterexample(int256 x) {
 
 /*
  * This is the CVL mirror of the Solidity assertion.  It must also fail with
- * x == -1, but the divLt post-interval rewrite currently changes
+ * x == -1. Before the fix, the divLt post-interval rewrite changed
  *
  *     x / 2 < 0
  *
@@ -23,7 +23,7 @@ rule solidity_semantics_has_counterexample(int256 x) {
  *
  *     x < 2 * 0
  *
- * and therefore incorrectly proves the assertion from x < 0.
+ * and therefore incorrectly proved the assertion from x < 0.
  */
 rule cvl_mirror_must_have_counterexample(int x) {
     require x < 0;
