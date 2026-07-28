@@ -258,9 +258,13 @@ object ArtifactFileUtils {
         Pair("bytes32", "B32")
     )
 
-    /** the maximum file name length allowed by the file system (we're making a guess here that should work for most
-     * file systems) */
-    val MAX_FILE_NAME_LENGTH = System.getenv("CERTORA_MAX_FILENAME")?.toIntOrNull() ?: 255
+    /**
+     * The maximum file name length allowed by the file system.
+     *
+     * Linux filesystems commonly allow 255 bytes, but eCryptfs only allows 143. Since the JVM does not expose
+     * NAME_MAX portably, use the conservative limit by default. CERTORA_MAX_FILENAME can override it when needed.
+     */
+    val MAX_FILE_NAME_LENGTH = System.getenv("CERTORA_MAX_FILENAME")?.toIntOrNull() ?: 143
 
     @Deprecated(
         message = "Never use this function. DO NOT reintroduce any translation back to strings with ABI chars",
