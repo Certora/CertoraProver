@@ -1,0 +1,13 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"havoc_hi_unconstrained": "SUCCESS",
+		"havoc_hi_max": "SUCCESS",
+		"havoc_hi_mapping_unconstrained": "SUCCESS",
+		"havoc_hi_unconstrained_signed": "SUCCESS",
+		"havoc_middle_field_exact": "SUCCESS",
+		"havoc_hi_preserves_lo": "SUCCESS",
+		"havoc_lo_preserves_hi": "SUCCESS",
+		"havoc_middle_field_preserves_neighbors": "SUCCESS"
+	}
+}

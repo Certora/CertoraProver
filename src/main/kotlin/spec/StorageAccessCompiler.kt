@@ -363,7 +363,8 @@ class StorageAccessCompiler(
            When we're havocing a sub-word value
          */
         val (toWriteVar, combineCmds) = needsMasking(storageVar, acc)?.let { (maskStart, maskSize) ->
-            val havocMask = MASK_SIZE(8*maskSize).shiftLeft(8*maskStart)
+            val valueMask = MASK_SIZE(8*maskSize)
+            val havocMask = valueMask.shiftLeft(8*maskStart)
             // oldMask = ~havocMask, but BigInteger doesn't have a convenient bitflip
             val topAmount = Config.VMConfig.registerByteWidth - (maskStart+maskSize)
             val lowerMask = MASK_SIZE(8*maskStart)
@@ -380,8 +381,20 @@ class StorageAccessCompiler(
                 }
                 else -> error("got unexpected tag ${storageVar.tag} for storage variable $storageVar")
             }
+            /*
+              [intermediaryVar] holds the havoced value low-aligned (this is the alignment [extractSubword] produces
+              when reading the field back), so it is truncated to the field's width and then shifted into the field's
+              position within the word. Truncating before the shift keeps the shifted value within [havocMask]'s
+              range, so the shift cannot lose bits into the neighbouring fields.
+             */
+            val truncatedHavocValue = TACExpr.BinOp.BWAnd(valueMask.asTACExpr, intermediaryVar.asSym(), Tag.Bit256)
+            val alignedHavocValue = if (maskStart == 0) {
+                truncatedHavocValue
+            } else {
+                TACExpr.BinOp.ShiftLeft(truncatedHavocValue, (8*maskStart).asTACExpr, Tag.Bit256)
+            }
             ExprUnfolder.unfoldToSingleVar("!combined", TACExpr.BinOp.BWOr(
-                TACExpr.BinOp.BWAnd(havocMask.asTACExpr, intermediaryVar.asSym(), Tag.Bit256),
+                TACExpr.BinOp.BWAnd(havocMask.asTACExpr, alignedHavocValue, Tag.Bit256),
                 TACExpr.BinOp.BWAnd(oldMask.asTACExpr, oldValueVar.asSym(), Tag.Bit256),
                 Tag.Bit256
             )).let {

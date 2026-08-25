@@ -28,10 +28,12 @@ import vc.data.*
  * We effect this by associating with each map typed storage variable with a
  * read tracking map variable. Let the storage variable be called m, and denote
  * the read tracker as m$r. We have the following invariant:
- * for any `k`, if `m$r[k] != 0` then `m[k]` has been read, and vice versa.
- * In other words, we dynamically track which keys in `m` have been read by setting the
+ * for any `k`, if `m$r[k] != 0` then `m[k]` has been accessed (read or written), and vice versa.
+ * In other words, we dynamically track which keys in `m` are live by setting the
  * corresponding location in `m$r` to 1. At rule initialization, we set `m$r` to be all zeroes,
  * and `m$r` becomes part of the storage state which is backed-up/restored with reverts.
+ * A location is thus considered dead only if it was never accessed since rule initialization
+ * (or since the last restore of the storage state).
  *
  * The association of `m` with `m$r` is done in the [readTracking] field:
  * the domain are the storage variables (`m`), and the codomain, if non-null is the corresponding read tracking
@@ -43,7 +45,9 @@ import vc.data.*
  *
  * At a store to `m[k]` with a corresponding `m$r` we read the previous value of `m[k]` and the value of `m$r[k]`. We
  * then assume `m$r[k] != 0 || m[k] == 0` aka `m$r[k] => m[k] == 0`, that is, if `m[k]` was dead (as determined by our
- * instrumentation) then the value was 0 all along.
+ * instrumentation) then the value was 0 all along. Immediately after the store we add `m$r[k] = 1`, marking the
+ * written location live: otherwise a later store to the same location would find the (non-zero) written value
+ * with the tracker still unset, and the assumption above would be trivially false, pruning a feasible path.
  *
  * The commands here are annotated with the [TACMeta.STORAGE_READ_TRACKER] meta to avoid triggering hooks.
  */
@@ -68,7 +72,8 @@ class StorageReadInstrumenter(private val readTracking: Map<TACSymbol.Var, TACSy
                         TACCmd.Simple.WordStore(
                             base = tracker,
                             loc = it.cmd.loc,
-                            value = 1.asTACSymbol()
+                            value = 1.asTACSymbol(),
+                            meta = MetaMap(TACMeta.STORAGE_READ_TRACKER)
                         ),
                         it.cmd
                     ))
@@ -88,7 +93,8 @@ class StorageReadInstrumenter(private val readTracking: Map<TACSymbol.Var, TACSy
                         TACCmd.Simple.AssigningCmd.WordLoad(
                             lhs = hasRead,
                             base = tracker,
-                            loc = it.cmd.loc
+                            loc = it.cmd.loc,
+                            meta = MetaMap(TACMeta.STORAGE_READ_TRACKER)
                         ),
                         TACCmd.Simple.AssigningCmd.AssignExpCmd(
                             lhs = assume,
@@ -104,7 +110,17 @@ class StorageReadInstrumenter(private val readTracking: Map<TACSymbol.Var, TACSy
                             )
                         ),
                         TACCmd.Simple.AssumeCmd(assume, "StorageReadInstrumenter"),
-                        it.cmd
+                        it.cmd,
+                        /*
+                          m$r[k] = 1: a written location is live, so the assumption above must not fire for any
+                          later store to `k`.
+                         */
+                        TACCmd.Simple.WordStore(
+                            base = tracker,
+                            loc = it.cmd.loc,
+                            value = 1.asTACSymbol(),
+                            meta = MetaMap(TACMeta.STORAGE_READ_TRACKER)
+                        )
                     ))
                     patcher.addVars(prev, hasRead, assume, tracker)
                 }
