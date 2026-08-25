@@ -27,6 +27,7 @@ import evm.twoToThe
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import utils.*
+import utils.ModZm.Companion.to2s
 import vc.data.*
 import kotlin.reflect.KClass
 
@@ -465,6 +466,46 @@ class IntervalsRewriterTest : TACBuilderAuxiliaries() {
         }
         val newProg = IntervalsRewriter.rewrite(prog.code, 1, false)
         assertEquals(2, newProg.ltacStream().count())
+    }
+
+    /**
+     * `smod(a, b) == a` requires `|a| < |b|`, which doesn't hold here even though `a` is signed-smaller than `b`.
+     */
+    @Test
+    fun testSModNotSimplified() {
+        val prog = TACProgramBuilder {
+            havoc(a)
+            havoc(b)
+            assumeExp(Ge(aS, (-10).to2s().asTACExpr))
+            assumeExp(Le(aS, (-5).to2s().asTACExpr))
+            assumeExp(Ge(bS, 3.asTACExpr))
+            assumeExp(Le(bS, 4.asTACExpr))
+            c assign SMod(aS, bS)
+            z assign Eq(cS, aS)
+            assert(z)
+        }
+        prog.checkStats(
+            TACExpr.BinOp.SMod::class too 0
+        )
+    }
+
+    /** Here `|a| < |b|` does hold, so `smod(a, b)` is simplified to `a`. */
+    @Test
+    fun testSModSimplified() {
+        val prog = TACProgramBuilder {
+            havoc(a)
+            havoc(b)
+            assumeExp(Ge(aS, (-4).to2s().asTACExpr))
+            assumeExp(Le(aS, (-3).to2s().asTACExpr))
+            assumeExp(Ge(bS, 5.asTACExpr))
+            assumeExp(Le(bS, 6.asTACExpr))
+            c assign SMod(aS, bS)
+            z assign Eq(cS, aS)
+            assert(z)
+        }
+        prog.checkStats(
+            TACExpr.BinOp.SMod::class too 1
+        )
     }
 
     @Test

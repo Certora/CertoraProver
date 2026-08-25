@@ -394,15 +394,19 @@ sealed class Ternary {
         )
 
     infix fun signExtend(topBit: Int): Ternary {
-        val keptBitsMask = lowOnes(topBit)
+        require(topBit >= 1) { "sign-extending from bit ${topBit - 1}, which doesn't exist" }
+        // sign-extending from a bit at or above the width of the vector is the identity. Callers do reach here
+        // with such values, e.g., a `signextend` with a byte index of 32 or more.
+        val bit = minOf(topBit, EVM_BITWIDTH256)
+        val keptBitsMask = lowOnes(bit)
         return when (this) {
             is Bottom ->
-                Ternary(BigInteger.ZERO, BigInteger.ZERO, topBit)
+                Ternary(BigInteger.ZERO, BigInteger.ZERO, bit)
 
             is Constant -> {
                 val lowBits = value and keptBitsMask
                 Ternary(
-                    if (lowBits.testBit(topBit - 1)) {
+                    if (lowBits.testBit(bit - 1)) {
                         lowBits or bwNot(keptBitsMask)
                     } else {
                         lowBits
@@ -415,14 +419,14 @@ sealed class Ternary {
                 val lowOnes = ones and keptBitsMask
                 // result depends on whether we know the top bit or not
                 when {
-                    zeros.testBit(topBit - 1) ->
+                    zeros.testBit(bit - 1) ->
                         Ternary(lowZeros or bwNot(keptBitsMask), lowOnes)
 
-                    ones.testBit(topBit - 1) ->
+                    ones.testBit(bit - 1) ->
                         Ternary(lowZeros, lowOnes or bwNot(keptBitsMask))
 
                     else ->
-                        Ternary(lowZeros, lowOnes, minOf(signExtendBit, topBit))
+                        Ternary(lowZeros, lowOnes, minOf(signExtendBit, bit))
                 }
             }
         }

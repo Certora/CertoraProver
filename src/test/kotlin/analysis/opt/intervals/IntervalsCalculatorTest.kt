@@ -273,6 +273,32 @@ class IntervalsCalculatorTest : TACBuilderAuxiliaries() {
         )
     }
 
+    /** A `sar` by 256 or more gives copies of the sign bit, i.e., either 0 or all ones. */
+    @Test
+    fun testShiftRightArithmeticalFullWidth() {
+        val prog = TACProgramBuilder {
+            label("label")
+            b assign ShiftRightArithmetical(aS, 256.asTACExpr)
+            assert(False)
+        }
+        prog.assertStuff(
+            Lhs("label", S(I(BigInteger.ZERO), I(MAX_EVM_UINT256))),
+        )
+    }
+
+    @Test
+    fun testShiftRightArithmeticalFullWidthNonNeg() {
+        val prog = TACProgramBuilder {
+            assumeExp(Le(aS, 100.asTACExpr))
+            label("label")
+            b assign ShiftRightArithmetical(aS, 300.asTACExpr)
+            assert(False)
+        }
+        prog.assertStuff(
+            Lhs("label", S(0)),
+        )
+    }
+
     @Test
     fun testShiftLeft() {
         val prog = TACProgramBuilder {

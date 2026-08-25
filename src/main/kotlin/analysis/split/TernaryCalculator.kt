@@ -246,7 +246,12 @@ class TernaryCalculator(
                             t2.asIntOrNull()?.let { by -> t1 shiftRight by } ?: allXs
 
                         is TACExpr.BinOp.ShiftRightArithmetical ->
-                            t2.asIntOrNull()?.let { by -> (t1 shiftRight by) signExtend (256 - by) } ?: allXs
+                            t2.asIntOrNull()?.let { by ->
+                                // shifting by 255 or more gives copies of the sign bit, so we clamp and keep the
+                                // decomposition into a shift-right followed by a sign-extend well defined.
+                                val clamped = minOf(by, EVM_BITWIDTH256 - 1)
+                                (t1 shiftRight clamped) signExtend (EVM_BITWIDTH256 - clamped)
+                            } ?: allXs
 
                         is TACExpr.BinOp.SignExtend ->
                             t1.asIntOrNull()?.let { b ->

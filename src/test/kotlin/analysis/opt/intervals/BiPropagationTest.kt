@@ -37,6 +37,7 @@ import evm.MIN_EVM_INT256_2S_COMPLEMENT
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import tac.Tag
+import utils.ModZm.Companion.to2s
 import utils.*
 import analysis.opt.intervals.Intervals.Companion as S
 
@@ -424,6 +425,18 @@ class BiPropagationTest {
             listOf(S(0), S(10), S(0)),
             result
         )
+    }
+
+    /**
+     * `x % 6` for `x` in `[-12, -7]` can be any of `[-5, 0]`, so backward propagation can't rule out any `x`.
+     */
+    @Test
+    fun sModNegative() {
+        val x = S((-12).to2s(), (-7).to2s())
+        val result = BiPropagation.sMod(
+            SFull256, x, S(6), Tag.Bit256
+        )
+        assertEquals(x, result[1])
     }
 
     @Test

@@ -216,7 +216,10 @@ class ExpSimplifer(
 
             is TACExpr.BinOp.SMod ->
                 when {
-                    i1.isSLt(i2, e.outputModZm) -> o1
+                    // `smod(x, y) = sign(x) * (|x| mod |y|)`, and so it equals `x` exactly when `|x| < |y|`.
+                    // This condition also implies `y != 0` (where smod is defined to be 0), and can't hold for
+                    // `x = minSigned`, whose absolute value is at least that of any `y`.
+                    i1.toMathInt(e.outputModZm).abs() isLt i2.toMathInt(e.outputModZm).abs() -> o1
                     i1.isSurely2sNonNeg(e.outputModZm) && i2.isSurely2sNonNeg(e.outputModZm) -> txf.Mod(o1, o2)
                     else -> null
                 }

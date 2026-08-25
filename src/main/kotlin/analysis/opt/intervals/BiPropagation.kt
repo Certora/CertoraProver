@@ -526,11 +526,16 @@ object BiPropagation {
                     if (offset > x.min.n) { // happens if x.min.n is negative.
                         offset -= c
                     }
+                    // Remainders live in `(-c, c)`, and are negative only for the signed mod. So the last offset
+                    // that can still reach `x.max` is `x.max - min(newLhs) <= x.max + c - 1`. For the
+                    // non-negative-remainder cases the extra offsets only generate values above `x.max`, which
+                    // the closing intersection with `x` discards anyway.
+                    val lastOffset = x.max.n + c - BigInteger.ONE
                     val l = buildList {
                         do {
                             addAll(newLhs + S(offset))
                             offset += c
-                        } while (offset <= x.max.n)
+                        } while (offset <= lastOffset)
                     }
                     unionOf(l) intersect x
                 }
