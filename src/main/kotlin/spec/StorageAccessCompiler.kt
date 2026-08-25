@@ -19,11 +19,13 @@ package spec
 
 import analysis.CommandWithRequiredDecls
 import analysis.merge
+import analysis.split.StorageTypeBounder
 import analysis.storage.DisplayPath
 import analysis.storage.StorageAnalysis.Base
 import analysis.storage.StorageAnalysis.AnalysisPath
 import analysis.storage.StorageAnalysis.Offset
 import analysis.storage.StorageAnalysisResult
+import analysis.storage.WidthConstraints
 import config.Config
 import datastructures.stdcollections.*
 import evm.EVM_WORD_SIZE
@@ -46,6 +48,8 @@ import vc.data.SnippetCmd.EVMSnippetCmd.StorageSnippet
 import vc.data.TACMeta.ACCESS_PATHS
 import vc.data.TACMeta.DIRECT_STORAGE_ACCESS
 import vc.data.TACMeta.DIRECT_STORAGE_ACCESS_TYPE
+import vc.data.TACMeta.SIGN_EXTENDED_STORAGE
+import vc.data.TACMeta.SIGN_EXTENDED_VALUE
 import vc.data.TACMeta.SCALARIZATION_SORT
 import vc.data.tacexprutil.ExprUnfolder
 import java.math.BigInteger
@@ -271,11 +275,30 @@ class StorageAccessCompiler(
 
         val outIsSigned = outType is CVLType.PureCVLType.Primitive.IntK
 
+        /**
+         * [StorageTypeBounder] normalized this variable: it holds the (canonically sign-extended) value of the
+         * field already, so the usual sign-extension decode — whether [extractSubword]'s or the state-value
+         * converter's — is redundant. Instead, use the raw value constrained to the type's signed range, marked with
+         * [SIGN_EXTENDED_VALUE] so that the converter knows not to re-extend it.
+         *
+         * Note there is no sub-word offset to worry about: the width conjunct means [storageVar] holds exactly the
+         * field, and split variables are bottom-aligned regardless of the field's offset within its original slot.
+         */
+        val fieldWidth = storageVar.meta[TACMeta.BIT_WIDTH]
+        val storedSignExtended = outIsSigned &&
+            SIGN_EXTENDED_STORAGE in storageVar.meta &&
+            fieldWidth != null && fieldWidth < Config.VMConfig.registerBitwidth &&
+            acc.storageType.tryAs<TACStorageType.IntegralType>()?.numBytes?.toInt() == fieldWidth / 8
+
         // Explicitly extract the sub-word data in case storage splitting was not precise enough
         // (i.e., in case [storageVar] denotes more than the packed value we're after
-        val (maskedRead, maskCmds) = needsMasking(storageVar, acc)?.let { (maskStart, maskSize) ->
-            extractSubword("masked", rawResult.asSym(), maskStart, maskSize, signed = outIsSigned)
-        } ?: rawResult to CommandWithRequiredDecls<TACCmd.Spec>(listOf(), setOf())
+        val (maskedRead, maskCmds) = if (storedSignExtended) {
+            rawResult.withMeta(SIGN_EXTENDED_VALUE) to WidthConstraints(rawResult).signed(fieldWidth!!)
+        } else {
+            needsMasking(storageVar, acc)?.let { (maskStart, maskSize) ->
+                extractSubword("masked", rawResult.asSym(), maskStart, maskSize, signed = outIsSigned)
+            } ?: (rawResult to CommandWithRequiredDecls())
+        }
 
         /**
          * Now actually convert the raw value (held in [maskedRead]) and place it into [out].
@@ -363,22 +386,39 @@ class StorageAccessCompiler(
            When we're havocing a sub-word value
          */
         val (toWriteVar, combineCmds) = needsMasking(storageVar, acc)?.let { (maskStart, maskSize) ->
-            val valueMask = MASK_SIZE(8*maskSize)
-            val havocMask = valueMask.shiftLeft(8*maskStart)
+            if (vmValueType is VMSignedNumericValueTypeDescriptor && maskStart == 0 &&
+                SIGN_EXTENDED_STORAGE in storageVar.meta &&
+                storageVar.meta[TACMeta.BIT_WIDTH] == 8 * maskSize
+            ) {
+                // [StorageTypeBounder] normalized this variable, so store [intermediaryVar] whole — it's
+                // already canonical. The mask+combine below would truncate it, making negative values
+                // unreachable under the reads' signed-range assumptions; and the variable holds this
+                // field alone, so there are no neighbors to preserve.
+                return@let intermediaryVar to CommandWithRequiredDecls()
+            }
+            val valueMask = MASK_SIZE(8 * maskSize)
+            val havocMask = valueMask.shiftLeft(8 * maskStart)
             // oldMask = ~havocMask, but BigInteger doesn't have a convenient bitflip
-            val topAmount = Config.VMConfig.registerByteWidth - (maskStart+maskSize)
-            val lowerMask = MASK_SIZE(8*maskStart)
-            val upperMask = MASK_SIZE(8*topAmount).shiftLeft(8*(maskStart+maskSize))
+            val topAmount = Config.VMConfig.registerByteWidth - (maskStart + maskSize)
+            val lowerMask = MASK_SIZE(8 * maskStart)
+            val upperMask = MASK_SIZE(8 * topAmount).shiftLeft(8 * (maskStart + maskSize))
             val oldMask = upperMask.or(lowerMask)
             val (oldValueVar, oldValueCmds) = when (storageVar.tag) {
                 is Tag.Bit256 -> storageVar to CommandWithRequiredDecls<TACCmd.Spec>()
                 is Tag.WordMap -> {
                     val tmp = TACKeyword.TMP(Tag.Bit256, "!havocOldValue").toUnique("!").at(callId)
                     tmp to CommandWithRequiredDecls(
-                        listOf(TACCmd.Simple.AssigningCmd.WordLoad(lhs = tmp, loc = acc.ptrWithMeta, base = storageVar)),
+                        listOf(
+                            TACCmd.Simple.AssigningCmd.WordLoad(
+                                lhs = tmp,
+                                loc = acc.ptrWithMeta,
+                                base = storageVar
+                            )
+                        ),
                         tmp
                     )
                 }
+
                 else -> error("got unexpected tag ${storageVar.tag} for storage variable $storageVar")
             }
             /*
@@ -391,18 +431,20 @@ class StorageAccessCompiler(
             val alignedHavocValue = if (maskStart == 0) {
                 truncatedHavocValue
             } else {
-                TACExpr.BinOp.ShiftLeft(truncatedHavocValue, (8*maskStart).asTACExpr, Tag.Bit256)
+                TACExpr.BinOp.ShiftLeft(truncatedHavocValue, (8 * maskStart).asTACExpr, Tag.Bit256)
             }
-            ExprUnfolder.unfoldToSingleVar("!combined", TACExpr.BinOp.BWOr(
-                TACExpr.BinOp.BWAnd(havocMask.asTACExpr, alignedHavocValue, Tag.Bit256),
-                TACExpr.BinOp.BWAnd(oldMask.asTACExpr, oldValueVar.asSym(), Tag.Bit256),
-                Tag.Bit256
-            )).let {
+            ExprUnfolder.unfoldToSingleVar(
+                "!combined", TACExpr.BinOp.BWOr(
+                    TACExpr.BinOp.BWAnd(havocMask.asTACExpr, alignedHavocValue, Tag.Bit256),
+                    TACExpr.BinOp.BWAnd(oldMask.asTACExpr, oldValueVar.asSym(), Tag.Bit256),
+                    Tag.Bit256
+                )
+            ).let {
                 val dest = it.e.s as TACSymbol.Var
                 writeDecls.addAll(it.newVars)
                 dest to oldValueCmds.merge(it.cmds)
             }
-        } ?: intermediaryVar to CommandWithRequiredDecls<TACCmd.Spec>(listOf(), setOf())
+        } ?: (intermediaryVar to CommandWithRequiredDecls<TACCmd.Spec>(listOf(), setOf()))
 
         val writeCmd = when (storageVar.tag) {
             Tag.Bit256 -> TACCmd.Simple.AssigningCmd.AssignExpCmd(lhs = storageVar, rhs = toWriteVar)

@@ -372,10 +372,16 @@ object EVMMoveSemantics : EVMTypeDescriptor.ConverstionSemantics, SafeMathCodeGe
         val srcExp = when(srcType) {
             is VMSignedNumericValueTypeDescriptor -> {
                 check(srcTag == Tag.Bit256)
-                signExtendEVMValue(
-                    src = src,
-                    srcType = srcType
-                )
+                if (src.asVarOrNull?.let { TACMeta.SIGN_EXTENDED_VALUE in it.meta } == true) {
+                    // the producer promises the value is already in canonical (sign-extended)
+                    // two's complement form, so re-extending it would be redundant
+                    src
+                } else {
+                    signExtendEVMValue(
+                        src = src,
+                        srcType = srcType
+                    )
+                }
             }
             else -> src
         }

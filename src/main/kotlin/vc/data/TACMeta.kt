@@ -387,6 +387,22 @@ object TACMeta {
     /** Attached to store commands that went through [StorageTypeBounder]'s optimizations successfully */
     val SIGN_EXTENDED_STORE = MetaKey.Nothing("tac.sign.extended.store")
 
+    /**
+     * Attached to a small-signed split storage *variable* when [StorageTypeBounder] successfully normalized its
+     * contract: values in this variable are stored sign-extended (as canonical 256-bit two's complement), so loads
+     * need no SIGNEXTEND — only the signed width bounds. Consumers outside the contract's own code (notably CVL
+     * direct storage access, see [spec.StorageAccessCompiler]) use this to skip the redundant sign-extension decode.
+     */
+    val SIGN_EXTENDED_STORAGE = MetaKey.Nothing("tac.sign.extended.storage")
+
+    /**
+     * Attached to a variable to record that it already holds the canonical 256-bit two's complement (i.e.,
+     * sign-extended) encoding of its narrow signed VM type, so converters to CVL must not re-extend it (see
+     * [spec.converters.EVMMoveSemantics]). Producers are responsible for constraining the value to the type's
+     * signed range, e.g. reads of [SIGN_EXTENDED_STORAGE] variables in [spec.StorageAccessCompiler].
+     */
+    val SIGN_EXTENDED_VALUE = MetaKey.Nothing("tac.sign.extended.value")
+
     val DIRECT_STORAGE_ACCESS = MetaKey.Nothing("tac.direct.storage.access")
 
     val AXIOM_INLINED = MetaKey<AxiomInliner.PlacementInfo>("tac.axiom.inline")
