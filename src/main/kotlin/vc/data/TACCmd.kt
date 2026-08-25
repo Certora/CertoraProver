@@ -2334,6 +2334,12 @@ sealed class TACCmd : Serializable, ITACCmd {
             override fun toString(): String = super.toString() // opt out of generated toString
         }
 
+        @HookableOpcode("SLOTNUM")
+        data class AssignSlotnumCmd(@OpcodeOutput val lhs: TACSymbol.Var, override val meta: MetaMap = MetaMap()) : EVM() {
+            override fun argString(): String = "$lhs"
+            override fun toString(): String = super.toString() // opt out of generated toString
+        }
+
         @HookableOpcode("SELFDESTRUCT")
         data class SelfdestructCmd(@OpcodeParameter("addr") val o: TACSymbol, override val meta: MetaMap = MetaMap()) : EVM() {
             override fun argString(): String = "$o"
@@ -2763,6 +2769,7 @@ sealed class TACCmd : Serializable, ITACCmd {
                 is EVM.AssignBasefeeCmd -> this.lhs
                 is EVM.AssignBlobhashCmd -> this.lhs
                 is EVM.AssignBlobbasefeeCmd -> this.lhs
+                is EVM.AssignSlotnumCmd -> this.lhs
                 is EVM.MloadCmd -> this.lhs
                 is EVM.SloadCmd -> this.lhs
                 is EVM.TloadCmd -> this.lhs
@@ -2897,6 +2904,7 @@ sealed class TACCmd : Serializable, ITACCmd {
             is EVM.AssignBasefeeCmd -> treapSetOf()
             is EVM.AssignBlobhashCmd -> treapSetOf(this.index)
             is EVM.AssignBlobbasefeeCmd -> treapSetOf()
+            is EVM.AssignSlotnumCmd -> treapSetOf()
             is EVM.MloadCmd -> treapSetOf(this.loc, this.memBaseMap)
             is EVM.SloadCmd -> treapSetOf(this.loc, this.storageBaseMap)
             is EVM.TloadCmd -> treapSetOf(this.loc, this.transientStorageBaseMap)
@@ -3055,6 +3063,7 @@ sealed class TACCmd : Serializable, ITACCmd {
             is EVM.AssignBasefeeCmd -> treapSetOf()
             is EVM.AssignBlobhashCmd -> treapSetOf(this.index)
             is EVM.AssignBlobbasefeeCmd -> treapSetOf()
+            is EVM.AssignSlotnumCmd -> treapSetOf()
             is EVM.MloadCmd -> treapSetOf(this.loc, this.memBaseMap)
             is EVM.SloadCmd -> treapSetOf(this.loc, this.storageBaseMap)
             is EVM.TloadCmd -> treapSetOf(this.loc, this.transientStorageBaseMap)

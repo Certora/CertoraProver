@@ -1,0 +1,12 @@
+{
+    "assertMessages": {},
+    "rules": {
+        "dupnDuplicatesTheEighteenthItem": "SUCCESS",
+        "dupnDecodesImmediatesBelowTheReservedRange": "SUCCESS",
+        "dupnImmediateIsNotExecuted": "SUCCESS",
+        "swapnLiftsTheEighteenthItem": "SUCCESS",
+        "exchangeSwapsAShallowPair": "SUCCESS",
+        "exchangeSwapsADeepPair": "SUCCESS",
+        "dupnHaltsOnAnIllegalImmediate": "SUCCESS"
+    }
+}

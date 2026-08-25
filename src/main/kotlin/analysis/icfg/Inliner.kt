@@ -869,6 +869,7 @@ object Inliner {
             callConvention = convention,
             callvalue = BigInteger.ZERO.asTACExpr,
             blocknum = varResolver.blocknum.asSym(),
+            slotnum = varResolver.slotnum.asSym(),
             timestamp = varResolver.timestamp.asSym(),
             callerIndex = where.block.calleeIdx,
             summary = null,
@@ -948,6 +949,7 @@ object Inliner {
             callConvention = convention,
             callvalue = summ.valueVar.asSym(),
             blocknum = varResolver.blocknum.asSym(),
+            slotnum = varResolver.slotnum.asSym(),
             timestamp = varResolver.timestamp.asSym(),
             callerIndex = where.block.calleeIdx,
             summary = summ,
@@ -1339,6 +1341,7 @@ object Inliner {
                         receiverAddress = parentContract.addressSym as TACSymbol,
                         callvalue = callSumm.valueVar.asSym(),
                         blockNum = callerResolver.blocknum.asSym(),
+                        slotnum = callerResolver.slotnum.asSym(),
                         timestamp = callerResolver.timestamp.asSym(),
                         basefee = callerResolver.basefee.asSym(),
                         blobbasefee = callerResolver.blobbasefee.asSym(),
@@ -1444,6 +1447,8 @@ object Inliner {
         callvalue: TACExpr,
         blockNumVar: TACSymbol.Var,
         blockNum: TACExpr,
+        slotnumVar: TACSymbol.Var,
+        slotnum: TACExpr,
         timestampVar: TACSymbol.Var,
         timestamp: TACExpr,
         addressVar: TACSymbol.Var,
@@ -1471,6 +1476,7 @@ object Inliner {
                     TACCmd.Simple.AssigningCmd.AssignExpCmd(callerVar, caller),
                     TACCmd.Simple.AssigningCmd.AssignExpCmd(callvalueVar, callvalue),
                     TACCmd.Simple.AssigningCmd.AssignExpCmd(blockNumVar, blockNum),
+                    TACCmd.Simple.AssigningCmd.AssignExpCmd(slotnumVar, slotnum),
                     TACCmd.Simple.AssigningCmd.AssignExpCmd(timestampVar, timestamp),
                     TACCmd.Simple.AssigningCmd.AssignExpCmd(addressVar, address),
                     TACCmd.Simple.AssigningCmd.AssignExpCmd(basefeeVar, basefee),
@@ -1496,6 +1502,7 @@ object Inliner {
                     callerVar,
                     callvalueVar,
                     blockNumVar,
+                    slotnumVar,
                     timestampVar,
                     addressVar,
                     caller as? TACSymbol.Var,
@@ -1512,6 +1519,8 @@ object Inliner {
                     callvalue.getFreeVars()
                 ).plus(
                     blockNum.getFreeVars()
+                ).plus(
+                    slotnum.getFreeVars()
                 ).plus(
                     timestamp.getFreeVars()
                 ).plus(
@@ -1539,6 +1548,7 @@ object Inliner {
         receiverAddress: TACSymbol,
         callvalue: TACExpr,
         blockNum: TACExpr,
+        slotnum: TACExpr,
         timestamp: TACExpr,
         basefee: TACExpr,
         blobbasefee: TACExpr,
@@ -1558,6 +1568,8 @@ object Inliner {
                 callvalue,
                 varResolver.blocknum,
                 blockNum,
+                varResolver.slotnum,
+                slotnum,
                 varResolver.timestamp,
                 timestamp,
                 varResolver.address,
@@ -2078,6 +2090,7 @@ object Inliner {
         callConvention: CallConventionImpl,
         callvalue: TACExpr,
         blocknum: TACExpr,
+        slotnum: TACExpr,
         timestamp: TACExpr,
         callerIndex: CallId,
         summary: CallSummary?,
@@ -2145,6 +2158,7 @@ object Inliner {
                             addressSym,
                             callvalue,
                             blocknum,
+                            slotnum,
                             timestamp,
                             basefee,
                             blobbasefee,

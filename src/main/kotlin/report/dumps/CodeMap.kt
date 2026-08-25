@@ -177,6 +177,7 @@ data class CodeMap(
         is TACCmd.EVM.AssignBasefeeCmd,
         is TACCmd.EVM.AssignBlobhashCmd,
         is TACCmd.EVM.AssignBlobbasefeeCmd,
+        is TACCmd.EVM.AssignSlotnumCmd,
         is TACCmd.EVM.MloadCmd,
         is TACCmd.EVM.SloadCmd,
         is TACCmd.EVM.CreateCmd,
@@ -703,6 +704,7 @@ data class CodeMap(
                         )
                     }]")}".asRaw()
                     is TACCmd.EVM.AssignBlobbasefeeCmd -> "${getHtmlRep(c.lhs)} = ${boldText("block.blobbasefee")}".asRaw()
+                    is TACCmd.EVM.AssignSlotnumCmd -> "${getHtmlRep(c.lhs)} = ${boldText("block.slotnum")}".asRaw()
                     is TACCmd.EVM.MloadCmd -> "${getHtmlRep(c.lhs)} = ${getHtmlRep(c.memBaseMap)}[${getHtmlRep(c.loc)}:${
                         getHtmlRep(
                             c.loc

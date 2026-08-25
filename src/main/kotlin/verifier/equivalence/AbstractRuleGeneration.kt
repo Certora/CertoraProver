@@ -118,6 +118,7 @@ abstract class AbstractRuleGeneration<I>(
         EthereumVariables.callvalue,
         EthereumVariables.origin,
         EthereumVariables.blobbasefee,
+        EthereumVariables.slotnum,
         EthereumVariables.coinbase,
         EthereumVariables.difficulty,
         EthereumVariables.gasLimit,

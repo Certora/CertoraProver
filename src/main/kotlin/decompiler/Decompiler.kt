@@ -610,14 +610,21 @@ class Decompiler private constructor(
                         )
                     }
 
+                    // Exchanges the values at two stack positions. Serves SWAP, and the EIP-8024
+                    // SWAPN and EXCHANGE.
+                    fun swapStackPositions(shallow: Int, deep: Int) {
+                        val values = pop(deep).toMutableList()
+                        values.swap(shallow - 1, deep - 1)
+                        pushAll(values.asReversed())
+                    }
+
                     when (inst) {
                         is PUSH -> push(constant(inst.value))
                         is DUP -> push(peek(inst.dupNum).last())
-                        is SWAP -> {
-                            val values = pop(inst.swapNum + 1).toMutableList()
-                            values.swap(0, values.lastIndex)
-                            pushAll(values.asReversed())
-                        }
+                        is SWAP -> swapStackPositions(shallow = 1, deep = inst.swapNum + 1)
+                        is DUPN -> push(peek(inst.operand).last())
+                        is SWAPN -> swapStackPositions(shallow = 1, deep = inst.operand + 1)
+                        is EXCHANGE -> swapStackPositions(shallow = inst.operands.n + 1, deep = inst.operands.m + 1)
                         ADD -> binOp { constant(EVMOps.add(a, b)) }
                         SUB -> binOp { constant(EVMOps.sub(a, b)) }
                         MUL -> binOp { constant(EVMOps.mul(a, b)) }
@@ -1077,6 +1084,14 @@ class Decompiler private constructor(
                 TACCmd.Simple.AssigningCmd.AssignExpCmd(lhs = lhs, rhs = rhs, meta = meta)
             fun assign(lhs: TACSymbol.Var, rhs: TACSymbol) = assign(lhs = lhs, rhs = rhs.asSym())
 
+            // Exchanges the values at two stack positions, routing one of them through the synthetic
+            // slot at [SWAP_STACK_POS]. Serves SWAP, and the EIP-8024 SWAPN and EXCHANGE.
+            fun swapStackPositions(shallow: Int, deep: Int) = listOf(
+                assign(lhs = SWAP_VAR, rhs = peek(shallow)),
+                assign(lhs = stackVar(shallow), rhs = peek(deep)),
+                assign(lhs = stackVar(deep), rhs = (peek(shallow) as? TACSymbol.Const) ?: SWAP_VAR)
+            )
+
             // Gets the location where a result will be pushed on the stack.
             fun result(): TACSymbol.Var {
                 check(stack.size == stackSizeBefore - inst.popCount + (inst.pushCount - 1)) {
@@ -1116,11 +1131,10 @@ class Decompiler private constructor(
                     )
                 }
                 is DUP -> cmd { assign(lhs = result(), rhs = peek(inst.dupNum)) }
-                is SWAP -> listOf(
-                    assign(lhs = SWAP_VAR, rhs = peek(1)),
-                    assign(lhs = stackVar(1), rhs = peek(inst.swapNum + 1)),
-                    assign(lhs = stackVar(inst.swapNum + 1), rhs = (peek(1) as? TACSymbol.Const) ?: SWAP_VAR)
-                )
+                is SWAP -> swapStackPositions(shallow = 1, deep = inst.swapNum + 1)
+                is DUPN -> cmd { assign(lhs = result(), rhs = peek(inst.operand)) }
+                is SWAPN -> swapStackPositions(shallow = 1, deep = inst.operand + 1)
+                is EXCHANGE -> swapStackPositions(shallow = inst.operands.n + 1, deep = inst.operands.m + 1)
                 PC -> cmd { assign(rhs = TACSymbol.Const(pc.toBigInteger()), lhs = result()) }
                 POP -> cmd { TACCmd.Simple.NopCmd }
 
@@ -1345,6 +1359,7 @@ class Decompiler private constructor(
                 BASEFEE -> cmdResult { TACCmd.EVM.AssignBasefeeCmd(lhs = result(), meta = meta) }
                 BLOBHASH -> cmdResult { TACCmd.EVM.AssignBlobhashCmd(index = pop(), lhs = result(), meta = meta) }
                 BLOBBASEFEE -> cmdResult { TACCmd.EVM.AssignBlobbasefeeCmd(lhs = result(), meta = meta) }
+                SLOTNUM -> cmdResult { TACCmd.EVM.AssignSlotnumCmd(lhs = result(), meta = meta) }
                 MSIZE -> cmdResult { TACCmd.Simple.AssigningCmd.AssignMsizeCmd(lhs = result(), meta = meta) }
                 GAS -> cmdResult { TACCmd.Simple.AssigningCmd.AssignGasCmd(lhs = result(), meta = meta) }
                 is PushContractAddress -> cmdResult {

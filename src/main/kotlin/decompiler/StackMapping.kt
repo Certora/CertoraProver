@@ -22,6 +22,7 @@ import compiler.SourceSegment
 import config.Config
 import disassembler.EVMCommand
 import disassembler.EVMInstruction
+import disassembler.ExchangeOperands
 import log.Logger
 import spec.cvlast.CVLType
 import utils.*
@@ -316,6 +317,28 @@ class StackMapping(
     }
 
     /**
+     * `EXCHANGE` is the one instruction that rewrites stack slots without touching the top, so the
+     * fallback in [updateFromJimplerState] -- which can only ever invalidate the top -- would leave
+     * both slots describing whatever was there before.
+     *
+     * Trading what we know about the two slots is exact. Unlike [fromSwapCmd] there is no compiler
+     * idiom to recognise here: no released compiler emits this instruction yet, so we model the
+     * stack effect and nothing more.
+     */
+    private fun fromExchangeCmd(operands: ExchangeOperands) {
+        val shallow = atOffsetFromTop(operands.n)
+        val deep = atOffsetFromTop(operands.m)
+        if (shallow == null || deep == null) {
+            logger.warn {
+                "EXCHANGE ${operands.n} ${operands.m} reaches outside a stack of depth ${top + 1}"
+            }
+            return
+        }
+        set(top - operands.n, deep)
+        set(top - operands.m, shallow)
+    }
+
+    /**
      * runs at the end of every cycle of [Jimpler.translateAssemblyToTACCmd]. updates this class's internal
      * stack position to match that of [Jimpler], and looks at the [EVMCommand] that has been processed
      * to both update this class's own stack and try and detect patterns in the currently-seen assembly commands.
@@ -333,8 +356,16 @@ class StackMapping(
                 fromSwapCmd(metaInfo, inst.swapNum)
             }
 
-            is EVMInstruction.DUP -> {
+            is EVMInstruction.SWAPN -> {
+                fromSwapCmd(metaInfo, inst.operand)
+            }
+
+            is EVMInstruction.DUP, is EVMInstruction.DUPN -> {
                 fromDupCmd(metaInfo)
+            }
+
+            is EVMInstruction.EXCHANGE -> {
+                fromExchangeCmd(inst.operands)
             }
 
             else -> {

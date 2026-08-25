@@ -69,6 +69,7 @@ import spec.cvlast.Revert
 import spec.cvlast.Returndatasize
 import spec.cvlast.Selfbalance
 import spec.cvlast.Selfdestruct
+import spec.cvlast.Slotnum
 import spec.cvlast.Staticcall
 import spec.cvlast.Timestamp
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
@@ -843,6 +844,7 @@ sealed class TACHookPattern<out T: HookMatch> : Serializable {
                         )
                         is Basefee -> vc.data.Basefee(pattern.value)
                         is Blobbasefee -> vc.data.Blobbasefee(pattern.value)
+                        is Slotnum -> vc.data.Slotnum(pattern.value)
                         is Blobhash -> vc.data.Blobhash(pattern.value, pattern.index)
                         is Blockhash -> vc.data.Blockhash(pattern.value, pattern.blockNum)
                         is Caller -> vc.data.Caller(pattern.value)

@@ -349,7 +349,7 @@ class CallTraceTest {
 
         val contractAddr = """(0x1000|TestContract \(0x1000\))"""
         val func0St = """create_env\(addr=${contractAddr}\)"""
-        val func3St = """call_function_with_calldataarg\(e=\{msg.sender=${contractAddr}, msg\.value=${numberRE}, tx\.origin=${numberRE}, block\.basefee=${numberRE}, block\.blobbasefee=${numberRE}, block\.coinbase=${numberRE}, block\.difficulty=${numberRE}, block\.gaslimit=${numberRE}, block\.number=${numberRE}, block\.timestamp=${numberRE}}, args=calldataarg \(length=${numberRE}\), start=$unknownStr\)"""
+        val func3St = """call_function_with_calldataarg\(e=\{msg.sender=${contractAddr}, msg\.value=${numberRE}, tx\.origin=${numberRE}, block\.basefee=${numberRE}, block\.blobbasefee=${numberRE}, block\.coinbase=${numberRE}, block\.difficulty=${numberRE}, block\.gaslimit=${numberRE}, block\.number=${numberRE}, block\.slotnum=${numberRE}, block\.timestamp=${numberRE}}, args=calldataarg \(length=${numberRE}\), start=$unknownStr\)"""
 
         assertEquals(4, cvlFunctions.size)
         assertMatches(func0St, cvlFunctions[0].toString())

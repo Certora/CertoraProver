@@ -39,6 +39,7 @@ import tac.TACBasicMeta
  * block.difficulty (uint): current block difficulty
  * block.gaslimit (uint): current block gaslimit
  * block.number (uint): current block number
+ * block.slotnum (uint64): consensus-layer slot number of the current block
  * block.timestamp (uint): current block timestamp as seconds since unix epoch
  * gasleft() returns (uint256): remaining gas
  * msg.data (bytes calldata): complete calldata

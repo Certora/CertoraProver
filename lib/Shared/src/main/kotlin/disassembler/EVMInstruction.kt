@@ -102,6 +102,7 @@ enum class EVMInstruction(
     BASEFEE(0x48u, 0, 1),
     BLOBHASH(0x49u, 1, 1),
     BLOBBASEFEE(0x4au, 0, 1),
+    SLOTNUM(0x4bu, 0, 1),
     POP(0x50u, 1, 0),
     MLOAD(0x51u, 1, 1),
     MSTORE(0x52u, 2, 0, affectsMemory = true),
@@ -208,6 +209,64 @@ enum class EVMInstruction(
         override val popCount get() = swapNum + 1
         override val pushCount get() = swapNum + 1
         override val bytecodeSize get() = 1
+    }
+
+    /**
+     * The EIP-8024 stack instructions. These are the only instructions outside the push family that
+     * are wider than one byte: a one-byte immediate follows the opcode and encodes the stack
+     * position(s) acted on. Only immediates [Eip8024Immediate] can decode reach these classes -- a
+     * reserved immediate makes the instruction invalid, and EIP-8024 requires that to halt.
+     *
+     * Pop and push counts are stated the way [DUP] and [SWAP] state theirs, a net effect rather than
+     * a literal one, so the stack checks that already guard those also give EIP-8024's
+     * halt-on-underflow conditions.
+     */
+    data class DUPN(val operand: Int): EVMInstructionInfo {
+        companion object {
+            val opcode = 0xe6u.toUByte()
+            operator fun invoke(immediate: UByte) = Eip8024Immediate.decodeSingle(immediate)?.let { DUPN(it) }
+        }
+        init {
+            check(operand in Eip8024Immediate.singleOperands) { "Invalid DUPN operand $operand" }
+        }
+
+        override fun toString() = "DUPN $operand"
+
+        override val opcode get() = Companion.opcode
+        override val popCount get() = operand
+        override val pushCount get() = operand + 1
+        override val bytecodeSize get() = 2
+    }
+
+    data class SWAPN(val operand: Int): EVMInstructionInfo {
+        companion object {
+            val opcode = 0xe7u.toUByte()
+            operator fun invoke(immediate: UByte) = Eip8024Immediate.decodeSingle(immediate)?.let { SWAPN(it) }
+        }
+        init {
+            check(operand in Eip8024Immediate.singleOperands) { "Invalid SWAPN operand $operand" }
+        }
+
+        override fun toString() = "SWAPN $operand"
+
+        override val opcode get() = Companion.opcode
+        override val popCount get() = operand + 1
+        override val pushCount get() = operand + 1
+        override val bytecodeSize get() = 2
+    }
+
+    data class EXCHANGE(val operands: ExchangeOperands): EVMInstructionInfo {
+        companion object {
+            val opcode = 0xe8u.toUByte()
+            operator fun invoke(immediate: UByte) = Eip8024Immediate.decodePair(immediate)?.let { EXCHANGE(it) }
+        }
+
+        override fun toString() = "EXCHANGE ${operands.n} ${operands.m}"
+
+        override val opcode get() = Companion.opcode
+        override val popCount get() = operands.m + 1
+        override val pushCount get() = operands.m + 1
+        override val bytecodeSize get() = 2
     }
 
     data class LOG(override val opcode: UByte): EVMInstructionInfo {

@@ -468,6 +468,14 @@ class CVLInvocationCompiler(private val compiler: CVLCompiler, private val compi
             ).merge(
                 passFromEnvToTAC(
                     envArg,
+                    EthereumVariables.slotnum.at(callIndex = calleeId),
+                    "block",
+                    "slotnum",
+                    EVMTypeDescriptor.UIntK(64)
+                )
+            ).merge(
+                passFromEnvToTAC(
+                    envArg,
                     EthereumVariables.timestamp.at(callIndex = calleeId),
                     "block",
                     "timestamp",
