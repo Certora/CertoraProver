@@ -17,9 +17,7 @@
 
 package analysis.opt
 
-import analysis.TACProgramPrinter
 import analysis.numeric.MAX_UINT
-import analysis.opt.PatternRewriter.Key.*
 import analysis.opt.PatternRewriter.PatternHandler
 import analysis.opt.intervals.IntervalsRewriter
 import instrumentation.transformers.FilteringFunctions
@@ -30,12 +28,7 @@ import org.junit.jupiter.api.Test
 import sbf.tac.solanaPatternsList
 import tac.Tag
 import utils.ModZm.Companion.lowOnes
-import vc.data.TACBuilderAuxiliaries
-import vc.data.TACCmd
-import vc.data.TACExpr
-import vc.data.TACProgramBuilder
-import vc.data.TACSymbol
-import vc.data.asTACExpr
+import vc.data.*
 import vc.data.tacexprutil.subs
 import java.math.BigInteger
 
@@ -125,6 +118,38 @@ class PatternRewriterTest : TACBuilderAuxiliaries() {
             x assign Eq(aS, bS)
         }
         checkStat(prog, "maskBoundCheck", patterns = PatternRewriter::earlyPatternsList)
+    }
+
+    /**
+     * `(A - B) * ite(A > B, 1, 0)`  ~~>  `ite(A > B, A intSub B, 0)`
+     */
+    @Test
+    fun testZeroFloorSub() {
+        checkStat(TACProgramBuilder {
+            x assign Gt(aS, bS)
+            d assign Ite(xS, One, Zero)
+            c assign Sub(aS, bS)
+            e assign Mul(dS, cS)
+        }, "zeroFloorSub")
+
+        // the `lt(y, x)` spelling the comparison normalizers produce, and the other operand order
+        checkStat(TACProgramBuilder {
+            x assign Lt(bS, aS)
+            d assign Ite(xS, One, Zero)
+            c assign Sub(aS, bS)
+            e assign Mul(cS, dS)
+        }, "zeroFloorSub")
+    }
+
+    /** The comparison must be over the subtraction's own operands. */
+    @Test
+    fun testZeroFloorSubMismatchedOperands() {
+        checkStat(TACProgramBuilder {
+            x assign Gt(aS, gS)
+            d assign Ite(xS, One, Zero)
+            c assign Sub(aS, bS)
+            e assign Mul(dS, cS)
+        }, "zeroFloorSub", count = 0)
     }
 
     /**

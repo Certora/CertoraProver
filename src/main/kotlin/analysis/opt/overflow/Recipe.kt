@@ -590,6 +590,21 @@ data class Recipe<T : OverflowContext>(
                             (maxUintK / op1) lt op2
                         )
                     }),
+
+//                (or
+//                    (= op1 zero)
+//                    (bvule op2 (bvudiv maxUInt op1))
+//                  )
+                // "pre" as it appears in an assume condition, where [NegationNormalizer] has already pushed
+                // the negation inward, so the `LNot` "pre" expects is gone.
+                ubMul(
+                    "pre_or",
+                    pos {
+                        lOr(
+                            op1 eq zero,
+                            op2 le (maxUintK / op1)
+                        )
+                    }),
             )
         }
 
