@@ -801,12 +801,22 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
             }
 
             override fun toLExpression(conv: ToLExpression.Conv, meta: MetaMap?): LExpression {
-                return conv.lxf.applyExp(
-                        NonSMTInterpretedFunctionSymbol.Ternary.MulMod,
-                        conv(a, meta),
-                        conv(b, meta),
-                        conv(n, meta),
-                )
+                val convN = conv(n, meta)
+                val tag = tagAssumeChecked as Tag.Bits
+                // as for [BinOp.Mod], the zero-modulus case is resolved here, so that the normalizers may
+                // assume a non-zero modulus.
+                return conv.lxf {
+                    ite(
+                        eq(convN, ZERO),
+                        lit(0, tag),
+                        applyExp(
+                            NonSMTInterpretedFunctionSymbol.Ternary.MulMod,
+                            conv(a, meta),
+                            conv(b, meta),
+                            convN,
+                        )
+                    )
+                }
             }
 
             override fun toPrintRep(cb: (TACSymbol.Var) -> String): String {
@@ -829,12 +839,22 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
             }
 
             override fun toLExpression(conv: ToLExpression.Conv, meta: MetaMap?): LExpression {
-                return conv.lxf.applyExp(
-                        NonSMTInterpretedFunctionSymbol.Ternary.AddMod,
-                        conv(a, meta),
-                        conv(b, meta),
-                        conv(n, meta),
-                )
+                val convN = conv(n, meta)
+                val tag = tagAssumeChecked as Tag.Bits
+                // as for [BinOp.Mod], the zero-modulus case is resolved here, so that the normalizers may
+                // assume a non-zero modulus.
+                return conv.lxf {
+                    ite(
+                        eq(convN, ZERO),
+                        lit(0, tag),
+                        applyExp(
+                            NonSMTInterpretedFunctionSymbol.Ternary.AddMod,
+                            conv(a, meta),
+                            conv(b, meta),
+                            convN,
+                        )
+                    )
+                }
             }
 
             override fun toPrintRep(cb: (TACSymbol.Var) -> String): String {
@@ -1198,13 +1218,14 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
                 meta: MetaMap?,
             ): LExpression = conv.lxf {
                 tag as Tag.Bits
+                val modulus = lit(tag.modulus, tag)
 
                 // absolute value of denom
                 val n = conv(o2, meta).let {
                     ite(
                         it le lit(tag.maxSigned, tag),
                         it,
-                        TwoTo256Tagged(tag) - it
+                        modulus - it
                     )
                 }
 
@@ -1214,8 +1235,12 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
                     n eq ZERO to ZERO,
                     // positive case
                     k intLe lit(tag.maxSigned, tag) to k % n,
-                    // negative case: negate k, take mod, and negate again.
-                    elseExpr = TwoTo256Tagged(k.tag) - ((TwoTo256Tagged(k.tag) - k) % n)
+                    // negative case: negate k, take mod, and negate again. The 2s-complement negation of a
+                    // remainder m is `modulus - m` only for m != 0; for m == 0 it must stay 0, otherwise the
+                    // result is `modulus`, which is out of the range of [tag].
+                    elseExpr = ((modulus - k) % n).let { m ->
+                        ite(m eq ZERO, ZERO, modulus - m)
+                    }
                 )
             }
         }

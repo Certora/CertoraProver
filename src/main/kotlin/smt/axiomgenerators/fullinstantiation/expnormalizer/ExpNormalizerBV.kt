@@ -196,6 +196,9 @@ class ExpNormalizerBV(
                  * MulMod(a,b,n) is defined as (a*b) mod n where (a*b) is precise (integer) multiplication, i.e.,
                  * without an overflow. To achieve this with BV, we first extend a, b, and n to 512 bit width,
                  * then perform the multiplication and modulo, and then reduce back to 256 bit width.
+                 * n is guaranteed to be non-zero by the ite-guard emitted in `TACExpr.TernaryExp.MulMod`
+                 * (same contract as [NonSMTInterpretedFunctionSymbol.Binary.Mod] above), so the SMT-LIB
+                 * `bvurem x 0 = x` case is unreachable.
                  */
                 is NonSMTInterpretedFunctionSymbol.Ternary.MulMod -> lxf {
                     fun LExpression.as512() = lit256(0) bvConcat this
@@ -208,6 +211,9 @@ class ExpNormalizerBV(
                  * without an overflow. To achieve this with BV, we first extend a, b, and n to 512 bit width,
                  * then perform the addition and modulo, and then reduce back to 256 bit width.
                  * Note that 257 bits (or 264 bits) would be sufficient, and we might want to change this.
+                 * n is guaranteed to be non-zero by the ite-guard emitted in `TACExpr.TernaryExp.AddMod`
+                 * (same contract as [NonSMTInterpretedFunctionSymbol.Binary.Mod] above), so the SMT-LIB
+                 * `bvurem x 0 = x` case is unreachable.
                  */
                 is NonSMTInterpretedFunctionSymbol.Ternary.AddMod -> lxf {
                     fun LExpression.as512() = lit256(0) bvConcat this
