@@ -1938,6 +1938,7 @@ object Summarizer {
             "difficulty" to TACKeyword.DIFFICULTY.toVar(callId).asSym(),
             "gaslimit"   to TACKeyword.GASLIMIT.toVar(callId).asSym(),
             "number"     to TACKeyword.NUMBER.toVar(callId).asSym(),
+            "slotnum"    to TACKeyword.SLOTNUM.toVar(callId).asSym(),
             "timestamp"  to TACKeyword.TIMESTAMP.toVar(callId).asSym(),
         ))
         val (txVar, copyTxCmd) = tempStruct(tag = EVMBuiltinTypes.tx.toTag(), suffix = "!withEnvTx", fields = mapOf(

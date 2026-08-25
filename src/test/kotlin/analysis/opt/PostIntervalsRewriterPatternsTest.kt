@@ -18,6 +18,7 @@
 package analysis.opt
 
 import analysis.opt.PatternRewriter.PatternHandler
+import analysis.opt.intervals.IntervalsRewriter.Companion.NON_NEG_META
 import config.Config
 import config.ConfigScope
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -111,5 +112,57 @@ class PostIntervalsRewriterPatternsTest : TACBuilderAuxiliaries() {
             x assign Lt(dS, cS)
         }
         checkStat(prog, "divLt", count = 0)
+    }
+
+    /**
+     * The comparison identities are floor-division identities. `IntDiv` rounds toward zero, so none
+     * of them may fire when its dividend can be negative.
+     */
+    @Test
+    fun testIntDivComparisonsNotRewrittenWhenDividendMayBeNegative() {
+        checkStat(TACProgramBuilder {
+            k assign IntDiv(iS, 5.asTACExpr)
+            x assign Lt(kS, jS)
+        }, "divLt", count = 0)
+
+        checkStat(TACProgramBuilder {
+            k assign IntDiv(iS, 5.asTACExpr)
+            x assign Le(kS, jS)
+        }, "divLe", count = 0)
+
+        checkStat(TACProgramBuilder {
+            k assign IntDiv(iS, 5.asTACExpr)
+            x assign Gt(kS, jS)
+        }, "divGt", count = 0)
+
+        checkStat(TACProgramBuilder {
+            k assign IntDiv(iS, 5.asTACExpr)
+            x assign Ge(kS, jS)
+        }, "divGe", count = 0)
+
+        ConfigScope(Config.PurifyConstDivisions, true).use {
+            checkStat(TACProgramBuilder {
+                k assign IntDiv(iS, 5.asTACExpr)
+                x assign Eq(kS, jS)
+            }, "divEq", count = 0)
+        }
+    }
+
+    /**
+     * The `IntDiv` rewrites are still available when the dividend is a constant known to be
+     * non-negative, or a variable that [analysis.opt.intervals.IntervalsRewriter] marked with [NON_NEG_META].
+     */
+    @Test
+    fun testIntDivLtRewrittenWhenDividendIsNonNegative() {
+        checkStat(TACProgramBuilder {
+            k assign IntDiv(7.asTACExpr, 5.asTACExpr)
+            x assign Lt(kS, jS)
+        }, "divLt")
+
+        val nonNegS = i.withMeta(NON_NEG_META).asSym()
+        checkStat(TACProgramBuilder {
+            k assign IntDiv(nonNegS, 5.asTACExpr)
+            x assign Lt(kS, jS)
+        }, "divLt")
     }
 }

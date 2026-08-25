@@ -147,7 +147,7 @@ data class WasmIcfgIteExpr(val regArg1: Arg, val regArg2: Arg, val regArg3: Arg)
 
     override fun assignTACExpr(lhs: TACSymbol.Var): WasmToTacInfo {
         val e = TACExpr.TernaryExp.Ite(
-            TACExpr.BinRel.Eq(regArg1.toTacExpr(), One.asSym()),
+           TACExpr.UnaryExp.LNot(TACExpr.BinRel.Eq(regArg1.toTacExpr(), zeroExpr)),
             regArg2.toTacExpr(),
             regArg3.toTacExpr(),
             Tag.Bit256

@@ -390,6 +390,14 @@ class DispatchAnalysis(val bytecode: DisassembledEVMBytecode, methods: Iterable<
             fun push(v: Value) = stack.push(v)
             fun peek(num: Int) = stack.peek(num).last()
             fun pop() = stack.pop()
+
+            // Exchanges the values at two stack positions. Serves SWAP, and the EIP-8024 SWAPN and
+            // EXCHANGE.
+            fun swapStackPositions(shallow: Int, deep: Int) {
+                val values = stack.pop(deep).toMutableList()
+                values.swap(shallow - 1, deep - 1)
+                stack.pushAll(values.asReversed())
+            }
             fun branch(dest: EVMPC) = EVMState(dest, stack.build(), scratch, dirty)
 
             /** Write a value to memory.  We only track the first 32-bytes of memory, in `scratch`. */
@@ -657,12 +665,11 @@ class DispatchAnalysis(val bytecode: DisassembledEVMBytecode, methods: Iterable<
 
                     is PushBase -> push(inst.value?.toValue(false) ?: Value.Unknown)
                     is DUP -> push(peek(inst.dupNum))
+                    is DUPN -> push(peek(inst.operand))
 
-                    is SWAP -> {
-                        val values = stack.pop(inst.swapNum + 1).toMutableList()
-                        values.swap(0, values.lastIndex)
-                        stack.pushAll(values.asReversed())
-                    }
+                    is SWAP -> swapStackPositions(shallow = 1, deep = inst.swapNum + 1)
+                    is SWAPN -> swapStackPositions(shallow = 1, deep = inst.operand + 1)
+                    is EXCHANGE -> swapStackPositions(shallow = inst.operands.n + 1, deep = inst.operands.m + 1)
 
                     RETURN -> break
                     REVERT -> break

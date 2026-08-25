@@ -17,6 +17,7 @@
 
 package analysis.opt
 
+import analysis.split.Ternary.Companion.bwNot
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import vc.data.TACBuilderAuxiliaries
@@ -39,6 +40,47 @@ class TernarySimplifierTest : TACBuilderAuxiliaries() {
         val simplified = TernarySimplifier.simplify(prog.code, false)
         assertEquals(
             testProgString(expected.code),
+            testProgString(simplified)
+        )
+    }
+
+    /**
+     * The Solidity `bytes` allocation stanza: `b = (len + 31) & ~31`, and then the total allocation
+     * size is `(0x1f + (0x20 + b)) & ~0x1f`. Since `b` is 32-aligned, the low 5 bits of the second
+     * mask's operand are known to be ones, so the mask is just a subtraction:
+     *
+     * `c & ~0x1f`  ~~>  `c - 0x1f`     (when the low 5 bits of `c` are known ones)
+     */
+    @Test
+    fun testAlignmentMaskBecomesSub() {
+        val mask = bwNot(0x1f.toBigInteger()).asTACExpr
+        val prog = TACProgramBuilder {
+            b assign BWAnd(aS, mask)
+            c assign Add(0x1f.asTACExpr, Add(0x20.asTACExpr, bS))
+            d assign BWAnd(cS, mask)
+        }
+        val expected = TACProgramBuilder {
+            b assign BWAnd(aS, mask)
+            c assign Add(0x1f.asTACExpr, Add(0x20.asTACExpr, bS))
+            d assign Sub(cS, 0x1f.asTACExpr)
+        }
+        val simplified = TernarySimplifier.simplify(prog.code, false)
+        assertEquals(
+            testProgString(expected.code),
+            testProgString(simplified)
+        )
+    }
+
+    /** Without the alignment of `a`, the low bits of the mask's operand are unknown — no rewrite. */
+    @Test
+    fun testAlignmentMaskNotRemovedWhenLowBitsUnknown() {
+        val prog = TACProgramBuilder {
+            c assign Add(0x3f.asTACExpr, aS)
+            d assign BWAnd(cS, bwNot(0x1f.toBigInteger()).asTACExpr)
+        }
+        val simplified = TernarySimplifier.simplify(prog.code, false)
+        assertEquals(
+            testProgString(prog.code),
             testProgString(simplified)
         )
     }

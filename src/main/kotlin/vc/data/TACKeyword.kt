@@ -78,6 +78,7 @@ enum class TACKeyword(private val varName: String, val type: Tag, val metaMap: M
     BASEFEE("tacBasefee", Tag.Bit256),
     BLOBHASHES("tacBlobhashes", Tag.WordMap, MetaMap(TACMeta.NO_CALLINDEX)),
     BLOBBASEFEE("tacBlobbasefee", Tag.Bit256),
+    SLOTNUM("tacSlotnum", Tag.Bit256, MetaMap(TACMeta.ENV_BIT_WIDTH to 64)),
     MEM0("tacM0x0", Tag.Bit256, MetaMap(TACMeta.RESERVED_MEMORY_SLOT to BigInteger.ZERO)),
     MEM32("tacM0x20", Tag.Bit256, MetaMap(TACMeta.RESERVED_MEMORY_SLOT to 0x20.toBigInteger())),
     MEM64("tacM0x40", Tag.Bit256, MetaMap(TACMeta.RESERVED_MEMORY_SLOT to 0x40.toBigInteger())),

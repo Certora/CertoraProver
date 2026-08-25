@@ -1,0 +1,144 @@
+[
+  {
+    "type": "function",
+    "name": "dupn",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "x"
+      }
+    ],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "result"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "dupnStopImmediate",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "x"
+      }
+    ],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "result"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "dupnSelfdestructImmediate",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "x"
+      }
+    ],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "result"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "swapn",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "x"
+      },
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "y"
+      }
+    ],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "result"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "exchange",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "x"
+      },
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "y"
+      }
+    ],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "result"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "exchangeDeep",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "x"
+      },
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "y"
+      }
+    ],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "result"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "dupnJumpdestImmediate",
+    "stateMutability": "nonpayable",
+    "inputs": [],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "result"
+      }
+    ]
+  }
+]

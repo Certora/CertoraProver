@@ -310,6 +310,13 @@ sealed class Ternary {
         is NonConstant -> Ternary(zeros = ones, ones = zeros, signExtendBit)
     }
 
+    /**
+     * Addition is mod 2^256. Result bits are computed carry-aware, in the style of LLVM's
+     * `KnownBits::computeForAddCarry`: `possibleSumZero`/`possibleSumOne` are the sums when all unknown bits are
+     * taken as 1/0 respectively. Since carries are monotone in the addend bits, a carry that is 0 in the all-ones
+     * scenario is surely 0, and one that is 1 in the all-zeros scenario is surely 1. A result bit is then known
+     * when both addend bits and the incoming carry are known (`sum bit = a ^ b ^ carry`).
+     */
     infix fun plus(o: Ternary) =
         calcCases(this, o,
             twoBottoms = allXs,
@@ -319,15 +326,13 @@ sealed class Ternary {
                 if (a.zeros or b.zeros == allOnes) {
                     a or b
                 } else {
-                    val surelyZerosBit = 1 + maxOf(bwNot(a.zeros).bitLength(), bwNot(b.zeros).bitLength())
-                    if (surelyZerosBit >= EVM_BITWIDTH256) {
-                        allXs
-                    } else {
-                        Ternary(
-                            lowOnes(EVM_BITWIDTH256 - surelyZerosBit) shl surelyZerosBit,
-                            BigInteger.ZERO
-                        )
-                    }
+                    val possibleSumZero = (bwNot(a.zeros) + bwNot(b.zeros)).mod(EVM_MOD_GROUP256)
+                    val possibleSumOne = (a.ones + b.ones).mod(EVM_MOD_GROUP256)
+                    // The carry into each bit, in the all-unknowns-are-1/0 scenarios respectively.
+                    val carryKnownZero = bwNot(possibleSumZero xor a.zeros xor b.zeros)
+                    val carryKnownOne = possibleSumOne xor a.ones xor b.ones
+                    val known = a.constants and b.constants and (carryKnownZero or carryKnownOne)
+                    Ternary(bwNot(possibleSumZero) and known, possibleSumOne and known)
                 }
             }
         )
@@ -389,15 +394,19 @@ sealed class Ternary {
         )
 
     infix fun signExtend(topBit: Int): Ternary {
-        val keptBitsMask = lowOnes(topBit)
+        require(topBit >= 1) { "sign-extending from bit ${topBit - 1}, which doesn't exist" }
+        // sign-extending from a bit at or above the width of the vector is the identity. Callers do reach here
+        // with such values, e.g., a `signextend` with a byte index of 32 or more.
+        val bit = minOf(topBit, EVM_BITWIDTH256)
+        val keptBitsMask = lowOnes(bit)
         return when (this) {
             is Bottom ->
-                Ternary(BigInteger.ZERO, BigInteger.ZERO, topBit)
+                Ternary(BigInteger.ZERO, BigInteger.ZERO, bit)
 
             is Constant -> {
                 val lowBits = value and keptBitsMask
                 Ternary(
-                    if (lowBits.testBit(topBit - 1)) {
+                    if (lowBits.testBit(bit - 1)) {
                         lowBits or bwNot(keptBitsMask)
                     } else {
                         lowBits
@@ -410,14 +419,14 @@ sealed class Ternary {
                 val lowOnes = ones and keptBitsMask
                 // result depends on whether we know the top bit or not
                 when {
-                    zeros.testBit(topBit - 1) ->
+                    zeros.testBit(bit - 1) ->
                         Ternary(lowZeros or bwNot(keptBitsMask), lowOnes)
 
-                    ones.testBit(topBit - 1) ->
+                    ones.testBit(bit - 1) ->
                         Ternary(lowZeros, lowOnes or bwNot(keptBitsMask))
 
                     else ->
-                        Ternary(lowZeros, lowOnes, minOf(signExtendBit, topBit))
+                        Ternary(lowZeros, lowOnes, minOf(signExtendBit, bit))
                 }
             }
         }

@@ -214,6 +214,7 @@ object EnvFreeMethodAnalysis {
      * - tacDifficulty
      * - tacGaslimit
      * - tacNumber
+     * - tacSlotnum
      * - tacTimestamp
      *
      * Current symbols to which a program should not write:
@@ -236,6 +237,7 @@ object EnvFreeMethodAnalysis {
             TACKeyword.DIFFICULTY,
             TACKeyword.GASLIMIT,
             TACKeyword.NUMBER,
+            TACKeyword.SLOTNUM,
             TACKeyword.TIMESTAMP,
         )
         check(!accessForbiddenVariables.any { keyword ->

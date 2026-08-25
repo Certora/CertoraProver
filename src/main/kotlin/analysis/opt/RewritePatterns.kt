@@ -21,16 +21,32 @@ import analysis.numeric.MAX_UINT
 import analysis.opt.PatternRewriter.Key.*
 import analysis.patterns.get
 import analysis.split.Ternary.Companion.isPowOf2
-import datastructures.stdcollections.*
+import config.Config
 import evm.MIN_EVM_INT256_2S_COMPLEMENT
 import tac.Tag
 import utils.*
 import vc.data.TACExpr
 import vc.data.TACSymbol
+import vc.data.asIntTACExpr
 import vc.data.asTACExpr
 import java.math.BigInteger
 
-fun PatternRewriter.basicPatternsList() = listOf(
+/**
+ * The smallest `k >= 1` with `k * (k + 1) > const`. This is the exact threshold of the floor-division
+ * comparison `a >= const / a` for `a > 0`, which holds iff `const < a * (a + 1)`, i.e., iff `a >= k`.
+ * For a perfect square `const` this is `sqrt(const)`.
+ */
+internal fun sqrtByDivThreshold(const: BigInteger): BigInteger =
+    const.sqrt().let { s ->
+        // `(s-1)*s < s^2 <= const`, so `s` is minimal whenever it satisfies the inequality at all.
+        if (s * (s + BigInteger.ONE) > const) {
+            s
+        } else {
+            s + BigInteger.ONE
+        }
+    }
+
+fun PatternRewriter.basicPatternsList() = listOfNotNull(
 
     /**
      * From the vyper compiler:
@@ -282,7 +298,10 @@ fun PatternRewriter.basicPatternsList() = listOf(
     ),
 
     /**
-     * `a >= const / a` ~~> `ite(a == 0, true, a >= sqrt(const))` ~~> `a==0 || a >= sqrt(const)`
+     * `a >= const / a` ~~> `ite(a == 0, true, a >= k)` ~~> `a==0 || a >= k`, where `k` is
+     * [sqrtByDivThreshold] of `const`.
+     * Note that the threshold here is *not* `sqrt(const)` as in `sqrtByDiv1`: for `a > 0`, floor division
+     * gives `a >= const/a` iff `const < a*(a+1)`, i.e., iff `a >= k`.
      */
     PatternHandler(
         name = "sqrtByDiv3",
@@ -293,7 +312,7 @@ fun PatternRewriter.basicPatternsList() = listOf(
             runIf(src(A) == src(B) && C1.n >= BigInteger.ZERO) {
                 LOr(
                     Eq(sym(A), Zero),
-                    Ge(sym(A), C1.n.sqrt().asTACExpr)
+                    Ge(sym(A), sqrtByDivThreshold(C1.n).asTACExpr)
                 )
             }
         },
@@ -301,7 +320,8 @@ fun PatternRewriter.basicPatternsList() = listOf(
     ),
 
     /**
-     * `a < const / a` ~~> `ite(a == 0, false, a < sqrt(const))` ~~> `a!=0 && a < sqrt(const)`
+     * `a < const / a` ~~> `ite(a == 0, false, a < k)` ~~> `a!=0 && a < k` (the negated version of the one
+     * above), where `k` is [sqrtByDivThreshold] of `const`.
      */
     PatternHandler(
         name = "sqrtByDiv4",
@@ -312,7 +332,7 @@ fun PatternRewriter.basicPatternsList() = listOf(
             runIf(src(A) == src(B) && C1.n >= BigInteger.ZERO) {
                 LAnd(
                     LNot(Eq(sym(A), Zero)),
-                    Lt(sym(A), C1.n.sqrt().asTACExpr)
+                    Lt(sym(A), sqrtByDivThreshold(C1.n).asTACExpr)
                 )
             }
         },
@@ -501,6 +521,38 @@ fun PatternRewriter.basicPatternsList() = listOf(
         regressionMessage = true
     ),
 
+    /**
+     * `(A - B) * ite(A > B, 1, 0)`  ~~>  `ite(A > B, A intSub B, 0)`
+     *
+     * The branchless zero-floor subtraction (`max(0, A - B)`) of hand-written assembly math libraries —
+     * e.g. `z := mul(gt(x, y), sub(x, y))`.
+     *
+     * The rewrite is valid for any width, but is pointless with a bitvector solver, where the resulting
+     * `IntSub` plus narrow is just the original `Sub` in disguise.
+     */
+    patternOnlyIf(
+        cond = !Config.Smt.UseBV.get(),
+        name = "zeroFloorSub",
+        pattern = {
+            val sub = lSym256(A) - lSym256(B)
+            val boolWord = ite(lSym256(C) symmGt lSym256(D), c(1), zero)
+            maybeNarrow(sub anyMul boolWord)
+        },
+        handle = {
+            runIf(src(A) == src(C) && src(B) == src(D)) {
+                val zeroFloor = Ite(
+                    Lt(sym(B), sym(A)),
+                    IntSub(sym(A), sym(B)),
+                    0.asIntTACExpr
+                )
+                zeroFloor.letIf(cmd.lhs.tag is Tag.Bits) {
+                    safeMathNarrow(it, Tag.Bit256)
+                }
+            }
+        },
+        // dispatch is by the rhs' exact runtime class, so name the concrete subclasses
+        TACExpr.Vec.Mul::class.java, TACExpr.Vec.IntMul.Binary::class.java, TACExpr.Apply.Unary::class.java
+    ),
 
 )
 

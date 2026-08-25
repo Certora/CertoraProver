@@ -231,6 +231,8 @@ enum class HookType(val lowLevel: Boolean, @Suppress("Unused") val numInputs: In
     @OpcodeHookType(withOutput = true)
     BLOBBASEFEE(true, 0, 1),
     @OpcodeHookType(withOutput = true)
+    SLOTNUM(true, 0, 1),
+    @OpcodeHookType(withOutput = true)
     MSIZE(true, 0, 1),
     @OpcodeHookType(withOutput = true)
     GAS(true, 0, 1),

@@ -299,7 +299,9 @@ class BasicMathAxiomsDefs(val lxf: LExpressionFactory) {
     fun constantPowAxiom(pow: Int) =
         constantPowAxiomCache.getOrPut(pow) {
             uAx("monom$pow", "x^k = x * x * ... x") { a ->
-                (a uninterpExp litInt(pow)) eq (List(pow) { a }.reduce { acc, it -> acc intMul it })
+                // an empty product is 1, which is also what `exp` gives for a zero exponent.
+                val unrolled = List(pow) { a }.reduceOrNull { acc, it -> acc intMul it } ?: ONE
+                (a uninterpExp litInt(pow)) eq unrolled
             }
         }
 

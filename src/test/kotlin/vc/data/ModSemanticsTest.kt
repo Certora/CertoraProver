@@ -17,6 +17,8 @@
 
 package vc.data
 
+import config.Config
+import config.ConfigScope
 import evm.twoToThe
 import io.mockk.every
 import io.mockk.mockk
@@ -35,6 +37,7 @@ import solver.SolverResult
 import tac.Tag
 import utils.*
 import verifier.TACVerifier
+import java.math.BigInteger
 
 fun execSMT(cmds: List<Cmd>, expect: List<String>? = null) =
     runBlocking {
@@ -116,6 +119,8 @@ class ModSemanticsTest : TACBuilderAuxiliaries() {
     val examples_bvsmod = listOf<List<Long>>(
         listOf(0,0,0), listOf(0,13,0), listOf(13,0,0), listOf(13,13,0),
         listOf(12,5,2), listOf(12,-5,2), listOf(-12,5,-2), listOf(-12,-5,-2),
+        // exact division, i.e., a zero remainder
+        listOf(-12,6,0), listOf(-12,-6,0), listOf(12,-6,0),
     )
 
     @Test
@@ -238,6 +243,64 @@ class ModSemanticsTest : TACBuilderAuxiliaries() {
                 }.code
                 val res = TACVerifier.verify(mockScene, ctp, DummyLiveStatsReporter)
                 assert(res.finalResult == SolverResult.UNSAT)
+            }
+        }
+    }
+
+    /**
+     * A negative dividend that is exactly divided by its divisor yields a zero remainder, and such models must
+     * stay reachable. Operands are kept symbolic, otherwise constant folding hides the encoding.
+     */
+    @Test
+    fun testTAC_bvsmod_exactDivisionIsReachable() {
+        fun bvLit(v: BigInteger) = TACSymbol.Const(v, Tag.Bit256).asSym()
+        val maxSigned = bvLit(Tag.Bit256.maxSigned)
+        val zero = bvLit(BigInteger.ZERO)
+        // ExpSimplifier rewrites `SMod(a, b)` to `a` when a is signed-smaller than b, which would remove the
+        // expression under test, so the intervals rewriter is switched off here.
+        (ConfigScope(Config.intervalsRewriter, 0) + ConfigScope(Config.LastIntervalsRewriter, 0)).use {
+            runBlocking {
+                val ctp = TACProgramBuilder {
+                    // a is negative in 2s-complement, b is a positive divisor
+                    assumeExp(Gt(a.asSym(), maxSigned))
+                    assumeExp(LNot(Eq(b.asSym(), zero)))
+                    assumeExp(Le(b.asSym(), maxSigned))
+                    c assign SMod(a.asSym(), b.asSym())
+                    x assign LNot(Eq(c.asSym(), zero))
+                    assert(x.asSym())
+                }.code
+                val res = TACVerifier.verify(mockScene, ctp, DummyLiveStatsReporter)
+                assert(res.finalResult == SolverResult.SAT)
+            }
+        }
+    }
+
+    /** EVM semantics of ADDMOD/MULMOD with a zero modulus: the result is 0. */
+    @Test
+    fun testTAC_addModMulMod_zeroModulus() {
+        fun bvLit(v: Long) = TACSymbol.Const(v.toBigInteger(), Tag.Bit256).asSym()
+        // the modulus is kept symbolic (only forced to zero by the assumption), otherwise constant folding
+        // hides the encoding. The intervals rewriter must be switched off as well: it infers the singleton
+        // interval [0, 0] for the modulus and folds the whole AddMod/MulMod to the literal 0, which would make
+        // this test pass no matter how the operation is encoded.
+        (ConfigScope(Config.intervalsRewriter, 0) + ConfigScope(Config.LastIntervalsRewriter, 0)).use {
+            runBlocking {
+                val addModProg = TACProgramBuilder {
+                    assumeExp(Le(b.asSym(), bvLit(0)))
+                    c assign AddMod(bvLit(1), bvLit(1), b.asSym())
+                    x assign Eq(c.asSym(), bvLit(0))
+                    assert(x.asSym())
+                }.code
+                val mulModProg = TACProgramBuilder {
+                    assumeExp(Le(b.asSym(), bvLit(0)))
+                    c assign MulMod(bvLit(2), bvLit(3), b.asSym())
+                    x assign Eq(c.asSym(), bvLit(0))
+                    assert(x.asSym())
+                }.code
+                listOf(addModProg, mulModProg).forEach {
+                    val res = TACVerifier.verify(mockScene, it, DummyLiveStatsReporter)
+                    assert(res.finalResult == SolverResult.UNSAT)
+                }
             }
         }
     }

@@ -492,7 +492,7 @@ value class Intervals private constructor(
     fun isSGe(other: S, modZm: ModZm) = this.toMathInt(modZm) isGe other.toMathInt(modZm)
     fun isSGt(other: S, modZm: ModZm) = this.toMathInt(modZm) isGt other.toMathInt(modZm)
 
-    fun abs() = union(intervals.map { it.abs() })
+    fun abs() = unionOf(intervals.map { it.abs() })
 
     fun inUnsignedBounds(modZm: ModZm) : S =
         (this ge S(Zero)) and (this le S(modZm.maxUnsigned))

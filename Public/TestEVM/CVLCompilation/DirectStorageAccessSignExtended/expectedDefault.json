@@ -1,0 +1,26 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"read_matches_getter": "SUCCESS",
+		"setter_visible_to_direct_read": "SUCCESS",
+		"setter_negative_visible": "SUCCESS",
+		"havoc_negative_reachable": "SUCCESS",
+		"havoc_agrees_with_contract": "SUCCESS",
+		"havoc_preserves_neighbor": "SUCCESS",
+		"packed_read_matches_getter": "SUCCESS",
+		"packed_setter_negative_visible": "SUCCESS",
+		"packed_havoc_negative_reachable": "SUCCESS",
+		"packed_havoc_agrees_with_contract": "SUCCESS",
+		"packed_havoc_preserves_neighbor": "SUCCESS",
+		"envfreeFuncsStaticCheck": {
+			"SUCCESS": [
+				"getHead2(uint256)",
+				"getOff(uint256)",
+				"getOff2(uint256)",
+				"getTail(uint256)",
+				"setOff(uint256,int200)",
+				"setOff2(uint256,int200)"
+			]
+		}
+	}
+}

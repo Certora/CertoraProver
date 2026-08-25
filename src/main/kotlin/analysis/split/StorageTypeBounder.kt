@@ -29,6 +29,7 @@ import evm.EVM_BITWIDTH256
 import log.*
 import scene.IContractClass
 import scene.IMutableStorageInfo
+import scene.IMutableTransientStorageInfo
 import scene.ITACMethod
 import spec.cvlast.typedescriptors.VMSignedNumericValueTypeDescriptor
 import spec.cvlast.typedescriptors.VMTypeDescriptor
@@ -36,6 +37,8 @@ import utils.*
 import vc.data.*
 import vc.data.TACCmd.Simple.AssigningCmd.AssignExpCmd
 import vc.data.TACMeta.SIGN_EXTENDED_STORE
+import vc.data.TACMeta.SIGN_EXTENDED_STORAGE
+import vc.data.TACMeta.STORAGE_TYPE
 import java.util.concurrent.atomic.AtomicReference
 import java.util.stream.Collectors
 
@@ -68,6 +71,9 @@ import java.util.stream.Collectors
  * we could have still rewritten any non-indexed-path that adheres to the pattern. But we expect this to never happen.
  */
 class StorageTypeBounder(private val contract: IContractClass) {
+
+    private fun isSmallSigned(type: VMTypeDescriptor) =
+        type is VMSignedNumericValueTypeDescriptor && type.bitwidth < EVM_BITWIDTH256
 
     companion object {
 
@@ -139,6 +145,40 @@ class StorageTypeBounder(private val contract: IContractClass) {
             workers.forEach {
                 it.rewrite()
             }
+
+            annotateSignExtendedStorageVars()
+        }
+    }
+
+    /**
+     * Records the normalization convention on the storage variables themselves: after a successful run, every
+     * small-signed split storage variable holds sign-extended values. Consumers compiling accesses outside the
+     * contract's own methods (e.g. CVL direct storage reads) check this meta to skip the redundant SIGNEXTEND
+     * decode and instead assume the signed width bounds (see [spec.StorageAccessCompiler]).
+     */
+    private fun annotateSignExtendedStorageVars() {
+        fun TACSymbol.Var.annotated() =
+            if (meta[STORAGE_TYPE]?.let(::isSmallSigned) == true) {
+                withMeta(SIGN_EXTENDED_STORAGE)
+            } else {
+                this
+            }
+
+        (contract as? IMutableStorageInfo)?.let { c ->
+            (contract.storage as? StorageInfoWithReadTracker)?.let { info ->
+                c.setStorageInfo(
+                    StorageInfoWithReadTracker(
+                        info.storageVariables.entries.associate { (v, tracker) -> v.annotated() to tracker }
+                    )
+                )
+            }
+        }
+        (contract as? IMutableTransientStorageInfo)?.let { c ->
+            (contract.transientStorage as? StorageInfo)?.let { info ->
+                c.setTransientStorageInfo(
+                    StorageInfo(info.storageVariables.mapToSet { it.annotated() })
+                )
+            }
         }
     }
 
@@ -163,9 +203,6 @@ class StorageTypeBounder(private val contract: IContractClass) {
                 }
             usedVars - usedVarsWithMoreThanOneUseSite
         }
-
-        private fun isSmallSigned(type: VMTypeDescriptor) =
-            type is VMSignedNumericValueTypeDescriptor && type.bitwidth < EVM_BITWIDTH256
 
         fun prepare() {
             graph.commands.parallelStream().forEach { lcmd ->

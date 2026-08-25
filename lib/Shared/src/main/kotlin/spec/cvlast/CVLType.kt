@@ -973,6 +973,7 @@ object EVMBuiltinTypes {
             PureCVLType.Struct.StructEntry("difficulty", PureCVLType.Primitive.UIntK(256)),
             PureCVLType.Struct.StructEntry("gaslimit", PureCVLType.Primitive.UIntK(256)),
             PureCVLType.Struct.StructEntry("number", PureCVLType.Primitive.UIntK(256)),
+            PureCVLType.Struct.StructEntry("slotnum", PureCVLType.Primitive.UIntK(64)),
             PureCVLType.Struct.StructEntry("timestamp", PureCVLType.Primitive.UIntK(256)),
 // TODO Merge: bytesblob is now Tag.Bit256
         )

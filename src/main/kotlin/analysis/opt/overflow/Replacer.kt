@@ -115,7 +115,10 @@ class Replacer<T : OverflowContext>(
                 )
             } else {
                 Pair(
-                    minSignedValueOfBitwidth(width) / c,
+                    // for `c == -1` the quotient is `2^(width-1)`, one above the largest positive value of
+                    // the type, and so must be capped - otherwise the bound admits `minSigned`, the one
+                    // input for which multiplying by `-1` does overflow.
+                    (minSignedValueOfBitwidth(width) / c).min(maxSignedValueOfBitwidth(width)),
                     maxSignedValueOfBitwidth(width) / c
                 )
             }

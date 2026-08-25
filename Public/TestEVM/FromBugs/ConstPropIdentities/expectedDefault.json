@@ -1,0 +1,16 @@
+{
+	"rules": {
+		"selfDiv_is_one": "FAIL",
+		"oneMod_is_one": "FAIL",
+		"zeroExp_is_zero": "FAIL",
+		"edge_cases": "SUCCESS",
+		"oneMod_above_one": "SUCCESS",
+		"envfreeFuncsStaticCheck": {
+			"SUCCESS": [
+				"oneMod(uint256)",
+				"selfDiv(uint256)",
+				"zeroExp(uint256)"
+			]
+		}
+	}
+}

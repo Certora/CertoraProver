@@ -48,6 +48,7 @@ object TernarySimplifier {
         OR_FULL("bwOrs to plus"),
         OR_PARTIAL("bwOrs to ite"),
         AND_FULL("excess bwAnd"),
+        AND_TO_SUB("bwAnd to minus"),
         SIGN_EXT("excess signExtend"),
         CONSTANT("inlined constant");
 
@@ -193,7 +194,23 @@ object TernarySimplifier {
                 val lowBits = ModZm.lowOnes(mask.lowestSetBit) // this would be 0xff in the example.
                 return runIf(lowBits containedIn t.zeros) {
                     listOf(lcmd.cmd.copy(rhs = TACExpr.BinOp.BWAnd(o, (mask or lowBits).asTACExpr)))
-                }
+                }?.also { stats.plusOne(AND_FULL) }
+            }
+
+            /**
+             * `o & mask`  ~~>  `o - c`     (when all the bits that `mask` clears are known in `o`, `c` being their
+             * value there)
+             *
+             * `c`'s set bits are also set in `o`, so the subtraction can't borrow and is equivalent to clearing
+             * them. This notably linearizes the second alignment mask of Solidity's `bytes` allocation stanza,
+             * `(alignedSize + 0x3f) & ~0x1f`, whose operand has its low 5 bits known (all ones) but is otherwise
+             * unknown.
+             */
+            fun maskToSub(mask: BigInteger, o: TACExpr, t: Ternary.NonBottom): List<TACCmd.Simple>? {
+                val cleared = bwNot(mask)
+                return runIf(cleared containedIn t.constants) {
+                    listOf(lcmd.cmd.copy(rhs = TACExpr.BinOp.Sub(o, (t.ones and cleared).asTACExpr)))
+                }?.also { stats.plusOne(AND_TO_SUB) }
             }
 
             val (o1, o2) = lcmd.exp.getOperands()
@@ -203,23 +220,21 @@ object TernarySimplifier {
 
                 when {
                     bwNot(t1.zeros) containedIn t2.ones ->
-                        listOf(lcmd.cmd.copy(rhs = o1))
+                        listOf(lcmd.cmd.copy(rhs = o1)).also { stats.plusOne(AND_FULL) }
 
                     bwNot(t2.zeros) containedIn t1.ones ->
-                        listOf(lcmd.cmd.copy(rhs = o2))
+                        listOf(lcmd.cmd.copy(rhs = o2)).also { stats.plusOne(AND_FULL) }
 
                     t1.isConstant() ->
-                        f(t1.asConstant(), o2, t2)
+                        f(t1.asConstant(), o2, t2) ?: maskToSub(t1.asConstant(), o2, t2)
 
                     t2.isConstant() ->
-                        f(t2.asConstant(), o1, t1)
+                        f(t2.asConstant(), o1, t1) ?: maskToSub(t2.asConstant(), o1, t1)
 
                     else -> null
                 }
             } else {
                 null
-            }?.also {
-                stats.plusOne(AND_FULL)
             }
         }
 

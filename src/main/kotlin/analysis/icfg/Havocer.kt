@@ -164,19 +164,28 @@ object Havocer {
         }
 
         if(havoc != HavocType.Static) {
+            /**
+             * Pinning the callee's balance to its pre-call value is not implied by the ECF (no-reentrancy)
+             * semantics we document - the callee may spend or forward its own funds to a third party - it is an
+             * optimistic assumption that suppresses such counterexamples. [Config.HavocUnresolvedCalleeBalance]
+             * drops it.
+             */
+            val pinCalleeBalance = havoc != HavocType.All && !Config.HavocUnresolvedCalleeBalance.get()
             val oldBalanceContract = allocTmp( "currBalanceContract")
-            val oldBalanceCaller = allocTmp("currBalanceCaller")
+            val oldBalanceCallee = if (pinCalleeBalance) { allocTmp("currBalanceCallee") } else { null }
             decl.add(EthereumVariables.balance)
             val sourceAddress = (s.getContract(sourceInstanceId).addressSym as TACSymbol).asSym()
-            val getOldBalance = listOf(
+            val getOldBalance = listOfNotNull(
                     TACCmd.Simple.AssigningCmd.AssignExpCmd(
                             oldBalanceContract,
                             TACExpr.Select(EthereumVariables.balance.asSym(), sourceAddress)
                     ),
-                    TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                            oldBalanceCaller,
+                    oldBalanceCallee?.let {
+                        TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                            it,
                             TACExpr.Select(EthereumVariables.balance.asSym(), callSummary.toVar.asSym())
-                    )
+                        )
+                    }
             )
             commands.addAll(getOldBalance)
             decl.add(callSummary.toVar)
@@ -195,17 +204,19 @@ object Havocer {
                         ), TACCmd.Simple.AssumeCmd(b, "assumeNonDecreasedThisBalance")
                 )
             }
-            val assumeSameCalleeBalance = allocTmp("isIncreasedBalance", Tag.Bool).let { b ->
-                listOf(
-                    TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                        b, TACExpr.BinRel.Eq(
-                            oldBalanceCaller.asSym(), TACExpr.Select(
-                                EthereumVariables.balance.asSym(), callSummary.toVar.asSym()
+            val assumeSameCalleeBalance = oldBalanceCallee?.let { old ->
+                allocTmp("isSameCalleeBalance", Tag.Bool).let { b ->
+                    listOf(
+                        TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                            b, TACExpr.BinRel.Eq(
+                                old.asSym(), TACExpr.Select(
+                                    EthereumVariables.balance.asSym(), callSummary.toVar.asSym()
+                                )
                             )
-                        )
-                    ), TACCmd.Simple.AssumeCmd(b, "assumeSameCalleeBalance")
-                )
-            }
+                        ), TACCmd.Simple.AssumeCmd(b, "assumeSameCalleeBalance")
+                    )
+                }
+            }.orEmpty()
             commands.addAll(havocBalance)
             if (havoc != HavocType.All) {
                 commands.addAll(assumeNonDecreasedThisBalance)

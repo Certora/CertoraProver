@@ -103,6 +103,28 @@ object Disassembler {
         )
     }
 
+    /**
+     * Decodes one of the EIP-8024 instructions, which are two bytes wide: the opcode is followed by
+     * an immediate encoding the stack position(s) it acts on. A reserved immediate, or an opcode
+     * with no room for one, cannot be executed and halts exceptionally.
+     *
+     * That halt stays one byte wide so the byte after it is still decoded on its own. EIP-8024
+     * leaves jumpdest analysis untouched -- it does not skip these immediates -- so a JUMPDEST
+     * sitting where a reserved immediate would be remains a legal jump target, and dropping it here
+     * would lose a jump target that a node still honours.
+     */
+    private fun eip8024Instruction(
+        bytes: List<UByte>,
+        offset: Int,
+        decode: (UByte) -> EVMInstructionInfo?
+    ): EVMInstructionInfo =
+        bytes.getOrNull(offset + 1)?.let(decode) ?: INVALID.also {
+            logger.info(
+                "Opcode ${bytes[offset].toString(16)} in byte #$offset has no legal EIP-8024 immediate, " +
+                    "this is equivalent to an EVM exception"
+            )
+        }
+
     private fun bytelistToEVMAssembly(
             bytes: List<UByte>,
             asm: List<SrcMapping>,
@@ -123,6 +145,9 @@ object Disassembler {
                 in DUP.opcodes -> DUP(op)
                 in SWAP.opcodes -> SWAP(op)
                 in LOG.opcodes -> LOG(op)
+                DUPN.opcode -> eip8024Instruction(bytes, i) { DUPN(it) }
+                SWAPN.opcode -> eip8024Instruction(bytes, i) { SWAPN(it) }
+                EXCHANGE.opcode -> eip8024Instruction(bytes, i) { EXCHANGE(it) }
                 PushContractAddress.opcode -> PushContractAddress(bytes, i)
                 in PushBase.opcodes -> when (val immutable = immutables.singleOrNull { it.offset == i + 1 }) {
                     null -> PUSH(op, bytes, i)

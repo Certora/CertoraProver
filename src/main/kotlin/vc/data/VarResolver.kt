@@ -42,6 +42,7 @@ class VarResolver(private val symbolTable: TACSymbolTable, callId: CallId) {
     val difficulty by lazy { findCallSpecificByKeyword(TACKeyword.DIFFICULTY, callId) ?: TACKeyword.DIFFICULTY.toVar(callId) }
     val gasLimit by lazy { findCallSpecificByKeyword(TACKeyword.GASLIMIT, callId) ?: TACKeyword.GASLIMIT.toVar(callId) }
     val blocknum by lazy { findCallSpecificByKeyword(TACKeyword.NUMBER, callId) ?: TACKeyword.NUMBER.toVar(callId) }
+    val slotnum by lazy { findCallSpecificByKeyword(TACKeyword.SLOTNUM, callId) ?: TACKeyword.SLOTNUM.toVar(callId) }
     val timestamp by lazy {  findCallSpecificByKeyword(TACKeyword.TIMESTAMP, callId) ?: TACKeyword.TIMESTAMP.toVar(callId) }
     val sighash by lazy {  findCallSpecificByKeyword(TACKeyword.SIGHASH, callId) ?: TACKeyword.SIGHASH.toVar(callId) }
     val calldata by lazy {  findCallSpecificByKeyword(TACKeyword.CALLDATA, callId) ?: TACKeyword.CALLDATA.toVar(callId) }

@@ -1,0 +1,12 @@
+{
+	"rules": {
+		"cvlDivHasCounterexample": "FAIL",
+		"envfreeFuncsStaticCheck": {
+			"SUCCESS": [
+				"quotient(int256)"
+			]
+		},
+		"nonNegativeDividendVerifies": "SUCCESS",
+		"solidityDivHasCounterexample": "FAIL"
+	}
+}

@@ -21,6 +21,7 @@ import analysis.integeroverflows.OverflowTestAux.TestConfig
 import analysis.integeroverflows.OverflowTestAux.checkMul
 import analysis.integeroverflows.OverflowTestAux.configSequence
 import analysis.integeroverflows.OverflowTestAux.isMathintOutOfRangeCVLText
+import analysis.integeroverflows.OverflowTestAux.runContractAndSpec
 import analysis.numeric.MAX_UINT
 import analysis.opt.overflow.OverflowPatternRewriter.Companion.OverflowMetaData
 import analysis.opt.overflow.RecipeType
@@ -28,8 +29,10 @@ import annotations.TestTags.EXPENSIVE
 import datastructures.stdcollections.*
 import evm.EVM_BITWIDTH256
 import infra.CertoraBuild.Companion.EVMCompiler
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import solver.SolverResult
 import utils.*
 import utils.SignUtilities.maxSignedValueOfBitwidth
 import utils.SignUtilities.maxUnsignedValueOfBitwidth
@@ -157,6 +160,37 @@ class MulByConstOverflowTest {
     @Test
     fun mulByConstant() {
         mulByConstTestSequence().forEach(ConstMulTestConfig::test)
+    }
+
+    /**
+     * `x * -1` at width 256 is the one case where the positive no-overflow bound `minSigned / c` lands
+     * exactly on the 2s-complement encoding of `minSigned`. Unless it is capped at `maxSigned`, the
+     * no-overflow condition becomes a tautology and the revert at `x == minSigned` is erased.
+     */
+    @Test
+    fun minusOneMulByConstReverts() {
+        val contract = """
+            |contract test {
+            |   function testFunc(int256 x) external returns (int256) {
+            |       return x * (-1);
+            |   }
+            |}
+            """.trimMargin()
+        val spec = """
+            |rule test(int256 x, env e) {
+            |   require e.msg.value == 0;
+            |   testFunc@withrevert(e, x);
+            |   assert !lastReverted;
+            |}
+            """.trimMargin()
+        val result = runContractAndSpec(
+            contract = contract,
+            spec = spec,
+            compiler = EVMCompiler.Solidity("solc8.28"),
+            withOptimize = false,
+            withViaIR = false,
+        )
+        assertEquals(SolverResult.SAT, result.finalResult)
     }
 
     @Test

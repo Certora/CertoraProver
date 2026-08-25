@@ -1,0 +1,11 @@
+{
+    "assertMessages": {},
+    "rules": {
+        "slotNumFitsInUint64": "SUCCESS",
+        "slotNumIsStableWithinATransaction": "SUCCESS",
+        "slotNumIsStableAcrossCallsInTheSameBlock": "SUCCESS",
+        "differentEnvsCanHaveDifferentSlotNums": "SUCCESS",
+        "slotNumMatchesEnv": "SUCCESS",
+        "slotNumHookObservesTheValue": "SUCCESS"
+    }
+}

@@ -1,0 +1,30 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"aEqualsB": {
+			"Induction base: After the constructor": "SUCCESS",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [],
+					"SUCCESS": [
+						"Caller.g(address)",
+						"Holder.touch()"
+					],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				}
+			}
+		},
+		"envfreeFuncsStaticCheck": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"a()",
+				"b()"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		}
+	}
+}

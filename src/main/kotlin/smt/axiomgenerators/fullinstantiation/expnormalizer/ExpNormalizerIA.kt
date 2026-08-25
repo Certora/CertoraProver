@@ -277,6 +277,10 @@ class ExpNormalizerIA(
                 is NonSMTInterpretedFunctionSymbol.Hash -> null
                 is NonSMTInterpretedFunctionSymbol.MultiDimArray -> null
 
+                /**
+                 * The modulus is guaranteed to be non-zero by the ite-guard emitted in
+                 * `TACExpr.TernaryExp.MulMod`, so the mod term below is never applied to a zero modulus.
+                 */
                 is NonSMTInterpretedFunctionSymbol.Ternary.MulMod -> {
                     if (linearizationSelector(context)) {
                         lxf { (exp.args[0] uninterpMul exp.args[1]) uninterpMod exp.args[2] }
@@ -285,6 +289,10 @@ class ExpNormalizerIA(
                     }.lift()
                 }
 
+                /**
+                 * The modulus is guaranteed to be non-zero by the ite-guard emitted in
+                 * `TACExpr.TernaryExp.AddMod`, so the mod term below is never applied to a zero modulus.
+                 */
                 is NonSMTInterpretedFunctionSymbol.Ternary.AddMod -> {
                     if (linearizationSelector(context)) {
                         lxf { (exp.args[0] intAdd exp.args[1]) uninterpMod exp.args[2] }

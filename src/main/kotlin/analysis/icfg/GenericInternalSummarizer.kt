@@ -21,6 +21,7 @@ import algorithms.transitiveClosure
 import analysis.*
 import analysis.dataflow.GlobalValueNumbering
 import analysis.ip.*
+import analysis.storage.isStorageOrTransientStorage
 import analysis.worklist.StepResult
 import analysis.worklist.VisitingWorklistIteration
 import com.certora.collect.*
@@ -819,7 +820,12 @@ abstract class GenericInternalSummarizer<K, S,
                     // ignore keyword entries (tacM etc.) that are written within the summarized body.
                     // however, for some reason all stack variables are also annotated with the keyword entry "L"
                     // for "stack height" so explicitly ignore that...
-                    if((ent != null && ent.maybeTACKeywordOrdinal != TACKeyword.STACK_HEIGHT.ordinal) || TACMeta.STORAGE_KEY in v.meta) {
+                    // storage, transient storage, and the read trackers shadowing them are state, not locals:
+                    // the summarized body is removed, so no write to them happens and their value at the
+                    // entrance to the function still holds. There is nothing to restore, and no alias to
+                    // restore from.
+                    if((ent != null && ent.maybeTACKeywordOrdinal != TACKeyword.STACK_HEIGHT.ordinal) ||
+                        v.isStorageOrTransientStorage() || TACMeta.STORAGE_READ_TRACKER in v.meta) {
                         continue
                     }
                     // is there an alias that exists at the entrance to the function? If so, use that.

@@ -32,6 +32,7 @@ import datastructures.UndirectedGraph
 import datastructures.UniqueCache
 import datastructures.get
 import datastructures.stdcollections.*
+import evm.EVM_BITWIDTH256
 import evm.EVM_BYTE_SIZE
 import log.*
 import scene.ITACMethod
@@ -628,7 +629,9 @@ class SplitFinder(
                         // a shift right followed by a sign extend.
                         is TACExpr.BinOp.ShiftRightArithmetical -> {
                             ternaryOf(v2).asIntOrNull()?.let { by ->
-                                if (v1 is TACExpr.Sym.Var) {
+                                // a shift by the full width doesn't isolate any piece of the rhs, so there is
+                                // nothing to split along.
+                                if (v1 is TACExpr.Sym.Var && by < EVM_BITWIDTH256) {
                                     val rhs = varNode(v1)
                                     val aux1 = auxNode(rhs.ternary shiftRight by)
                                     shiftGraph.add(aux1, rhs, by)

@@ -757,7 +757,9 @@ class SplitRewriter(
 
                             // this can be thought of as a shift right followed by a sign-extend.
                             is TACExpr.BinOp.ShiftRightArithmetical ->
-                                ternaries.getRhs(ptr, rhs.o2).asIntOrNull()?.let { by ->
+                                // a shift by the full width leaves no bits of the rhs, and the sign-extend below
+                                // would get a negative byte index. SplitFinder doesn't split such a shift anyway.
+                                ternaries.getRhs(ptr, rhs.o2).asIntOrNull()?.takeIf { it < EVM_BITWIDTH256 }?.let { by ->
                                     shiftExprOf(-by, rhs.o1) {
                                         // if we're here then it's not a clean sra, i.e., the shift cuts off bits of
                                         // the corresponding range of bits.

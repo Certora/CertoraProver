@@ -1,0 +1,28 @@
+[
+  {
+    "type": "function",
+    "name": "slotnum",
+    "stateMutability": "nonpayable",
+    "inputs": [],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "slot"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "slotnumDelta",
+    "stateMutability": "nonpayable",
+    "inputs": [],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "type": "uint256",
+        "name": "delta"
+      }
+    ]
+  }
+]

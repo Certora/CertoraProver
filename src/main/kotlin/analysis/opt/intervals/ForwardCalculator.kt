@@ -100,8 +100,10 @@ object ForwardCalculator {
                     is TACExpr.BinOp.ShiftRightArithmetical ->
                         i2.asConstOrNull?.toIntOrNull()
                             ?.let {
-                                val shiftBy = minOf(it, outModZm.bitwidth)
-                                (i1 / S(twoToThe(shiftBy))).signExtend(outModZm.bitwidth - it, outModZm.bitwidth)
+                                // shifting by `bitwidth - 1` or more gives copies of the sign bit, so clamping
+                                // there is exact, and keeps the sign-extend's `fromBit` positive.
+                                val shiftBy = minOf(it, outModZm.bitwidth - 1)
+                                (i1 / S(twoToThe(shiftBy))).signExtend(outModZm.bitwidth - shiftBy, outModZm.bitwidth)
                             }
                             ?: sFull(outModZm)
 

@@ -1,0 +1,31 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"aEqualsB": {
+			"Induction base: After the constructor": "SUCCESS",
+			"Induction step: Reset transient storage": "SUCCESS",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [],
+					"SUCCESS": [
+						"HavocedCall.g(address)",
+						"TransientHolder.touch()"
+					],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				}
+			}
+		},
+		"envfreeFuncsStaticCheck": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"a()",
+				"b()"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		}
+	}
+}

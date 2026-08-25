@@ -17,9 +17,7 @@
 
 package analysis.opt
 
-import analysis.TACProgramPrinter
 import analysis.numeric.MAX_UINT
-import analysis.opt.PatternRewriter.Key.*
 import analysis.opt.PatternRewriter.PatternHandler
 import analysis.opt.intervals.IntervalsRewriter
 import instrumentation.transformers.FilteringFunctions
@@ -30,10 +28,8 @@ import org.junit.jupiter.api.Test
 import sbf.tac.solanaPatternsList
 import tac.Tag
 import utils.ModZm.Companion.lowOnes
-import vc.data.TACBuilderAuxiliaries
-import vc.data.TACExpr
-import vc.data.TACProgramBuilder
-import vc.data.asTACExpr
+import vc.data.*
+import vc.data.tacexprutil.subs
 import java.math.BigInteger
 
 class PatternRewriterTest : TACBuilderAuxiliaries() {
@@ -45,6 +41,26 @@ class PatternRewriterTest : TACBuilderAuxiliaries() {
 //        TACProgramPrinter.standard().print(PatternRewriter.rewrite(prog.code))
         assertEquals(count, stats[stat])
     }
+
+    /** The values of all constants in the rewritten program. */
+    private fun rewrittenConsts(
+        prog: TACProgramBuilder.BuiltTACProgram,
+        patterns: PatternRewriter.() -> List<PatternHandler> = PatternRewriter::basicPatternsList
+    ): Set<BigInteger> =
+        PatternRewriter.rewrite(prog.code, patterns).ltacStream().toList()
+            .mapNotNull { it.cmd as? TACCmd.Simple.AssigningCmd.AssignExpCmd }
+            .flatMap { cmd -> cmd.rhs.subs.mapNotNull { (it as? TACExpr.Sym.Const)?.s?.value }.toList() }
+            .toSet()
+
+    /** The constants appearing in the rewritten rhs of the assignments to [lhs]. */
+    private fun rewrittenConstsOf(
+        prog: TACProgramBuilder.BuiltTACProgram, lhs: TACSymbol.Var,
+        patterns: PatternRewriter.() -> List<PatternHandler> = PatternRewriter::basicPatternsList
+    ): Set<TACSymbol.Const> =
+        PatternRewriter.rewrite(prog.code, patterns).ltacStream().toList()
+            .mapNotNull { (it.cmd as? TACCmd.Simple.AssigningCmd.AssignExpCmd)?.takeIf { c -> c.lhs == lhs } }
+            .flatMap { cmd -> cmd.rhs.subs.mapNotNull { (it as? TACExpr.Sym.Const)?.s }.toList() }
+            .toSet()
 
     /**
      * Tests the pattern rewrite:
@@ -102,6 +118,38 @@ class PatternRewriterTest : TACBuilderAuxiliaries() {
             x assign Eq(aS, bS)
         }
         checkStat(prog, "maskBoundCheck", patterns = PatternRewriter::earlyPatternsList)
+    }
+
+    /**
+     * `(A - B) * ite(A > B, 1, 0)`  ~~>  `ite(A > B, A intSub B, 0)`
+     */
+    @Test
+    fun testZeroFloorSub() {
+        checkStat(TACProgramBuilder {
+            x assign Gt(aS, bS)
+            d assign Ite(xS, One, Zero)
+            c assign Sub(aS, bS)
+            e assign Mul(dS, cS)
+        }, "zeroFloorSub")
+
+        // the `lt(y, x)` spelling the comparison normalizers produce, and the other operand order
+        checkStat(TACProgramBuilder {
+            x assign Lt(bS, aS)
+            d assign Ite(xS, One, Zero)
+            c assign Sub(aS, bS)
+            e assign Mul(cS, dS)
+        }, "zeroFloorSub")
+    }
+
+    /** The comparison must be over the subtraction's own operands. */
+    @Test
+    fun testZeroFloorSubMismatchedOperands() {
+        checkStat(TACProgramBuilder {
+            x assign Gt(aS, gS)
+            d assign Ite(xS, One, Zero)
+            c assign Sub(aS, bS)
+            e assign Mul(dS, cS)
+        }, "zeroFloorSub", count = 0)
     }
 
     /**
@@ -285,6 +333,82 @@ class PatternRewriterTest : TACBuilderAuxiliaries() {
             e assign ShiftRightLogical(dS, 0x40.asTACExpr)             // e = d >> 64
         }
         checkStat(prog, "fixed-point-multiply-2", 1, PatternRewriter::solanaPatternsList)
+    }
+
+    /**
+     * `a <= const / a` ~~> `a <= sqrt(const)`, and its negation `a > const / a` ~~> `a > sqrt(const)`.
+     * `sqrt(const)` really is the threshold here, also when `const` is not a perfect square.
+     */
+    @Test
+    fun testSqrtByDiv1and2() {
+        val leProg = TACProgramBuilder {
+            b assign Div(8.asTACExpr, aS)
+            x assign Le(aS, bS)
+        }
+        checkStat(leProg, "sqrtByDiv1")
+        Assertions.assertTrue(BigInteger.TWO in rewrittenConsts(leProg))
+
+        val gtProg = TACProgramBuilder {
+            b assign Div(8.asTACExpr, aS)
+            x assign Gt(aS, bS)
+        }
+        checkStat(gtProg, "sqrtByDiv2")
+        Assertions.assertTrue(BigInteger.TWO in rewrittenConsts(gtProg))
+    }
+
+    /**
+     * The threshold of [sqrtByDivThreshold] is the smallest `k` with `k * (k + 1) > const`, i.e., the
+     * smallest `a` for which `a >= const / a` holds under floor division. It equals `sqrt(const)` only
+     * when `const` is a perfect square.
+     */
+    @Test
+    fun testSqrtByDivThreshold() {
+        for ((const, threshold) in listOf(0 to 1, 1 to 1, 2 to 2, 5 to 2, 6 to 3, 8 to 3, 9 to 3, 12 to 4)) {
+            assertEquals(threshold.toBigInteger(), sqrtByDivThreshold(const.toBigInteger()))
+        }
+    }
+
+    /**
+     * `a >= const / a` ~~> `a == 0 || a >= k`, and its negation `a < const / a` ~~> `a != 0 && a < k`.
+     * For `const = 8` the threshold is 3 and not `sqrt(8) = 2` -- `2 >= 8 / 2 = 4` does not hold.
+     */
+    @Test
+    fun testSqrtByDiv3and4() {
+        val geProg = TACProgramBuilder {
+            b assign Div(8.asTACExpr, aS)
+            x assign Ge(aS, bS)
+        }
+        checkStat(geProg, "sqrtByDiv3")
+        rewrittenConsts(geProg).let {
+            Assertions.assertTrue(3.toBigInteger() in it)
+            Assertions.assertFalse(BigInteger.TWO in it)
+        }
+
+        val ltProg = TACProgramBuilder {
+            b assign Div(8.asTACExpr, aS)
+            x assign Lt(aS, bS)
+        }
+        checkStat(ltProg, "sqrtByDiv4")
+        rewrittenConsts(ltProg).let {
+            Assertions.assertTrue(3.toBigInteger() in it)
+            Assertions.assertFalse(BigInteger.TWO in it)
+        }
+    }
+
+    /** `0 - a == const` ~~> `a == 0 - const`, where the negation of `const` is mod 2^256. */
+    @Test
+    fun testVyperZeroMinus() {
+        for ((const, negated) in listOf(BigInteger.ZERO to BigInteger.ZERO, 5.toBigInteger() to MAX_UINT - 4.toBigInteger())) {
+            val prog = TACProgramBuilder {
+                b assign Sub(Zero, aS)
+                x assign Eq(bS, const.asTACExpr)
+            }
+            checkStat(prog, "vyper-zero-minus", patterns = PatternRewriter::earlyPatternsList)
+            assertEquals(
+                setOf(TACSymbol.Const(negated, Tag.Bit256)),
+                rewrittenConstsOf(prog, x, PatternRewriter::earlyPatternsList)
+            )
+        }
     }
 
 }

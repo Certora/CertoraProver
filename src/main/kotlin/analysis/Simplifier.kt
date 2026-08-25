@@ -129,6 +129,7 @@ object EthereumVariables {
     val basefee = TACKeyword.BASEFEE.toVar()
     val blobHashes = TACKeyword.BLOBHASHES.toVar()
     val blobbasefee = TACKeyword.BLOBBASEFEE.toVar()
+    val slotnum = TACKeyword.SLOTNUM.toVar()
     val difficulty = TACKeyword.DIFFICULTY.toVar()
     val extcodehash = TACKeyword.EXTCODEHASH.toVar()
     val number = TACKeyword.NUMBER.toVar()
@@ -222,6 +223,12 @@ object EthereumVariables {
         CommandWithRequiredDecls(
             listOf(TACCmd.Simple.AssigningCmd.AssignExpCmd(c.lhs, blobbasefee, c.meta)),
             setOf(blobbasefee)
+        )
+
+    fun simplifySlotnum(c: TACCmd.EVM.AssignSlotnumCmd) =
+        CommandWithRequiredDecls(
+            listOf(TACCmd.Simple.AssigningCmd.AssignExpCmd(c.lhs, slotnum, c.meta)),
+            setOf(slotnum)
         )
 
     fun simplifyDifficulty(c: TACCmd.EVM.AssignDifficultyCmd) =
@@ -1484,6 +1491,7 @@ object EthereumVariables {
             is TACCmd.EVM.AssignBasefeeCmd -> simplifyBasefee(c)
             is TACCmd.EVM.AssignBlobhashCmd -> simplifyBlobhash(c)
             is TACCmd.EVM.AssignBlobbasefeeCmd -> simplifyBlobbasefee(c)
+            is TACCmd.EVM.AssignSlotnumCmd -> simplifySlotnum(c)
 
             is TACCmd.EVM.AssignCodesizeCmd -> simplifyCodesize(c)
             is TACCmd.EVM.CodecopyCmd -> simplifyCodecopy(c)

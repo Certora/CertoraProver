@@ -20,6 +20,7 @@ package analysis.opt
 import analysis.opt.PatternRewriter.Key.*
 import analysis.split.Ternary.Companion.isPowOf2Minus1
 import datastructures.stdcollections.*
+import tac.Tag
 import utils.*
 import utils.ModZm.Companion.lowOnes
 import vc.data.TACExpr
@@ -102,7 +103,9 @@ fun PatternRewriter.earlyPatternsList() = listOf(
             (zero - lSym256(A)) eq c(C1, SignUtilities::isInUnsignedBounds)
         },
         handle = {
-            Eq(sym(A), (0 - C1.n).asTACExpr)
+            // the matched subtraction is modular, so the negation of the constant must be as well.
+            // `isInUnsignedBounds` on `C1` guarantees the operands are legal for [ModZm.sub].
+            Eq(sym(A), Tag.Bit256.sub(BigInteger.ZERO, C1.n).asTACExpr)
         },
         TACExpr.BinRel.Eq::class.java
     ),

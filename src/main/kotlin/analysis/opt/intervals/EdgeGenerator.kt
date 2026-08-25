@@ -276,7 +276,9 @@ object EdgeGenerator {
 
                 is TACExpr.BinOp.ShiftRightArithmetical ->
                     e.o2.getAsConst()?.toIntOrNull()?.let {
-                        val shiftBy = minOf(it, outModZm.bitwidth)
+                        // shifting by `bitwidth - 1` or more gives copies of the sign bit, so clamping there is
+                        // exact, and keeps the sign-extend's `fromBit` positive.
+                        val shiftBy = minOf(it, outModZm.bitwidth - 1)
                         val op = opSpots[0]
                         val shifted = genAux(sFull(outModZm))
                         addBinary(
