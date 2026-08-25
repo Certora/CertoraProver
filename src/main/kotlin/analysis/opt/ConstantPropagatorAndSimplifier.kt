@@ -19,6 +19,7 @@ package analysis.opt
 
 import analysis.numeric.MAX_UINT
 import analysis.opt.ConstantPropagatorAndSimplifier.Companion.simplifyTop
+import analysis.opt.intervals.IntervalsRewriter.Companion.isSurelyNonZero
 import datastructures.stdcollections.*
 import log.*
 import tac.NBId
@@ -501,8 +502,19 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
                                 else -> null
                             }
 
-                            is TACExpr.BinOp.Div, is TACExpr.BinOp.IntDiv, is TACExpr.BinOp.SDiv -> when {
+                            is TACExpr.BinOp.Div, is TACExpr.BinOp.SDiv -> when {
                                 o1 eqTo 0 || o2 eqTo 0 -> 0.asExpr()
+                                // division by zero gives 0 in evm, so `x / x` is 1 only for a non-zero x.
+                                o1 == o2 && o2.isSurelyNonZero() -> 1.asExpr()
+                                o2 eqTo 1 -> o1
+                                else -> null
+                            }
+
+                            // division by zero is an unconstrained value in the smt encoding of [TACExpr.BinOp.IntDiv],
+                            // so replacing it with anything concrete is an under-approximation.
+                            is TACExpr.BinOp.IntDiv -> when {
+                                !o2.isSurelyNonZero() -> null
+                                o1 eqTo 0 -> 0.asExpr()
                                 o1 == o2 -> 1.asExpr()
                                 o2 eqTo 1 -> o1
                                 else -> null
@@ -510,8 +522,11 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
 
                             is TACExpr.BinOp.Exponent, is TACExpr.BinOp.IntExponent -> when {
                                 o2 eqTo 0 -> 1.asExpr()
-                                o1 eqTo 0 -> 0.asExpr()
                                 o1 eqTo 1 -> 1.asExpr()
+                                // `0 ^ 0` is 1. A zero base must be resolved here, because the smt
+                                // axiomatization of exponentiation (see `powAxiom`) only handles bases above 1.
+                                o1 eqTo 0 ->
+                                    Ite(Eq(o2, BigInteger.ZERO.asTACExpr(o2.tagAssumeChecked)), 1.asExpr(), 0.asExpr())
                                 o2 eqTo 1 -> o1
                                 else -> null
                             }
@@ -522,10 +537,19 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
                                 else -> null
                             }
 
-                            is TACExpr.BinOp.IntMod, is TACExpr.BinOp.Mod, is TACExpr.BinOp.SMod -> when {
+                            // note that `1 % x` can't be simplified, as it is 0 for x in {0, 1}. The interval based
+                            // simplifier does this rewrite where it is justified.
+                            is TACExpr.BinOp.Mod, is TACExpr.BinOp.SMod -> when {
                                 o1 == o2 -> 0.asExpr()
                                 o2 eqTo 0 || o2 eqTo 1 -> 0.asExpr()
-                                o1 eqTo 1 -> 1.asExpr()
+                                else -> null
+                            }
+
+                            // as with [TACExpr.BinOp.IntDiv], mod by zero is unconstrained in the smt encoding.
+                            is TACExpr.BinOp.IntMod -> when {
+                                !o2.isSurelyNonZero() -> null
+                                o1 == o2 -> 0.asExpr()
+                                o2 eqTo 1 -> 0.asExpr()
                                 else -> null
                             }
 
