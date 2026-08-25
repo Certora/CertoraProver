@@ -1,0 +1,5 @@
+{
+	"rules": {
+		"add_is_commutative": "SUCCESS"
+	}
+}
