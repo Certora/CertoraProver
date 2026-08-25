@@ -30,6 +30,21 @@ import vc.data.TACSymbol
 import vc.data.asTACExpr
 import java.math.BigInteger
 
+/**
+ * The smallest `k >= 1` with `k * (k + 1) > const`. This is the exact threshold of the floor-division
+ * comparison `a >= const / a` for `a > 0`, which holds iff `const < a * (a + 1)`, i.e., iff `a >= k`.
+ * For a perfect square `const` this is `sqrt(const)`.
+ */
+internal fun sqrtByDivThreshold(const: BigInteger): BigInteger =
+    const.sqrt().let { s ->
+        // `(s-1)*s < s^2 <= const`, so `s` is minimal whenever it satisfies the inequality at all.
+        if (s * (s + BigInteger.ONE) > const) {
+            s
+        } else {
+            s + BigInteger.ONE
+        }
+    }
+
 fun PatternRewriter.basicPatternsList() = listOf(
 
     /**
@@ -282,7 +297,10 @@ fun PatternRewriter.basicPatternsList() = listOf(
     ),
 
     /**
-     * `a >= const / a` ~~> `ite(a == 0, true, a >= sqrt(const))` ~~> `a==0 || a >= sqrt(const)`
+     * `a >= const / a` ~~> `ite(a == 0, true, a >= k)` ~~> `a==0 || a >= k`, where `k` is
+     * [sqrtByDivThreshold] of `const`.
+     * Note that the threshold here is *not* `sqrt(const)` as in [sqrtByDiv1]: for `a > 0`, floor division
+     * gives `a >= const/a` iff `const < a*(a+1)`, i.e., iff `a >= k`.
      */
     PatternHandler(
         name = "sqrtByDiv3",
@@ -293,7 +311,7 @@ fun PatternRewriter.basicPatternsList() = listOf(
             runIf(src(A) == src(B) && C1.n >= BigInteger.ZERO) {
                 LOr(
                     Eq(sym(A), Zero),
-                    Ge(sym(A), C1.n.sqrt().asTACExpr)
+                    Ge(sym(A), sqrtByDivThreshold(C1.n).asTACExpr)
                 )
             }
         },
@@ -301,7 +319,8 @@ fun PatternRewriter.basicPatternsList() = listOf(
     ),
 
     /**
-     * `a < const / a` ~~> `ite(a == 0, false, a < sqrt(const))` ~~> `a!=0 && a < sqrt(const)`
+     * `a < const / a` ~~> `ite(a == 0, false, a < k)` ~~> `a!=0 && a < k` (the negated version of the one
+     * above), where `k` is [sqrtByDivThreshold] of `const`.
      */
     PatternHandler(
         name = "sqrtByDiv4",
@@ -312,7 +331,7 @@ fun PatternRewriter.basicPatternsList() = listOf(
             runIf(src(A) == src(B) && C1.n >= BigInteger.ZERO) {
                 LAnd(
                     LNot(Eq(sym(A), Zero)),
-                    Lt(sym(A), C1.n.sqrt().asTACExpr)
+                    Lt(sym(A), sqrtByDivThreshold(C1.n).asTACExpr)
                 )
             }
         },
