@@ -360,6 +360,20 @@ object Config {
                 "functions folded. The reports have suffix '_with_internal' [default:false]"
         )
     ) {}
+
+    /**
+     * Diagnostic-only: emit the per-rule `SurvivingCallGraph-<rule>-<phase>.json` artifacts (and their
+     * `survivingCallGraph_map.json` manifest) alongside the pre/post-optimize TAC dumps.
+     */
+    val DumpSurvivingCallGraph: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "dumpSurvivingCallGraph",
+            true,
+            "Dump, per rule, the json of the functions surviving the rule's TAC pipeline and the call graph " +
+                "among them [default: false]"
+        )
+    ), RuleCacheAgnosticConfig {}
     val LowFootprint = object : ConfigType.BooleanCmdLine(
         false,
         Option(
