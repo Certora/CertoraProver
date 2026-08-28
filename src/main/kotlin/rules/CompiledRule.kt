@@ -19,6 +19,7 @@ package rules
 
 import allocator.Allocator
 import analysis.LTACCmd
+import analysis.icfg.SurvivingCallGraphCollector
 import analysis.controlflow.AllPathsRevertedResult
 import analysis.controlflow.checkIfAllPathsAreLastReverted
 import analysis.opt.PatternRewriter
@@ -257,6 +258,9 @@ open class CompiledRule<R: SingleRule> protected constructor(val rule: R, val ta
     }
 
     protected fun dumpPreOptimize() {
+        if (Config.DumpSurvivingCallGraph.get()) {
+            SurvivingCallGraphCollector.emit(tac, "preOptimize")
+        }
         // output to a file
         ArtifactManagerFactory().dumpMandatoryCodeArtifacts(
             tac,
@@ -277,6 +281,9 @@ open class CompiledRule<R: SingleRule> protected constructor(val rule: R, val ta
     }
 
     protected fun dumpPostOptimized(tacToCheck: CoreTACProgram) {
+        if (Config.DumpSurvivingCallGraph.get()) {
+            SurvivingCallGraphCollector.emit(tacToCheck, "postOptimize")
+        }
         /**
          *  Two threads may concurrently dump `tacToCheck`s that share the same name,
          *  (while effectively being distinct [CoreTACProgram]s); as a result, without the lock below,
