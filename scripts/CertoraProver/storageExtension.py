@@ -55,7 +55,11 @@ def erc7201_of_node(n: Dict[str, Any]) -> Optional[NameSpacedStorage]:
     doc = n.get("documentation")
     if doc is None or doc.get("nodeType") != "StructuredDocumentation" or typeName is None:
         return None
-    storage_location_regex = r'@custom:storage-location erc7201:([a-zA-Z.0-9]+)'
+    # ERC-7201 puts no restriction on the namespace id, and solc has already
+    # stripped the comment delimiters by the time the text reaches the AST, so the
+    # id runs to the next whitespace. A narrower character class silently cuts ids
+    # short and lands every id sharing a prefix on the same storage slot.
+    storage_location_regex = r'@custom:storage-location\s+erc7201:(\S+)'
     match = re.search(storage_location_regex, doc.get("text"))
     if match is None:
         return None
@@ -155,9 +159,11 @@ def write_harness_contract(tmp_file: Any,
 
     # Add dummy fields for each namespaced storage
     for type_name, namespace in ns_storage:
-        # Create a variable name by replacing dots with underscores and appending the hash
-        # Add a prefix to ensure the variable name is valid in Solidity (e.g., no leading digits)
-        var_name = f"ext_{namespace.replace('.', '_')}"
+        # Build a Solidity identifier from the namespace: prefix it so it cannot start
+        # with a digit, and map every character Solidity does not accept in an
+        # identifier to an underscore, the way dots have always been mapped. Ids
+        # containing e.g. a hyphen reach this point now that the tag is parsed in full.
+        var_name = f"ext_{re.sub(r'[^A-Za-z0-9_]', '_', namespace)}"
 
         # Calculate the slot using ERC-7201 formula
         # UTF-8 is the standard encoding for Ethereum and Solidity
