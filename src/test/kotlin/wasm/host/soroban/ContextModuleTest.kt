@@ -21,6 +21,7 @@ import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
 import wasm.*
 import wasm.host.soroban.SorobanImport.Context
+import wasm.host.soroban.SorobanImport.IntType
 import wasm.host.soroban.SorobanImport.Vec
 import wasm.host.soroban.Val.Tag.*
 import wasm.wat.*
@@ -133,6 +134,48 @@ class ContextModuleTest : SorobanTestFixture() {
     fun `2 might be greater than 3`() {
         assertFalse(verifyWasm {
             certoraAssert(Context.obj_cmp(U32Val(2), U32Val(3)) eq i64(-1))
+        })
+    }
+
+    @Test
+    fun `i256 objects have precise signed ordering`() {
+        assertTrue(verifyWasm {
+            val min = IntType.obj_from_i256_pieces(i64(Long.MIN_VALUE), u64(0u), u64(0u), u64(0u))
+            val max = IntType.obj_from_i256_pieces(
+                i64(Long.MAX_VALUE),
+                u64(ULong.MAX_VALUE),
+                u64(ULong.MAX_VALUE),
+                u64(ULong.MAX_VALUE)
+            )
+
+            certoraAssert(Context.obj_cmp(min, max) eq i64(-1))
+            certoraAssert(Context.obj_cmp(max, min) eq i64(1))
+        })
+    }
+
+    @Test
+    fun `i256 objects and small vals have precise signed ordering`() {
+        assertTrue(verifyWasm {
+            val belowSmallRange = IntType.obj_from_i256_pieces(
+                i64(-1),
+                u64(ULong.MAX_VALUE),
+                u64(ULong.MAX_VALUE),
+                u64(0xff7f_ffff_ffff_ffffuL)
+            )
+            val aboveSmallRange = IntType.obj_from_i256_pieces(i64(0), u64(0u), u64(0u), u64(1uL shl 55))
+
+            certoraAssert(Context.obj_cmp(belowSmallRange, I256Small(-1)) eq i64(-1))
+            certoraAssert(Context.obj_cmp(I256Small(-1), belowSmallRange) eq i64(1))
+            certoraAssert(Context.obj_cmp(I256Small(1), aboveSmallRange) eq i64(-1))
+            certoraAssert(Context.obj_cmp(aboveSmallRange, I256Small(1)) eq i64(1))
+        })
+    }
+
+    @Test
+    fun `equal i256 objects compare equal`() {
+        assertTrue(verifyWasm {
+            val min = IntType.obj_from_i256_pieces(i64(Long.MIN_VALUE), u64(0u), u64(0u), u64(0u))
+            certoraAssert(Context.obj_cmp(min, min) eq i64(0))
         })
     }
 }
