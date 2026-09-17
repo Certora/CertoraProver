@@ -502,8 +502,8 @@ class IntModuleTest : SorobanTestFixture() {
 
     @Property(tries = 32)
     fun `i256_rem_euclid`(@AllInt256Signed a: BigInteger, @AllInt256Signed b: BigInteger) {
-        if (b != BigInteger.ZERO) {
-            val ab = a % b
+        if (b != BigInteger.ZERO && !(a == INT256_MIN_SIGNED && b == BigInteger.ONE.negate())) {
+            val ab = a.mod(b.abs())
             assertTrue(verifyWasm {
                 val v = IntType.i256_rem_euclid(a.toI256Object(), b.toI256Object())
                 certoraAssert(v eq_i256 ab)
@@ -514,6 +514,39 @@ class IntModuleTest : SorobanTestFixture() {
                 IntType.i256_rem_euclid(a.toI256Object(), b.toI256Object())
             })
         }
+    }
+
+    @Test
+    fun `i256_rem_euclid returns nonnegative remainder for every sign combination`() {
+        assertTrue(verifyWasm {
+            certoraAssert(
+                IntType.i256_rem_euclid(BigInteger.valueOf(7).toI256Object(), BigInteger.valueOf(4).toI256Object())
+                    .eq_i256(BigInteger.valueOf(3))
+            )
+            certoraAssert(
+                IntType.i256_rem_euclid(BigInteger.valueOf(-7).toI256Object(), BigInteger.valueOf(4).toI256Object())
+                    .eq_i256(BigInteger.ONE)
+            )
+            certoraAssert(
+                IntType.i256_rem_euclid(BigInteger.valueOf(-7).toI256Object(), BigInteger.valueOf(-4).toI256Object())
+                    .eq_i256(BigInteger.ONE)
+            )
+            certoraAssert(
+                IntType.i256_rem_euclid(BigInteger.valueOf(7).toI256Object(), BigInteger.valueOf(-4).toI256Object())
+                    .eq_i256(BigInteger.valueOf(3))
+            )
+            certoraAssert(
+                IntType.i256_rem_euclid(BigInteger.valueOf(-8).toI256Object(), BigInteger.valueOf(4).toI256Object())
+                    .eq_i256(BigInteger.ZERO)
+            )
+        })
+    }
+
+    @Test
+    fun `i256_rem_euclid traps on signed division overflow`() {
+        assertFalse(verifyWasm {
+            IntType.i256_rem_euclid(INT256_MIN_SIGNED.toI256Object(), BigInteger.ONE.negate().toI256Object())
+        })
     }
 
     @Property(tries = 32)
