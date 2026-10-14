@@ -202,6 +202,29 @@ fun PatternRewriter.basicPatternsList() = listOfNotNull(
     ),
 
     /**
+     * `ite(a == c, a, b)` ~~> `ite(a == c, c, b)`
+     *
+     * In the then-branch `a` is `c`, so this loses nothing, but it lets the intervals calculator refute the branch
+     * from a constraint on the result: `Ite(Eq(rc, 0), rc, x) != 0` says nothing about `rc` (the then-spot of `rc` is
+     * `{0, 1}` and `{0, 1} ∩ nonzero` is not empty), while `Ite(Eq(rc, 0), 0, x) != 0` forces the condition false and
+     * so `rc != 0`, which kills the arms that assign `rc := 0`. This is exactly the shape solidity emits for
+     * `(bool ok, ) = addr.call(...); require(ok && ...)`, and without it the callee's revert arms survive to the VC
+     * even for a call that is not `@withrevert`.
+     */
+    PatternHandler(
+        name = "iteEqConst",
+        pattern = {
+            ite(lSym256(A) eq c(C1), lSym256(B), lSym(E))
+        },
+        handle = {
+            runIf(src(A) == src(B)) {
+                Ite(Eq(sym(A), C1.asTACExpr), C1.asTACExpr, sym(E))
+            }
+        },
+        TACExpr.TernaryExp.Ite::class.java
+    ),
+
+    /**
      * `!(a > b)` ~~> `a <= b`
      * or if `b == 0`, then `~~~> a == 0`
      * */

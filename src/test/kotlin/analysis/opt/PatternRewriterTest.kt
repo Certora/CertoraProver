@@ -83,6 +83,27 @@ class PatternRewriterTest : TACBuilderAuxiliaries() {
      * Tests the pattern rewrite:
      *    `ite(cond, a xor b, 0) xor b` ==> `ite(cond, a, b)`
      */
+    /** `ite(a == 0, a, b)` ~~> `ite(a == 0, 0, b)` */
+    @Test
+    fun testIteEqConst() {
+        val prog = TACProgramBuilder {
+            x assign Eq(aS, 0.asTACExpr)
+            c assign Ite(xS, aS, bS)
+        }
+        checkStat(prog, "iteEqConst")
+        Assertions.assertTrue(0.asTACSymbol() in rewrittenConstsOf(prog, c))
+    }
+
+    /** the then-branch is a different variable: nothing to substitute */
+    @Test
+    fun testIteEqConstOtherVar() {
+        val prog = TACProgramBuilder {
+            x assign Eq(aS, 0.asTACExpr)
+            c assign Ite(xS, dS, bS)
+        }
+        checkStat(prog, "iteEqConst", count = 0)
+    }
+
     @Test
     fun test1_1() {
         val prog = TACProgramBuilder {
