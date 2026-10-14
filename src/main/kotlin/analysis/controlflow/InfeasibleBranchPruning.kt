@@ -17,7 +17,6 @@
 
 package analysis.controlflow
 
-import allocator.Allocator
 import analysis.CmdPointer
 import analysis.PathCondition
 import analysis.narrow
@@ -27,9 +26,9 @@ import log.Logger
 import log.LoggerTypes
 import tac.MetaKey
 import tac.NBId
-import tac.Tag
 import utils.AmbiSerializable
 import vc.data.*
+import verifier.PatchingProgramWrapper
 
 private val logger = Logger(LoggerTypes.PRUNING)
 
@@ -47,12 +46,10 @@ object InfeasibleBranchPruning {
 
     private sealed class PruneRewrite
 
+    /** The conditional jump at [where] becomes an assumption of its branch to [newSucc], and a jump there. */
     private data class BranchRewrite(
-        val takenBranch: Boolean,
-        val assumeExp: TACExpr,
         val where: CmdPointer,
-        val newSucc: NBId,
-        val pruneStart: NBId
+        val newSucc: NBId
     ) : PruneRewrite()
 
     private data class KillBlock(
@@ -61,10 +58,6 @@ object InfeasibleBranchPruning {
 
     fun pruneBranches(p: CoreTACProgram, pruned: List<InfeasiblePathAnalysis.PruneNode>): CoreTACProgram {
         val g = p.analysisCache.graph
-        val patching = p.toPatchingProgram()
-        // if we apply pruning on an all-paths-are-reverting program, we have an error in the transformation.
-        // to make sure this doesn't happen here, we allow one choice per conditional command
-        val conditionalsPruned = mutableSetOf<CmdPointer>()
         /*
          * Currently, the only PrunedBlock that we actually operate on is one where the entry block has been
          * pruned. In that case, we replace the whole program with `assume false`.
@@ -86,51 +79,20 @@ object InfeasibleBranchPruning {
                 ufAxioms = UfAxioms.empty()
             )
         }
-        pruned.parallelStream().map {
+        return pruned.parallelStream().map {
             when(it) {
                 is InfeasiblePathAnalysis.PrunedBranch -> {
                     logger.debug { "Working on pruned branch ${it}: ${g.elab(it.conditionPtr).cmd.metaSrcInfo?.getSourceCode()}" }
+                    val last = g.elab(it.conditionPtr).narrow<TACCmd.Simple.JumpiCmd>()
                     when (it.infeasibleCondition) {
                         is PathCondition.EqZero -> {
-                            val last = g.elab(it.conditionPtr).narrow<TACCmd.Simple.JumpiCmd>()
                             check(last.cmd.elseDst == it.targetBranch)
-                            val assumeExp = if (it.infeasibleCondition.v.tag == Tag.Bool) {
-                                it.infeasibleCondition.v.asSym()
-                            } else {
-                                TACExpr.UnaryExp.LNot(
-                                    TACExpr.BinRel.Eq(
-                                        it.infeasibleCondition.v.asSym(),
-                                        0.toBigInteger().asTACSymbol().asSym()
-                                    )
-                                )
-                            }
-                            BranchRewrite(
-                                where = it.conditionPtr,
-                                assumeExp = assumeExp,
-                                newSucc = last.cmd.dst,
-                                pruneStart = last.cmd.elseDst,
-                                takenBranch = true
-                            )
+                            BranchRewrite(where = it.conditionPtr, newSucc = last.cmd.dst)
                         }
 
                         is PathCondition.NonZero -> {
-                            val last = g.elab(it.conditionPtr).narrow<TACCmd.Simple.JumpiCmd>()
                             check(last.cmd.dst == it.targetBranch)
-                            val assumeExp = if (it.infeasibleCondition.v.tag == Tag.Bool) {
-                                TACExpr.UnaryExp.LNot(it.infeasibleCondition.v.asSym())
-                            } else {
-                                TACExpr.BinRel.Eq(
-                                    it.infeasibleCondition.v.asSym(),
-                                    0.toBigInteger().asTACSymbol().asSym()
-                                )
-                            }
-                            BranchRewrite(
-                                where = it.conditionPtr,
-                                assumeExp = assumeExp,
-                                newSucc = last.cmd.elseDst,
-                                pruneStart = last.cmd.dst,
-                                takenBranch = false
-                            )
+                            BranchRewrite(where = it.conditionPtr, newSucc = last.cmd.elseDst)
                         }
 
                         else -> throw UnsupportedOperationException("Do not know to prune condition ${it.infeasibleCondition}")
@@ -140,41 +102,25 @@ object InfeasibleBranchPruning {
                     KillBlock(it.prunedBlock)
                 }
             }
-        }.sequential().forEach {
-            // prune path only if not pruned same jump before, and if a previous prune did not lead to deletion of this block
-            if (it is BranchRewrite && it.where !in conditionalsPruned && patching.isBlockStillInGraph(it.where.block)) {
-                conditionalsPruned.add(it.where)
-                val pruneCond = Allocator.getFreshNumber()
-                val conditionalCmd = g.elab(it.where)
-                val assumeVar = TACSymbol.Var(
-                    "pruneAssume!$pruneCond",
-                    tag = Tag.Bool
-                )
-                patching.addVarDecl(assumeVar)
-                val jumpiCmd = conditionalCmd.narrow<TACCmd.Simple.JumpiCmd>()
-                patching.selectConditionalEdge(jumpiCmd, it.takenBranch)
-                patching.insertAlongEdge(conditionalCmd.ptr.block, it.newSucc, listOf(
-                    TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                        assumeVar,
-                        it.assumeExp
-                    ),
-                    TACCmd.Simple.AssumeCmd(assumeVar, "pruneBranches", meta = (jumpiCmd.cmd.cond as? TACSymbol.Var)?.let { cond ->
-                        conditionalCmd.cmd.meta.plus(
-                            PRUNED_BRANCH_KEY to BranchCondition(
-                                takenBranch = it.takenBranch,
-                                conditionVar = cond
-                            )
-                        )
-                    } ?: jumpiCmd.cmd.meta
-                    )
-                ))
-            } else if(it is KillBlock && patching.isBlockStillInGraph(it.id)) {
-                val newBlock = patching.addBlock(it.id, listOf(
-                    TACCmd.Simple.AssumeCmd(TACSymbol.False, "pruneBranches")
-                ))
-                patching.consolidateEdges(newBlock, listOf(it.id))
+        }.sequential().toList().let { rewrites ->
+            // All the rewrites are recorded first and the code they disconnect is erased once, when the wrapper builds
+            // the program (removing it per rewrite swept the whole graph each time: 24 minutes on a program with
+            // thousands of pruned branches). A killed block wins over a branch rewrite inside it, as before.
+            val patching = PatchingProgramWrapper(p)
+            val killed = rewrites.mapNotNullTo(mutableSetOf()) { (it as? KillBlock)?.id }
+            // if we apply pruning on an all-paths-are-reverting program, we have an error in the transformation.
+            // to make sure this doesn't happen here, we allow one choice per conditional command
+            val conditionalsPruned = mutableSetOf<CmdPointer>()
+            for (rewrite in rewrites) {
+                if (rewrite is BranchRewrite && rewrite.where.block !in killed && conditionalsPruned.add(rewrite.where)) {
+                    patching.jumpiTojump(src = rewrite.where.block, dst = rewrite.newSucc)
+                } else if (rewrite is KillBlock) {
+                    patching.replaceBlockWithSink(rewrite.id, listOf(
+                        TACCmd.Simple.AssumeCmd(TACSymbol.False, "pruneBranches")
+                    ))
+                }
             }
+            patching.toCode()
         }
-        return patching.toCode(p)
     }
 }
