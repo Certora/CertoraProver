@@ -4,6 +4,7 @@
 		"arraySameIndexAliases": "FAIL",
 		"arrayWriteDoesNotTouchOtherArray": "SUCCESS",
 		"arrayWriteDoesNotTouchScalars": "SUCCESS",
+		"deleteClearsFirstElement": "SUCCESS",
 		"envfreeFuncsStaticCheck": {
 			"FAIL": [],
 			"SANITY_FAIL": [],
@@ -11,6 +12,7 @@
 				"arrA(uint256)",
 				"arrALength()",
 				"arrB(uint256)",
+				"deleteArrA()",
 				"fillThenDelete(uint256,uint256)",
 				"keccakOf(uint256)",
 				"keccakOf2(uint256,uint256)",
@@ -38,7 +40,7 @@
 			"UNKNOWN": []
 		},
 		"fillThenDeleteReachable": "SUCCESS",
-		"hookIndexRecoveryOnWrappingPointer": "SUCCESS",
+		"hookIndexRecoveryNonPowerOfTwoStride": "SUCCESS",
 		"keccakAboveRootSlots": "SUCCESS",
 		"keccakDeterministic": "SUCCESS",
 		"keccakDifferentLengthsDiffer": "SUCCESS",

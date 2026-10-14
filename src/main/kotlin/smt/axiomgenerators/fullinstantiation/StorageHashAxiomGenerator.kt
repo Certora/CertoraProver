@@ -65,9 +65,9 @@ private val logger = Logger(LoggerTypes.HASHING)
  * which may not appear in ground axioms); there is no program transformation, no dedicated storage-key sort, and no
  * per-scheme configuration.
  *
- * Note: additions on storage keys use the program's regular (wrapping) arithmetic here, whereas previously they were
- * rewritten to non-wrapping `Int` additions. The `base` axioms attach to the terms as they are, so region separation
- * is unaffected; behavior may differ in intentional-overflow corner cases.
+ * Additions on storage keys use the program's regular (wrapping) arithmetic; the `base` axioms attach to the terms as
+ * they are. An extra axiom rules out the wrap itself: offsetting a storage key never goes past 2^256 (see
+ * [addNoWrapAxiom]).
  */
 class StorageHashAxiomGenerator(
     private val lxf: LExpressionFactory,
@@ -254,6 +254,7 @@ class StorageHashAxiomGenerator(
          * storage key, and the axiom would be wrong: `key1 - key2` may well be 0 or another root slot.) */
         addApps.forEach { app ->
             addCarrierAxiom(axiomContainer, app, app.args.filter(taint::isTainted))
+            addNoWrapAxiom(axiomContainer, app, taint)
         }
         subApps.forEach { app ->
             if (!taint.isTainted(app.rhs)) {
@@ -309,6 +310,37 @@ class StorageHashAxiomGenerator(
         }
     }
 
+    /**
+     * Offsetting a storage key does not wrap around 2^256: `base(k) != 0 => no_add_overflow(k, o)`, for a wrapping
+     * addition with exactly one tainted operand `k` and the sum `o` of the others. Without it, a corrupt (havoced) array
+     * length `len` close to 2^256 makes the end pointer `data + len` of solc's array-clear loop wrap below `data`, so
+     * the loop clears nothing and its hooks never fire.
+     *
+     * The guard restricts the axiom to actual storage keys (the taint over-approximates; a plain number can always
+     * take base 0). Literal offsets of at least [MAX_LITERAL_OFFSET] get no axiom: in the upper half they are
+     * decrements (`add(p, not(0))`), for which the axiom would be a contradiction, and below that they are not
+     * pointer offsets, for which it would only cap the hash at `2^256 - c`. That holds for any literal summand: a
+     * flattened `add(data, len, not(0))` must not get the axiom either, or `len == 0` becomes infeasible.
+     */
+    private fun addNoWrapAxiom(axiomContainer: AxiomContainer, app: LExpression.ApplyExpr, taint: Taint) {
+        val f = app.f as? NonSMTInterpretedFunctionSymbol.Vec.Add
+            ?: return
+        val (keys, offsets) = app.args.partition(taint::isTainted)
+        val key = keys.singleOrNull()
+            ?: return
+        if (offsets.isEmpty() || offsets.any { it.isNumericLiteral && it.asConst >= MAX_LITERAL_OFFSET }) {
+            return
+        }
+        val offset = lxf.add(f.tag, offsets)
+        axiomContainer.addAxiom(
+            lxf {
+                (base(key) neq ZERO) implies
+                    applyExp(NonSMTInterpretedFunctionSymbol.Binary.NoAddOverflow(f.tag), key, offset)
+            },
+            description = "base(k) != 0 => no_add_overflow(k, o)"
+        )
+    }
+
     override fun beforeScriptFreeze() {
         val arities = mutableSetOf<Int>()
         val hashFamilies = mutableSetOf<HashFamily>()
@@ -335,6 +367,9 @@ class StorageHashAxiomGenerator(
     }
 
     companion object {
+        /** Literal offsets from here on are not pointer offsets; see [addNoWrapAxiom]. */
+        private val MAX_LITERAL_OFFSET = twoToThe(64)
+
         /**
          * The program variables that may hold hash-derived storage keys: (large-gaps) hash assignments generate,
          * additions propagate from any operand, subtractions from the left one, `ite`s from both branches, and

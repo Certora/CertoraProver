@@ -2,8 +2,7 @@
 pragma solidity ^0.8.13;
 
 /// Exercises the prover's hashing model: injectivity, region separation
-/// ("large gaps"), root-slot reservation, and wrap-around behavior of
-/// storage-pointer arithmetic.
+/// ("large gaps"), root-slot reservation, and storage-pointer arithmetic.
 contract Hashing {
     uint256 public scalarA;                         // slot 0
     uint256 public scalarB;                         // slot 1
@@ -20,8 +19,7 @@ contract Hashing {
     mapping(uint256 => mapping(uint256 => uint256)) public nested; // slot 7
 
     /// element size 6 (non-power-of-two) -- hook index recovery has to invert
-    /// `dataSlot(grid) + 6*i + 2*j + k`, which only works if the subtraction
-    /// wraps the same way the pointer arithmetic does
+    /// `dataSlot(grid) + 6*i + 2*j + k` with div/mod by the strides
     uint256[2][3][] public grid;                    // slot 8
 
     function setMapA(uint256 k, uint256 v) external { mapA[k] = v; }
@@ -40,8 +38,9 @@ contract Hashing {
     function setGrid(uint256 i, uint256 v) external { grid[i][1][1] = v; }
 
     /// writes through a raw storage pointer computed as `dataSlot(arrA) + idx`,
-    /// with NO bounds check -- for `idx` large enough the pointer wraps around
-    /// 2^256.
+    /// with NO bounds check -- on the real EVM, for `idx` large enough the
+    /// pointer wraps around 2^256; the model keeps storage-key offsets from
+    /// wrapping.
     function rawWriteArrA(uint256 idx, uint256 v) external {
         uint256 dataSlot = uint256(keccak256(abi.encode(uint256(4))));
         assembly {
@@ -82,6 +81,12 @@ contract Hashing {
         for (uint256 i = 0; i < len; i++) {
             arrA.push(v);
         }
+        delete arrA;
+    }
+
+    /// deletes the array whatever its length -- the clearing loop runs from
+    /// `dataSlot(arrA)` up to `dataSlot(arrA) + arrA.length`
+    function deleteArrA() external {
         delete arrA;
     }
 }

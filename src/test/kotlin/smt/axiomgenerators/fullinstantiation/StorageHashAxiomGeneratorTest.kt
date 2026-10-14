@@ -19,6 +19,7 @@ package smt.axiomgenerators.fullinstantiation
 
 import config.Config
 import evm.EVM_MOD_GROUP256
+import evm.twoToThe
 import smt.axiomgenerators.fullinstantiation.expnormalizer.ExpNormalizerIA
 import smt.solverscript.SmtTheory
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -264,6 +265,111 @@ internal class StorageHashAxiomGeneratorTest : TACBuilderAuxiliaries() {
             formulaHashOffsetVsRootSlot01()
         )
         assertEquals(SatResult.UNSAT, res.satResult)
+    }
+
+    private fun LExpressionFactory.add(vararg args: LExpression) =
+        applyExp(NonSMTInterpretedFunctionSymbol.Vec.Add(Tag.Bit256), args.toList())
+
+    /** like [testSetup], plus the definition of the wrapping addition (`simple_add_modulo`) */
+    private val testSetupWithWrappingAdd =
+        MockLExpToSmtLib.TestSetup.makeNiaSetup { lxf: LExpressionFactory ->
+            listOf(
+                StorageHashAxiomGenerator(lxf, targetTheory = MockLExpToSmtLib.niaTargetTheory),
+                IntMathAxiomGenerator(lxf),
+            )
+        }
+
+    /** A free 256-bit word (the mock setup has no type bounds). */
+    private fun LExpressionFactory.word(name: String) =
+        makeConstant(name).let { it to (it.within(litInt(0), litInt(EVM_MOD_GROUP256))) }
+
+    /** Offsetting a storage key does not wrap around 2^256: a havoced array length `len` can't make the end pointer
+     * `dataSlot + len` of solc's array-clear loop drop below `dataSlot`. */
+    @Test
+    fun noWrapOfKeyOffset() {
+        val res = MockLExpToSmtLib.setupAndCheck(testSetupWithWrappingAdd) { lxf ->
+            val (x, xBounds) = lxf.word("x")
+            val (len, lenBounds) = lxf.word("len")
+            val data = lxf.keccack(x)
+            listOf(xBounds, lenBounds, lxf { add(data, len) lt data })
+        }
+        assertEquals(SatResult.UNSAT, res.satResult)
+    }
+
+    /** A literal offset in the upper half is a decrement (`add(p, not(0))`): no no-wrap axiom, which would make it
+     * contradictory. */
+    @Test
+    fun keyDecrementByLiteralIsSat() {
+        val res = MockLExpToSmtLib.setupAndCheck(testSetupWithWrappingAdd) { lxf ->
+            val (x, xBounds) = lxf.word("x")
+            val data = lxf.keccack(x)
+            listOf(xBounds, lxf { add(data, litInt(EVM_MOD_GROUP256 - BigInteger.ONE)) lt data })
+        }
+        assertEquals(SatResult.SAT, res.satResult)
+    }
+
+    /** An addition with several offsets is as much an offset of the key: `add(data, len, len2)` can't drop below
+     * `data` either. */
+    @Test
+    fun noWrapOfNaryKeyOffset() {
+        val res = MockLExpToSmtLib.setupAndCheck(testSetupWithWrappingAdd) { lxf ->
+            val (x, xBounds) = lxf.word("x")
+            val (len, lenBounds) = lxf.word("len")
+            val (len2, len2Bounds) = lxf.word("len2")
+            val data = lxf.keccack(x)
+            listOf(xBounds, lenBounds, len2Bounds, lxf { add(data, len, len2) lt data })
+        }
+        assertEquals(SatResult.UNSAT, res.satResult)
+    }
+
+    /** A flattened decrement `add(data, len, not(0))` gets no axiom: with `len == 0` it is `data - 1`. */
+    @Test
+    fun naryKeyDecrementByLiteralIsSat() {
+        val res = MockLExpToSmtLib.setupAndCheck(testSetupWithWrappingAdd) { lxf ->
+            val (x, xBounds) = lxf.word("x")
+            val (len, lenBounds) = lxf.word("len")
+            val data = lxf.keccack(x)
+            listOf(
+                xBounds,
+                lenBounds,
+                lxf { add(data, len, litInt(EVM_MOD_GROUP256 - BigInteger.ONE)) lt data },
+            )
+        }
+        assertEquals(SatResult.SAT, res.satResult)
+    }
+
+    /** A literal offset below 2^64 is a pointer offset and does not wrap... */
+    @Test
+    fun noWrapOfSmallLiteralOffset() {
+        val res = MockLExpToSmtLib.setupAndCheck(testSetupWithWrappingAdd) { lxf ->
+            val (x, xBounds) = lxf.word("x")
+            val data = lxf.keccack(x)
+            listOf(xBounds, lxf { add(data, litInt(twoToThe(64) - BigInteger.ONE)) lt data })
+        }
+        assertEquals(SatResult.UNSAT, res.satResult)
+    }
+
+    /** ...one from 2^64 on is not, and gets no axiom: it would only cap the hash at `2^256 - c`. */
+    @Test
+    fun largeLiteralOffsetMayWrap() {
+        val res = MockLExpToSmtLib.setupAndCheck(testSetupWithWrappingAdd) { lxf ->
+            val (x, xBounds) = lxf.word("x")
+            val data = lxf.keccack(x)
+            listOf(xBounds, lxf { add(data, litInt(twoToThe(64))) lt data })
+        }
+        assertEquals(SatResult.SAT, res.satResult)
+    }
+
+    /** The taint over-approximates: a plain number flowing through a tainted `ite` may still wrap. */
+    @Test
+    fun plainNumberThroughTaintedIteMayWrap() {
+        val res = MockLExpToSmtLib.setupAndCheck(testSetupWithWrappingAdd) { lxf ->
+            val (x, xBounds) = lxf.word("x")
+            val (y, yBounds) = lxf.word("y")
+            val p = lxf { ite(makeConstant("c", Tag.Bool), keccack(x), y) }
+            listOf(xBounds, yBounds, lxf { add(p, litInt(1)) lt p })
+        }
+        assertEquals(SatResult.SAT, res.satResult)
     }
 
     /** The variable-level taint analysis runs on the TAC program: hash assignments generate, additions propagate

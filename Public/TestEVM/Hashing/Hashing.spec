@@ -1,6 +1,6 @@
 /// Tests for the hashing model: injectivity, region separation ("large gaps"),
-/// root-slot reservation, and the wrap-around behavior of storage-pointer
-/// arithmetic.
+/// root-slot reservation, and storage-pointer arithmetic (offsets of a storage
+/// key do not wrap around 2^256).
 ///
 /// The FAIL-expected rules mark the boundaries of the model: places where
 /// aliasing is genuinely possible and the model must not separate.
@@ -27,6 +27,7 @@ methods {
     function rawWriteArrA(uint256, uint256) external envfree;
     function rawReadArrA(uint256) external returns (uint256) envfree;
     function fillThenDelete(uint256, uint256) external envfree;
+    function deleteArrA() external envfree;
     function keccakOf(uint256) external returns (uint256) envfree;
     function keccakOf2(uint256, uint256) external returns (uint256) envfree;
     function sha256Of(uint256) external returns (uint256) envfree;
@@ -123,13 +124,13 @@ rule mapWriteDoesNotTouchScalars(uint256 k, uint256 v) {
 }
 
 /// ---------------------------------------------------------------------------
-/// wrap-around (mod 2^256): raw pointer arithmetic with unconstrained offsets
+/// raw pointer arithmetic with unconstrained offsets
 /// ---------------------------------------------------------------------------
 
-/// documents a deliberate model assumption: `dataSlot(arrA) + idx` is treated
-/// as staying in arrA's hash region for EVERY idx, although on the real EVM a
-/// huge idx wraps around 2^256 and can hit slot 0. The hashing model has
-/// always assumed such collisions away; this pins that behavior.
+/// documents a deliberate model property: `dataSlot(arrA) + idx` stays in
+/// arrA's hash region for EVERY idx -- an offset of a storage key does not wrap
+/// around 2^256 -- although on the real EVM a huge idx wraps and can hit slot 0.
+/// This pins that behavior.
 rule rawWriteStaysInItsRegion_modelAssumption(uint256 idx, uint256 v) {
     uint256 before = scalarA();
     rawWriteArrA(idx, v);
@@ -232,13 +233,11 @@ rule fillThenDeleteReachable(uint256 v, uint256 len) {
 }
 
 /// ---------------------------------------------------------------------------
-/// hook index recovery on wrapping pointers: an `Sstore` hook recovers its
-/// indices by *inverting* the pointer arithmetic (subtract the data slot, then
-/// div/mod by the strides). Storage-pointer additions wrap mod 2^256, so the
-/// inverting subtraction has to wrap too -- with a non-wrapping subtraction the
-/// recovered index is garbage whenever `dataSlot(grid) + 6*i` crosses 2^256,
-/// and only for non-power-of-two strides (a power of two divides 2^256, so the
-/// wrap cancels inside the mod).
+/// hook index recovery with a non-power-of-two stride: an `Sstore` hook
+/// recovers its indices by *inverting* the pointer arithmetic (subtract the
+/// data slot, then div/mod by the strides) of `dataSlot(grid) + 6*i + 2*j + k`.
+/// The pointer addition itself does not wrap (offsets of a storage key don't),
+/// so this checks the inversion, not wrap-around.
 /// ---------------------------------------------------------------------------
 
 ghost mapping(uint => mathint) gridWrites;
@@ -248,11 +247,34 @@ hook Sstore grid[INDEX uint256 i][INDEX uint256 j][INDEX uint256 k] uint v {
 }
 
 /// `i` is bounded so that the *outer* index is unambiguous: with a fully
-/// unconstrained `i` even `6*i` alone can wrap, which the model has always
-/// allowed (this rule would then fail regardless of the recovery arithmetic).
-rule hookIndexRecoveryOnWrappingPointer(uint256 i, uint256 v) {
+/// unconstrained `i`, `6*i` alone can wrap (it is plain arithmetic, not a
+/// storage-key offset), and the recovered index is then a different one.
+rule hookIndexRecoveryNonPowerOfTwoStride(uint256 i, uint256 v) {
     require i < 1000;
     require gridWrites[1] == 0;
     setGrid(i, v);
     assert gridWrites[1] == 1;
+}
+
+/// ---------------------------------------------------------------------------
+/// no wrap-around for storage-key offsets: a havoced array length close to
+/// 2^256 would make the end pointer `dataSlot(arrA) + length` of the clearing
+/// loop wrap below `dataSlot(arrA)`, so `delete` would clear nothing and its
+/// `Sstore` hooks would never fire. With the offset not wrapping, such a length
+/// leaves the loop running past `loop_iter`, which the optimistic loop rules out.
+/// ---------------------------------------------------------------------------
+
+ghost bool arrAFirstCleared;
+
+hook Sstore arrA[INDEX uint256 i] uint256 v {
+    if (i == 0) {
+        arrAFirstCleared = true;
+    }
+}
+
+rule deleteClearsFirstElement() {
+    require arrALength() > 0;
+    require !arrAFirstCleared;
+    deleteArrA();
+    assert arrAFirstCleared;
 }
