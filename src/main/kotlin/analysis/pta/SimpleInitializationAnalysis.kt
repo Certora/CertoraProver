@@ -1574,7 +1574,14 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
             } && (state.num[cand]?.qual?.none {
                 it == Roles.LENGTH
             } ?: true) || (saturatedInv matches {
-                cand `=` v("len_var") * k("scale")
+                /**
+                 * scale == 1 means that cand = L where L * 1 + WRITE = END_BLOCK.
+                 * This means `L` (and by extension, `cand`) is a length (and thus, not a
+                 * data segement size)
+                 */
+                cand `=` v("len_var") * k("scale") {
+                    it != BigInteger.ONE
+                }
             }).any {
                 saturatedInv implies {
                     it.symbols["len_var"]!! * it.factors["scale"]!! + WRITE `=` END_BLOCK
@@ -2317,7 +2324,9 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
         val initInv = st.inv
         val nxtInv = when(ltacCmd.cmd) {
             is TACCmd.Simple.AssigningCmd -> {
-                val killed = initInv.kill(ltacCmd.cmd.lhs)
+                val killed = initInv.kill(ltacCmd.cmd.lhs).letIf(isLengthAssign) {
+                    it.substitute(ltacCmd.cmd.lhs, sym = LENGTH)
+                }
                 if(ltacCmd.cmd.lhs == TACKeyword.MEM64.toVar() ) {
                     killed
                 } else if(ltacCmd.cmd is TACCmd.Simple.AssigningCmd.AssignExpCmd) {

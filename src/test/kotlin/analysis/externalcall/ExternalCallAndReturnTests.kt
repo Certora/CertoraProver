@@ -46,7 +46,9 @@ abstract class ExternalCallAndReturnTest(partition: Int) : AbstractExternalCallC
                         }
                     }
                 """.trimIndent()
-                runTestPipeline(contractSource, solc, optimize)
+                runTestPipeline(contractSource, solc, optimize) {
+                    "Failure with input = $input and output = $output"
+                }
             }
         }
     }
