@@ -1438,6 +1438,19 @@ class CertoraBuildGenerator:
         if match:
             settings_dict["evmVersion"] = match
 
+    @staticmethod
+    def _solc_takes_inliner_detail(compiler_version: Tuple[int, int, int]) -> bool:
+        """Whether this compiler accepts `settings.optimizer.details.inliner`.
+
+        solc learned the key in 0.8.5; older compilers reject the whole standard-json input with
+        `Unknown key "inliner"`, so the file fails to compile rather than compiling un-inlined.
+        See https://github.com/ethereum/solidity/blob/v0.8.4/libsolidity/interface/StandardCompiler.cpp
+        """
+        major, minor, patch = compiler_version
+        if major != 0:
+            raise Util.CertoraUserInputError(f"Unrecognized version {major}.{minor}.{patch}")
+        return (minor == 8 and patch >= 5) or (minor > 8)
+
     def _handle_optimize(self, contract_file_path: Path, settings_dict: Dict[str, Any],
                          compiler_collector: CompilerCollector) -> None:
         """
@@ -1518,15 +1531,15 @@ class CertoraBuildGenerator:
 
                 yul_optimizer_steps = standard_replacement(yul_optimizer_steps)
 
-                settings_dict["optimizer"]["details"] = {"inliner": False, "yulDetails": {
-                    "optimizerSteps": yul_optimizer_steps
-                }}
+                # The Yul steps carry the inlining decision for the via-IR pipeline on every
+                # supported version; `inliner` speaks to the legacy-codegen inliner and exists only
+                # from 0.8.5, so it is added where it is understood and left out where it is not.
+                details: Dict[str, Any] = {"yulDetails": {"optimizerSteps": yul_optimizer_steps}}
+                if self._solc_takes_inliner_detail(compiler_version):
+                    details["inliner"] = False
+                settings_dict["optimizer"]["details"] = details
             elif not self.context.strict_solc_optimizer:
-                compiler_version = compiler_collector.compiler_version
-                major, minor, patch = compiler_version
-                if major != 0:
-                    raise Util.CertoraUserInputError(f"Unrecognized version {major}.{minor}.{patch}")
-                if (minor == 8 and patch >= 5) or (minor > 8):
+                if self._solc_takes_inliner_detail(compiler_collector.compiler_version):
                     settings_dict["optimizer"]["details"] = {"inliner": False}
             if self.context.disable_solc_optimizers is not None:
                 if "details" not in settings_dict["optimizer"]:
