@@ -297,4 +297,108 @@ class EnumTest : MoveTestFixture() {
         """.trimIndent())
         assertFalse(verify())
     }
+
+    @Test
+    fun `hash of enum`() {
+        addMoveSource("""
+            module 0::hashes;
+            public enum E has copy, drop {
+                A { x: u32 },
+                B { x: u32, y: u32 },
+                C
+            }
+            public fun a(x: u32): E { E::A { x } }
+            public fun b(x: u32, y: u32): E { E::B { x, y } }
+            public fun c(): E { E::C }
+            public native fun hash(e: E): u256;
+            public fun cvlm_manifest() {
+                cvlm::manifest::hash(b"hash");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::hashes::{hash, a, b, c};
+            public fun test() {
+                cvlm_assert(hash(a(1)) == hash(a(1)));
+                cvlm_assert(hash(b(1, 2)) == hash(b(1, 2)));
+                cvlm_assert(hash(c()) == hash(c()));
+                cvlm_assert(hash(a(1)) != hash(a(2)));
+                cvlm_assert(hash(b(1, 2)) != hash(b(2, 1)));
+                cvlm_assert(hash(a(1)) != hash(b(1, 2)));
+                cvlm_assert(hash(a(1)) != hash(c()));
+                cvlm_assert(hash(b(1, 2)) != hash(c()));
+            }
+        """.trimIndent())
+        assertTrue(verify())
+    }
+
+    @Test
+    fun `hash of nested enum`() {
+        addMoveSource("""
+            module 0::hashes;
+            public enum Inner has copy, drop {
+                A { x: u32 },
+                B { y: vector<u8> }
+            }
+            public struct S has copy, drop {
+                inner: Inner,
+                z: u32
+            }
+            public fun a(x: u32, z: u32): S { S { inner: Inner::A { x }, z } }
+            public fun b(y: vector<u8>, z: u32): S { S { inner: Inner::B { y }, z } }
+            public native fun hash(s: S): u256;
+            public fun cvlm_manifest() {
+                cvlm::manifest::hash(b"hash");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::hashes::{hash, a, b};
+            public fun test() {
+                cvlm_assert(hash(a(1, 2)) == hash(a(1, 2)));
+                cvlm_assert(hash(b(b"hello", 2)) == hash(b(b"hello", 2)));
+                cvlm_assert(hash(a(1, 2)) != hash(a(1, 3)));
+                cvlm_assert(hash(a(1, 2)) != hash(a(2, 2)));
+                cvlm_assert(hash(a(1, 2)) != hash(b(b"hello", 2)));
+                cvlm_assert(hash(b(b"hello", 2)) != hash(b(b"world", 2)));
+            }
+        """.trimIndent())
+        assertTrue(verify())
+    }
+
+    @Test
+    fun `hash of enum depends on variant of nondet value`() {
+        addMoveSource("""
+            module 0::hashes;
+            public enum E has copy, drop {
+                A { x: u32 },
+                B { x: u32 }
+            }
+            public fun x(e: &E): u32 {
+                match (e) {
+                    E::A { x: n } => *n,
+                    E::B { x: n } => *n
+                }
+            }
+            public fun is_a(e: &E): bool {
+                match (e) {
+                    E::A { x: _ } => true,
+                    E::B { x: _ } => false
+                }
+            }
+            public fun a(x: u32): E { E::A { x } }
+            public native fun hash(e: E): u256;
+            public fun cvlm_manifest() {
+                cvlm::manifest::hash(b"hash");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::hashes::{E, hash, a, x, is_a};
+            public fun test(e: E) {
+                cvlm_assert((hash(e) == hash(a(x(&e)))) == is_a(&e));
+            }
+        """.trimIndent())
+        assertTrue(verify())
+    }
 }

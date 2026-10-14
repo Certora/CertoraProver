@@ -170,7 +170,6 @@ class TimeoutCracker private constructor(val tacProgram: CoreTACProgram) {
         Config.MediumSplitTimeout.reset()
         Config.TinySplitTimeout.reset()
         Config.BVsolvers.reset()
-        Config.HashingScheme.reset()
         Config.NumOfParallelisedSplits.reset()
         Config.Smt.UseBV.reset()
         Config.Smt.UseLIA.reset()

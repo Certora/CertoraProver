@@ -1,0 +1,9 @@
+{
+    "CALLGRAPH": {
+        "remove(address,uint80,int256[],uint256[])": false
+    },
+    "POINTSTO": {
+        "remove(address,uint80,int256[],uint256[])": false,
+        "MinSpill-remove(address,uint80,int256[],uint256[])": false
+    }
+}

@@ -418,6 +418,135 @@ class TACNativeIntTest {
 
     @ParameterizedTest
     @ValueSource(booleans = [true, false])
+    fun `from_u256(0, 0, 0, 1) == 2^192`(sound: Boolean) {
+        ConfigScope(SolanaConfig.TACSoundSignedMath, sound).use {
+            val cfg = SbfTestDSL.makeCFG("test") {
+                bb(0) {
+                    r1 = 0
+                    r2 = 1
+                    "CVT_nativeint_u64_from_u128"()
+                    r6 = r0             // 2^64
+                    r1 = r6
+                    r2 = r6
+                    "CVT_nativeint_u64_mul"()
+                    r1 = r0
+                    r2 = r6
+                    "CVT_nativeint_u64_mul"()
+                    r7 = r0             // 2^192
+                    r1 = 0
+                    r2 = 0
+                    r3 = 0
+                    r4 = 1
+                    "CVT_nativeint_u64_from_u256"()
+                    r1 = r0
+                    r2 = r7
+                    "CVT_nativeint_u64_eq"()
+                    assert(CondOp.EQ(r0, 1))
+                    exit()
+                }
+            }
+
+            println("$cfg")
+            val tacProg = toTAC(cfg)
+            println(dumpTAC(tacProg))
+            Assertions.assertEquals(true, verify(tacProg))
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `from_u256(0, 0, 0, u64_MAX) == u64_MAX times 2^192`(sound: Boolean) {
+        ConfigScope(SolanaConfig.TACSoundSignedMath, sound).use {
+            val cfg = SbfTestDSL.makeCFG("test") {
+                bb(0) {
+                    r8 = -1L            // u64::MAX
+                    r1 = r8
+                    r2 = 0
+                    "CVT_nativeint_u64_from_u128"()
+                    r9 = r0             // u64::MAX
+                    r1 = 0
+                    r2 = 1
+                    "CVT_nativeint_u64_from_u128"()
+                    r6 = r0             // 2^64
+                    r1 = r6
+                    r2 = r6
+                    "CVT_nativeint_u64_mul"()
+                    r1 = r0
+                    r2 = r6
+                    "CVT_nativeint_u64_mul"()
+                    r1 = r0
+                    r2 = r9
+                    "CVT_nativeint_u64_mul"()
+                    r7 = r0             // u64::MAX * 2^192
+                    r1 = 0
+                    r2 = 0
+                    r3 = 0
+                    r4 = r8
+                    "CVT_nativeint_u64_from_u256"()
+                    r1 = r0
+                    r2 = r7
+                    "CVT_nativeint_u64_eq"()
+                    assert(CondOp.EQ(r0, 1))
+                    exit()
+                }
+            }
+
+            println("$cfg")
+            val tacProg = toTAC(cfg)
+            println(dumpTAC(tacProg))
+            Assertions.assertEquals(true, verify(tacProg))
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `from_u256(1, 2, 3, 4) == from_u128(1, 2) + from_u128(3, 4) times 2^128`(sound: Boolean) {
+        ConfigScope(SolanaConfig.TACSoundSignedMath, sound).use {
+            val cfg = SbfTestDSL.makeCFG("test") {
+                bb(0) {
+                    r1 = 0
+                    r2 = 1
+                    "CVT_nativeint_u64_from_u128"()
+                    r1 = r0
+                    r2 = r0
+                    "CVT_nativeint_u64_mul"()
+                    r6 = r0             // 2^128
+                    r1 = 3
+                    r2 = 4
+                    "CVT_nativeint_u64_from_u128"()
+                    r1 = r0
+                    r2 = r6
+                    "CVT_nativeint_u64_mul"()
+                    r7 = r0             // 4 * 2^192 + 3 * 2^128
+                    r1 = 1
+                    r2 = 2
+                    "CVT_nativeint_u64_from_u128"()
+                    r1 = r0
+                    r2 = r7
+                    "CVT_nativeint_u64_add"()
+                    r7 = r0             // 4 * 2^192 + 3 * 2^128 + 2 * 2^64 + 1
+                    r1 = 1
+                    r2 = 2
+                    r3 = 3
+                    r4 = 4
+                    "CVT_nativeint_u64_from_u256"()
+                    r1 = r0
+                    r2 = r7
+                    "CVT_nativeint_u64_eq"()
+                    assert(CondOp.EQ(r0, 1))
+                    exit()
+                }
+            }
+
+            println("$cfg")
+            val tacProg = toTAC(cfg)
+            println(dumpTAC(tacProg))
+            Assertions.assertEquals(true, verify(tacProg))
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
     fun `unsupported bitwidth should throw an exception`(sound: Boolean) {
         ConfigScope(SolanaConfig.TACSoundSignedMath, sound).use {
             val cfg = SbfTestDSL.makeCFG("test") {

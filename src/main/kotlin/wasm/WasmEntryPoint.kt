@@ -32,7 +32,7 @@ import datastructures.stdcollections.*
 import instrumentation.transformers.*
 import log.*
 import optimizer.*
-import rules.RuleSplitter.fixupAssertSnippetAnnotations
+import rules.assumeAssertsOfSatisfyRule
 import spec.cvlast.RuleIdentifier
 import spec.rules.EcosystemAgnosticRule
 import spec.cvlast.SpecType
@@ -356,7 +356,7 @@ object WasmEntryPoint {
                         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.NEGATION_NORMALIZER) { NegationNormalizer(it).rewrite() })
                         .mapIfAllowed(
                             CoreToCoreTransformer(ReportTypes.UNUSED_ASSIGNMENTS) {
-                                val filtering = FilteringFunctions.default(it, keepRevertManagment = true)::isErasable
+                                val filtering = FilteringFunctions.default(it)::isErasable
                                 removeUnusedAssignments(it, expensive = false, filtering, isTypechecked = true)
                                     .let(BlockMerger::mergeBlocks)
                             }
@@ -377,7 +377,7 @@ object WasmEntryPoint {
                         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.BYTEMAP_OPTIMIZER1) {
                             optimizeBytemaps(
                                 it,
-                                FilteringFunctions.default(it, keepRevertManagment = true),
+                                FilteringFunctions.default(it),
                                 cheap = false
                             )
                                 .let(BlockMerger::mergeBlocks)
@@ -392,7 +392,7 @@ object WasmEntryPoint {
                             CoreToCoreTransformer(ReportTypes.OPTIMIZE) { c ->
                                 optimizeAssignments(
                                     c,
-                                    FilteringFunctions.default(c, keepRevertManagment = true)
+                                    FilteringFunctions.default(c)
                                 ).let(BlockMerger::mergeBlocks)
                             }
                         )
@@ -471,37 +471,21 @@ object WasmEntryPoint {
                singleAssertType == WasmBuiltinCallSummarizer.CVTBuiltin.CVT_SATISFY
     }
 
-    /** Assuming [code] is a satisfy rule, rewrite all generated "asserts" into "assumes" */
-    fun rewriteAsserts(code: CoreTACProgram): CoreTACProgram {
-        val asserts = code.parallelLtacStream().mapNotNull {
+    /**
+     * [assumeAssertsOfSatisfyRule] for the Wasm flow, which rejects a rule that mixes asserts and satisfies
+     * (see [MixedAssertAndSatisfy]), so a satisfy rule of that flow has no assert of its own to check.
+     */
+    private fun rewriteAsserts(code: CoreTACProgram): CoreTACProgram {
+        val userDefinedAsserts = code.parallelLtacStream().mapNotNull {
             it.maybeNarrow<TACCmd.Simple.AssertCmd>()
+        }.filter {
+            TACMeta.CVL_USER_DEFINED_ASSERT in it.cmd.meta && TACMeta.SATISFY_ID !in it.cmd.meta
         }.collect(Collectors.toList())
 
-        check (asserts.all {
-            TACMeta.CVL_USER_DEFINED_ASSERT !in it.cmd.meta || TACMeta.SATISFY_ID in it.cmd.meta
-        }) {
-            "rewriteAsserts must only be called on a satisfy rule"
+        check(userDefinedAsserts.isEmpty()) {
+            "rewriteAsserts must only be called on a satisfy rule, but found the asserts $userDefinedAsserts"
         }
 
-        return code.patching { p ->
-            val removedAssertConds = mutableListOf<TACSymbol>()
-
-            for ((ptr, cmd) in asserts) {
-                when {
-                    TACMeta.SATISFY_ID in cmd.meta ->
-                        {}
-                    else -> {
-                        removedAssertConds += cmd.o
-                        p.replaceCommand(
-                            ptr,
-                            listOf(TACCmd.Simple.AssumeCmd(cmd.o, "rewrote assert: ${cmd.msg}", cmd.meta))
-                        )
-
-                    }
-                }
-            }
-
-            fixupAssertSnippetAnnotations(code, p, removedAssertConds)
-        }
+        return assumeAssertsOfSatisfyRule(code)
     }
 }

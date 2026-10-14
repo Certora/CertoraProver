@@ -55,7 +55,7 @@ class Matcher<T : OverflowContext>(
     private val g = code.analysisCache.graph
 
     /** Carries the information from the matching of [recipe] needed for the rewrite */
-    interface Match<T : OverflowContext> {
+    sealed interface Match<T : OverflowContext> {
 
         /** the matched recipe */
         val recipe: Recipe<T>

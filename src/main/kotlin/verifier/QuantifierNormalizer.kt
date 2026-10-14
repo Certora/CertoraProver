@@ -24,31 +24,15 @@ import spec.cvlast.CVLType
 import tac.Tag
 import utils.*
 import vc.data.*
-import vc.data.TACBuiltInFunction.Hash.Companion.skeySort
 import vc.data.TACMeta.CVL_TYPE
 import vc.data.tacexprutil.TACExprUtils.contains
 import vc.data.tacexprutil.postTransform
 import vc.data.tacexprutil.replaceVarsExtended
-import vc.data.tacexprutil.subs
 
 /**
  * This is a band-aid class to rewrite the quantified expressions
  *
- * First simplification comes from storage comparison:
- * ```
- *   forall uint x. ... storage-access[to_skey(x)] ...
- * ```
- * If x only appears directly inside a `to_skey(x)`, we can replace the above with:
- * ```
- *    forall skey x. ... storage-access[x] ...
- * ```
- * This is clearly simpler, and makes life better for grounding, as it expects map/array accesses to be done directly
- * with a quantified variable (and not wrapped in any other operation as we see here).
- *
- * Ideally, storage comparison should have generated these expressions to begin with, but apparently it's not easy at
- * that stage in the pipeline.
- *
- * Another simplification is to change the tag, and remove unnecessary [TACBuiltInFunction.SafeMathNarrow] operations,
+ * The simplification is to change the tag, and remove unnecessary [TACBuiltInFunction.SafeMathNarrow] operations,
  * based on the original CVL type of the quantified variable.
  * ```
  * forall int i, ... select(a, safeMathNarrowToK(i)) ...
@@ -68,31 +52,6 @@ class QuantifierNormalizer(val prog: CoreTACProgram) {
         runIf(this is TACExpr.Apply && (f as? TACExpr.TACFunctionSym.BuiltIn)?.bif is T) {
             getOperands().single()
         }
-
-
-    /** the storage comparison case */
-    private fun rewriteSkeys(q: TACSymbol.Var, body: TACExpr): Pair<TACSymbol.Var, TACExpr>? {
-        fun TACExpr.isToSkeyOf(v : TACSymbol.Var) =
-            applyExprArg<TACBuiltInFunction.Hash.ToSkey>()?.isVariable(v) == true
-
-        val toSkeyQCount = body.subs.count { it.isToSkeyOf(q) }
-        if (toSkeyQCount == 0) {
-            return null
-        }
-        val qCount = body.subs.count { it.isVariable(q) }
-        if (qCount != toSkeyQCount) {
-            return null
-        }
-        val newQ = q.updateTag(skeySort, "skey")
-        return newQ to
-            body.replaceVarsExtended(q to newQ)
-                .postTransform {
-                    when {
-                        it.isToSkeyOf(newQ) -> newQ.asSym()
-                        else -> it
-                    }
-                }
-    }
 
 
     /** the safemathnarrow case */
@@ -125,7 +84,7 @@ class QuantifierNormalizer(val prog: CoreTACProgram) {
                 var newBody = e.body
                 val newQs = mutableListOf<TACSymbol.Var>()
                 for (q in e.quantifiedVars) {
-                    val (newQ, newBody1) = rewriteSkeys(q, newBody) ?: rewriteNarrows(q, newBody) ?: (q to null)
+                    val (newQ, newBody1) = rewriteNarrows(q, newBody) ?: (q to null)
                     newQs += newQ
                     newBody1?.let { newBody = it }
                 }

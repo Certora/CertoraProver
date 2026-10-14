@@ -515,7 +515,7 @@ val egg = project.task("fried-egg") {
 	doLast {
 		exec {
 			workingDir(project.file("fried-egg"))
-			commandLine("cargo", "build", "--release")
+			commandLine("cargo", "build", "--locked", "--release")
 			standardOutput = stdOut
 			errorOutput = stdErr
 		}
@@ -544,7 +544,7 @@ val dwarfJsonDump = project.task("gimli-dwarf-jsondump") {
 		exec {
 			workingDir(project.file("scripts/Gimli-DWARF-JSONDump"))
 			environment("RUSTC_WRAPPER", "")
-			commandLine("cargo", "build", "--release")
+			commandLine("cargo", "build", "--locked", "--release")
 			standardOutput = stdOut
 			errorOutput = stdErr
 		}

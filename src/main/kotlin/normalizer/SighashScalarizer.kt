@@ -24,6 +24,7 @@ import analysis.narrow
 import log.*
 import utils.isNotEmpty
 import vc.data.*
+import vc.data.TACMeta.RESERVED_MEMORY_SLOT
 import java.math.BigInteger
 
 /**
@@ -125,7 +126,9 @@ object SighashScalarizer {
         // we want to make sure that all reads into the sighash offset are indeed sighash reads.
         // so here we read: (1) proper sighash reads (that convert to uint32) and unshifted ones
         val sighashUnpackingsToOffsetReads = g.commands.mapNotNull { lcmd ->
-            val sourceRead = lcmd.maybeNarrow<TACCmd.Simple.AssigningCmd>()?.let { sighhashUnpackingMatcher.queryFrom(it) }
+            val sourceRead = lcmd.maybeNarrow<TACCmd.Simple.AssigningCmd>()?.takeIf {
+                RESERVED_MEMORY_SLOT !in it.cmd.lhs.meta
+            }?.let { sighhashUnpackingMatcher.queryFrom(it) }
                 ?.toNullableResult() ?: return@mapNotNull null
             CalldataReadAndMatchingUse(sourceRead, lcmd)
         }
@@ -134,7 +137,9 @@ object SighashScalarizer {
         // let's check, and if so, we will replace them with sighash * 2^220
         val unshiftedMatcher = PatternMatcher.compilePattern(g, calldata4bytereadUnshifted)
         val unshiftedSighashToOffsetReads = g.commands.mapNotNull { lcmd ->
-            val sourceRead = lcmd.maybeNarrow<TACCmd.Simple.AssigningCmd>()?.let { unshiftedMatcher.queryFrom(it) }
+            val sourceRead = lcmd.maybeNarrow<TACCmd.Simple.AssigningCmd>()?.takeIf {
+                RESERVED_MEMORY_SLOT !in it.cmd.lhs.meta
+            }?.let { unshiftedMatcher.queryFrom(it) }
                 ?.toNullableResult() ?: return@mapNotNull null
             CalldataReadAndMatchingUse(sourceRead, lcmd)
         }

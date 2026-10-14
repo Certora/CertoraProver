@@ -309,11 +309,12 @@ class BytemapConeOfInf private constructor(
                     if (!existsQueryMatchingLoc) { // no queries at all.
                         delete("store")
                     } else { // all queries match `loc`.
-                        // We don't really need `loc`, so we can do:
-                        //    replace(AssignExpCmd(lhs, simpleMapDef(value.asSym())))
-                        // but this crashes skey stuff. However, if we run the inliner first, this shouldn't happen
-                        // anyway. So instead of fixing, we just leave it as is:
-                        addToNeeded(loc, value)
+                        // Every query reads `value`, so the store is the constant map of it, and `rhsBase` is not
+                        // needed at all. Leaving the store as is would keep a read of `rhsBase` while no query was
+                        // propagated to it, so its own definition would be deleted as unqueried, leaving the store
+                        // reading an undefined map.
+                        replace(AssignExpCmd(lhs, simpleMapDef(value.asSym())), "store->mapdef")
+                        addToNeeded(value)
                     }
                 }
             }

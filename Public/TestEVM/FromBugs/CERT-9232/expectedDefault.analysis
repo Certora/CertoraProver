@@ -1,0 +1,12 @@
+{
+	"POINTSTO": {
+		"ViewProxy-echoOne(address)": false,
+		"ViewProxy-echoTwo(address,uint256)": false,
+		"echoOne(address)": [false, true],
+		"echoTwo(address,uint256)": [false, true]
+	},
+	"CALLGRAPH": {
+		"echoOne(address)": [false, true],
+		"echoTwo(address,uint256)": [false, true]
+	}
+}

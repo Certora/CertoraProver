@@ -1,0 +1,16 @@
+{
+    "rules": {
+        "envfreeFuncsStaticCheck": {
+            "FAIL": [],
+            "SANITY_FAIL": [],
+            "SUCCESS": [
+                "outerOnce(uint256)",
+                "outerTwice(uint256)"
+            ],
+            "TIMEOUT": [],
+            "UNKNOWN": []
+        },
+        "summaryAppliesToSingleCaller": "SUCCESS",
+        "summaryAppliesToRepeatedCaller": "SUCCESS"
+    }
+}

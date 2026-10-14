@@ -272,11 +272,6 @@ object ReverseTACExpr {
                         null // those are unused afaik
 
                     TACBuiltInFunction.DisjointSighashes,
-                    TACBuiltInFunction.Hash.Addition,
-                    TACBuiltInFunction.Hash.Basic,
-                    TACBuiltInFunction.Hash.FromSkey,
-                    is TACBuiltInFunction.Hash.SimpleHashApplication,
-                    TACBuiltInFunction.Hash.ToSkey,
                     TACBuiltInFunction.LinkContractAddress,
                     is TACBuiltInFunction.NondetFunction,
                     is TACBuiltInFunction.OpaqueIdentity,

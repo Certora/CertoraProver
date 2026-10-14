@@ -40,7 +40,7 @@ open class DefaultTACCmdMapperWithPointer : TACCmdMapperWithPointer, DefaultTACC
  * Word of caution:
  *  Do not manipulate symbols within this transformer (e.g. changing the type of a variable).
  *  This can be used to structurally change expressions; a second transformation is needed when symbols need to be
- *  transformed (see e.g. [AnnotateSkeyBifs]).
+ *  transformed.
  */
 abstract class IndexingDefaultTACCmdMapperWithPointer : TACCmdMapperWithPointer, IndexingDefaultTACCmdMapper() {
     override var currentPtr: CmdPointer? = null

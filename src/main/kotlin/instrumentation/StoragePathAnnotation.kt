@@ -474,12 +474,14 @@ object StoragePathAnnotation {
                     // j = (p - hash(arr) % 3)
                     // n.b. this will always be the first element, so
                     // last - sha3(slot) is the same as slot - sha3(slot)
+                    // n.b. the subtraction must be the wrapping inverse of the (wrapping) pointer addition that
+                    // built `last` -- the location may lie below the hash when the sum crosses 2^256
                     val base = tmpVar("base", newVariables)
                     val tmp = tmpVar("arrayMinusBase", newVariables)
 
                     cmds += listOf(
                         TACCmd.Simple.AssigningCmd.AssignSimpleSha3Cmd(base, EVM_WORD_SIZE.asTACSymbol(), listOf(step.baseSlot)),
-                        TACCmd.Simple.AssigningCmd.AssignExpCmd(tmp, mathIntSub(last.asSym(), base.asSym()))
+                        TACCmd.Simple.AssigningCmd.AssignExpCmd(tmp, TACExpr.BinOp.Sub(last.asSym(), base.asSym()))
                     )
 
                     if (step.thisPath.index == null) {
@@ -492,9 +494,9 @@ object StoragePathAnnotation {
                             )
                 }
                 is Const -> {
-                    // Perform [last] -= constant offset
+                    // Perform [last] -= constant offset (wrapping, see the note in the Array case)
                     cmds += TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                                next, mathIntSub(last.asSym(), step.offset.asTACSymbol().asSym())
+                                next, TACExpr.BinOp.Sub(last.asSym(), step.offset.asTACSymbol().asSym())
                             )
                 }
                 is StaticArray -> {
@@ -607,16 +609,6 @@ object StoragePathAnnotation {
             )
         }
         return recurse(path)
-    }
-
-    private fun mathIntSub(e1: TACExpr, e2: TACExpr): TACExpr {
-        return TACExpr.Apply(
-            f = TACExpr.TACFunctionSym.BuiltIn(
-                bif = TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256)
-            ),
-            ops = listOf(TACExpr.BinOp.IntSub(e1, e2)),
-            tag = Tag.Bit256,
-        )
     }
 
     private fun tmpVar(prefix: String, newVariables: MutableSet<TACSymbol.Var>): TACSymbol.Var =

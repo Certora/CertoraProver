@@ -25,6 +25,7 @@ import analysis.patterns.PatternHelpers
 import com.certora.collect.*
 import config.*
 import datastructures.stdcollections.*
+import evm.twoToThe
 import instrumentation.transformers.*
 import java.math.BigInteger
 import log.*
@@ -39,8 +40,23 @@ import vc.data.tacexprutil.TACExprUtils.contains
 import verifier.*
 import wasm.analysis.intervals.IntervalBasedExprSimplifier
 
-private typealias PI = analysis.PatternMatcher.Pattern<analysis.patterns.Info>
-private typealias PatternHandlerContext = PatternRewriter.PatternHandler.Context
+internal typealias PI = analysis.PatternMatcher.Pattern<analysis.patterns.Info>
+internal typealias PatternHandlerContext = PatternRewriter.PatternHandler.Context
+
+/** Matches a SignExtend expression, with the EVM-style size argument [n] */
+context(PatternHelpers)
+internal fun PI.sextEVM(n: PI) = n.signExtend(this)
+
+/** Produces a SignExtend expression with the EVM-style size argument [n] */
+context(PatternHandlerContext)
+internal fun ToTACExpr.sextEVM(n: ToTACExpr) = SignExtend(n.toTACExpr(), this.toTACExpr())
+
+/** Produces a SignExtend expression with the bit width [n] (which must be a multiple of 8 and less than 256) */
+context(PatternHandlerContext)
+internal fun ToTACExpr.sextBits(n: Int): TACExpr {
+    require(n in 0..<256 && n % 8 == 0)
+    return SignExtend(((n / 8) - 1).asTACExpr, this.toTACExpr())
+}
 
 /**
     Used to annotate expressions whose results are guaraneed to fit in 64 bits.  The reason string is for debugging
@@ -53,11 +69,53 @@ private typealias PatternHandlerContext = PatternRewriter.PatternHandler.Context
 val CANNOT_OVERFLOW_64_REASON = tac.MetaKey<String>("sbf.tac.cannot.overflow")
 
 /**
+    ((x.sextBits(n) >>a (n-1)).mod(2^n) << n) + x ~~> x.sextBits(n).mod(2^(n*2))
+
+    (For n <= 64)
+
+    Unlike the other sign-extension patterns here, this one is an identity only where `x` has no bits set at or above
+    bit `n`: the left side keeps those bits, while the right side discards them along with everything else the sign
+    extension drops.  The pipeline that feeds us upholds that.  [TACModSimplifier] runs only under
+    [SolanaConfig.TACSoundSignedMath], where [EagerMaskSbfTACBuilder] masks every arithmetic result back to 64 bits,
+    and the two places that step outside the invariant restore it before anyone else can observe the value: the
+    untruncated `SAFE_MATH` addition is truncated as soon as its overflow check has been made, and a `mod` dropped by
+    `removeNoOverflow` leaves behind an assert (or, when optimistic, an assume) that the value was in range already.
+
+    Shared with [TACMul128SignedOverflow]: the 64->128 sign extensions that feed an inline 128-bit multiply have to be
+    in this normalized form before its partial products can be matched.  What lets the rewrites there be unconditional
+    in the high words is the form this pattern produces, so they inherit the invariant above.
+ */
+internal fun PatternRewriter.sextWidenHandler() = PatternHandler(
+    name = "sext-widen",
+    pattern = {
+        ((lSym(A).sextEVM(c(C1)) shra c(C2)).rem(c(C3)) shl c(C4)) + lSym(B)
+    },
+    handle = {
+        ModZm.fromEvmSignExtend(C1.n)?.run {
+            runIf(
+                bitwidth <= 64 &&
+                src(A) == src(B) &&
+                C2.n == (bitwidth - 1).toBigInteger() &&
+                C3.n == modulus &&
+                C4.n == bitwidth.toBigInteger()
+            ) {
+                sym(A).sextEVM(C1.n.asTACExpr).mod(twoToThe(bitwidth * 2).asTACExpr)
+            }
+        }
+    },
+    TACExpr.Vec.Add.Binary::class.java,
+    regressionMessage = true
+)
+
+/**
     Attempts to minimize the use of the Mod operator in TAC expressions that implement 64-bit math using Bit256
     operations.
  */
 object TACModSimplifier {
     private val optimistic = SolanaConfig.TACOptimisticOverflowOptimization.get()
+
+    /** Whether [removeNoOverflow] may add asserts to a program. */
+    val mayAddAsserts get() = SolanaConfig.TACSoundSignedMath.get() && !optimistic
 
     /**
         Transforms to be applied prior to loop unrolling.  We do this before unrolling because the unroller may have
@@ -67,6 +125,7 @@ object TACModSimplifier {
         map(CoreToCoreTransformer(ReportTypes.MOD_MATH_NORMALIZE, ::normalize))
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.MOD_MATH_FIND_MORE_POINTERS, ::findMorePointers))
         .map(CoreToCoreTransformer(ReportTypes.MOD_MATH_REMOVE_NO_OVERFLOW, ::removeNoOverflow))
+        .map(CoreToCoreTransformer(ReportTypes.MOD_MATH_MUL128_OVERFLOW, TACMul128SignedOverflow::recognize))
         .map(CoreToCoreTransformer(ReportTypes.MOD_MATH_SIMPLIFY, ::simplify))
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.MOD_MATH_INTERVALS_SIMPLIFY, IntervalBasedExprSimplifier::analyze))
     } ?: this
@@ -85,21 +144,6 @@ object TACModSimplifier {
         (this as? TACExpr.AnnotationExp<*>)
             ?.takeIf { it.annot.k == CANNOT_OVERFLOW_64_REASON }
             ?.let { it.annot.v as String to it.o }
-
-    /** Matches a SignExtend expression, with the EVM-style size argument [n] */
-    context(PatternHelpers)
-    private fun PI.sextEVM(n: PI) = n.signExtend(this)
-
-    /** Produces a SignExtend expression with the EVM-style size argument [n] */
-    context(PatternHandlerContext)
-    private fun ToTACExpr.sextEVM(n: ToTACExpr) = SignExtend(n.toTACExpr(), this.toTACExpr())
-
-    /** Produces a SignExtend expression with the bit width [n] (which must be a multiple of 8 and less than 256) */
-    context(PatternHandlerContext)
-    private fun ToTACExpr.sextBits(n: Int): TACExpr {
-        require(n in 0..<256 && n % 8 == 0)
-        return SignExtend(((n / 8) - 1).asTACExpr, this.toTACExpr())
-    }
 
     context(PatternHandlerContext, ModZm)
     private fun ToTACExpr.isNeg() = this gt maxSigned.asTACExpr
@@ -209,8 +253,8 @@ object TACModSimplifier {
                         ModZm.fromMod(C2.n)?.run {
                             maybeFlipSign(C1.n)?.takeIf { it == BigInteger.ONE }?.let {
                                 ite(
-                                    sym(A).mod(modulus.asTACExpr) eq 0.asTACExpr,
-                                    0.asTACExpr,
+                                    sym(A).mod(modulus.asTACExpr) eq Zero,
+                                    Zero,
                                     modulus.asTACExpr sub sym(A).mod(modulus.asTACExpr)
                                 )
                             }
@@ -498,7 +542,7 @@ object TACModSimplifier {
                         val x = sym(A)
                         val y = sym(B)
                         val n = C1.n.asTACExpr
-                        (x.sextEVM(n) sLt 0.asTACExpr) and (y.sextEVM(n) sLt 0.asTACExpr)
+                        (x.sextEVM(n) sLt Zero) and (y.sextEVM(n) sLt Zero)
                     },
                     TACExpr.BinRel.Slt::class.java, TACExpr.BinRel.Sgt::class.java,
                     regressionMessage = true
@@ -516,7 +560,7 @@ object TACModSimplifier {
                         val x = sym(A)
                         val y = sym(B)
                         val n = C1.n.asTACExpr
-                        not(x.sextEVM(n) sLt 0.asTACExpr) or not(y.sextEVM(n) sLt 0.asTACExpr)
+                        not(x.sextEVM(n) sLt Zero) or not(y.sextEVM(n) sLt Zero)
                     },
                     TACExpr.BinRel.Sge::class.java, TACExpr.BinRel.Sle::class.java,
                     regressionMessage = true
@@ -534,7 +578,7 @@ object TACModSimplifier {
                         val x = sym(A)
                         val y = sym(B)
                         val n = C1.n.asTACExpr
-                        (x.sextEVM(n) sLt 0.asTACExpr) neq (y.sextEVM(n) sLt 0.asTACExpr)
+                        (x.sextEVM(n) sLt Zero) neq (y.sextEVM(n) sLt Zero)
                     },
                     TACExpr.BinRel.Slt::class.java, TACExpr.BinRel.Sgt::class.java,
                     regressionMessage = true
@@ -552,7 +596,7 @@ object TACModSimplifier {
                         val x = sym(A)
                         val y = sym(B)
                         val n = C1.n.asTACExpr
-                        (x.sextEVM(n) sLt 0.asTACExpr) eq (y.sextEVM(n) sLt 0.asTACExpr)
+                        (x.sextEVM(n) sLt Zero) eq (y.sextEVM(n) sLt Zero)
                     },
                     TACExpr.BinRel.Sge::class.java, TACExpr.BinRel.Sle::class.java,
                     regressionMessage = true
@@ -569,7 +613,7 @@ object TACModSimplifier {
                     handle = {
                         ModZm.fromEvmSignExtend(C1.n)?.run {
                             runIf(C2.n == maxSigned) {
-                                not(sym(A).sextEVM(C1.n.asTACExpr) sLt 0.asTACExpr)
+                                not(sym(A).sextEVM(C1.n.asTACExpr) sLt Zero)
                             }
                         }
                     },
@@ -579,7 +623,7 @@ object TACModSimplifier {
 
                 /*
                     (x.sextBits(n) shra (n-1)).mod(2^n) xor minSigned2s(n)
-                        ~~> ite(x <= maxSigned(n), minSigned2s(n), maxSigned(n))
+                        ~~> ite(x.sextBits(n) < 0, maxSigned(n), minSigned2s(n))
                  */
                 PatternHandler(
                     name = "sext-shr-xor-1",
@@ -594,9 +638,9 @@ object TACModSimplifier {
                                 C4.n == minSigned2s
                             ) {
                                 ite(
-                                    sym(A) le maxSigned.asTACExpr,
-                                    minSigned2s.asTACExpr,
-                                    maxSigned.asTACExpr
+                                    sym(A).sextEVM(C1.n.asTACExpr) sLt Zero,
+                                    maxSigned.asTACExpr,
+                                    minSigned2s.asTACExpr
                                 )
                             }
                         }
@@ -625,6 +669,37 @@ object TACModSimplifier {
                                     sym(A).sextEVM(C1.n.asTACExpr) le maxSigned.asTACExpr,
                                     maxSigned.asTACExpr,
                                     minSigned2s.asTACExpr
+                                )
+                            }
+                        }
+                    },
+                    TACExpr.BinOp.BWXOr::class.java,
+                    regressionMessage = true
+                ),
+
+                /*
+                    (x.sextBits(n) shra (n-1)).mod(2^n) xor maxUnsigned(n)
+                        ~~> ite(x.sextBits(n) < 0, 0, maxUnsigned(n))
+
+                    The complement of the sign mask, which `saturating_mul` uses to build the low words of the
+                    saturated result.
+                 */
+                PatternHandler(
+                    name = "sext-shr-xor-3",
+                    pattern = {
+                        ((lSym(A).sextEVM(c(C1)) shra c(C2)).rem(c(C3)) xor c(C4))
+                    },
+                    handle = {
+                        ModZm.fromEvmSignExtend(C1.n)?.run {
+                            runIf(
+                                C2.n == (bitwidth - 1).toBigInteger() &&
+                                C3.n == modulus &&
+                                C4.n == maxUnsigned
+                            ) {
+                                ite(
+                                    sym(A).sextEVM(C1.n.asTACExpr) sLt Zero,
+                                    Zero,
+                                    maxUnsigned.asTACExpr
                                 )
                             }
                         }
@@ -737,7 +812,7 @@ object TACModSimplifier {
                                 runIf(
                                     modzM.bitwidth >= modzN.bitwidth
                                 ) {
-                                    sym(A).mod(modzN.modulus.asTACExpr) gt 0.asTACExpr
+                                    sym(A).mod(modzN.modulus.asTACExpr) gt Zero
                                 }
                             }
                         }
@@ -930,30 +1005,38 @@ object TACModSimplifier {
                     regressionMessage = true
                 ),
 
-                /*
-                    ((x.sextBits(n) >>a (n-1)).mod(2^n) << n) + x ~~> x.sextBits(n).mod(2^(n*2))
+                sextWidenHandler(),
 
-                        (For n <= 64)
+                /*
+                    (x.sextBits(n) >>a (n-1)).mod(2^n) ~~> ite(x.sextBits(n) < 0, maxUnsigned(n), 0)
+
+                    The sign mask is built from an arithmetic shift of a sign extension, which the uninterpreted
+                    bitwise encoding only models loosely.  As an ite over a comparison it is exact, and the
+                    comparison is something the patterns above can go on to simplify.
+
+                    This has to stay last: several patterns above match this same shape as a subterm, and a command
+                    only reaches this one if none of them rewrote it.
                  */
                 PatternHandler(
-                    name = "sext-widen",
+                    name = "sign-mask",
                     pattern = {
-                        ((lSym(A).sextEVM(c(C1)) shra c(C2)).rem(c(C3)) shl c(C4)) + lSym(B)
+                        (lSym(A).sextEVM(c(C1)) shra c(C2)).rem(c(C3))
                     },
                     handle = {
                         ModZm.fromEvmSignExtend(C1.n)?.run {
                             runIf(
-                                bitwidth <= 64 &&
-                                src(A) == src(B) &&
                                 C2.n == (bitwidth - 1).toBigInteger() &&
-                                C3.n == modulus &&
-                                C4.n == bitwidth.toBigInteger()
+                                C3.n == modulus
                             ) {
-                                sym(A).sextEVM(C1.n.asTACExpr).mod(BigInteger.TWO.pow(bitwidth * 2).asTACExpr)
+                                ite(
+                                    sym(A).sextEVM(C1.n.asTACExpr) sLt Zero,
+                                    maxUnsigned.asTACExpr,
+                                    Zero
+                                )
                             }
                         }
                     },
-                    TACExpr.Vec.Add.Binary::class.java,
+                    TACExpr.BinOp.Mod::class.java,
                     regressionMessage = true
                 ),
             ) }
@@ -981,8 +1064,8 @@ object TACModSimplifier {
                             sym(A) shiftRLog 63.asTACExpr,
                             ite(
                                 sym(A) ge (modz64.modulus / 2).asTACExpr,
-                                1.asTACExpr,
-                                0.asTACExpr
+                                One,
+                                Zero
                             )
                         )
                     },

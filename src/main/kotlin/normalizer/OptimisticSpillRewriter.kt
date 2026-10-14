@@ -18,9 +18,7 @@
 package normalizer
 
 import algorithms.dominates
-import analysis.enarrow
-import analysis.maybeExpr
-import analysis.maybeNarrow
+import analysis.*
 import config.Config
 import evm.EVM_WORD_SIZE
 import evm.EVM_WORD_SIZE_INT
@@ -31,6 +29,7 @@ import java.util.stream.Collectors
 import datastructures.stdcollections.*
 import tac.MetaKey
 import tac.Tag
+import vc.data.TACExprFactoryExtensions.eq
 import vc.data.TACProgramCombiners.andThen
 import vc.data.tacexprutil.ExprUnfolder
 
@@ -55,7 +54,7 @@ object OptimisticSpillRewriter {
     val VALIDATION_READ = MetaKey.Nothing("tac.spill.validation-read")
     val SPILL_VARIABLE = MetaKey.Nothing("tac.spill.value-holder")
 
-    fun rewrite(c: CoreTACProgram) : CoreTACProgram {
+    fun findSpillCandidates(c: CoreTACProgram) : Set<BigInteger> {
         val mem64Writes = c.parallelLtacStream().mapNotNull { lc ->
             lc.maybeNarrow<TACCmd.Simple.AssigningCmd>()?.takeIf { n ->
                 n.cmd.lhs == TACKeyword.MEM64.toVar()
@@ -68,13 +67,13 @@ object OptimisticSpillRewriter {
          */
         val initializationWrite = mem64Writes.singleOrNull { lc ->
             lc.wrapped.maybeExpr<TACExpr.Sym.Const>() != null
-        }?.wrapped?.enarrow<TACExpr.Sym.Const>() ?: return c
+        }?.wrapped?.enarrow<TACExpr.Sym.Const>() ?: return setOf()
 
         /**
          * If this isn't a write to a word aligned constant > 0x80, we probably aren't looking at a spill location init.
          */
         if(initializationWrite.exp.s.value <= 0x80.toBigInteger() || initializationWrite.exp.s.value.mod(EVM_WORD_SIZE) != BigInteger.ZERO || !initializationWrite.exp.s.value.isInt()) {
-            return c
+            return setOf()
         }
 
         val dom = c.analysisCache.domination
@@ -83,18 +82,66 @@ object OptimisticSpillRewriter {
          * Sanity check: all later writes of the free pointer must come after this initialization.
          */
         if(!mem64Writes.all { lc ->
-            val writeLoc = lc.ptr
-            writeLoc == initializationWrite.ptr || dom.dominates(initializationWrite.ptr, writeLoc)
-        }) {
-            return c
+                val writeLoc = lc.ptr
+                writeLoc == initializationWrite.ptr || dom.dominates(initializationWrite.ptr, writeLoc)
+            }) {
+            return setOf()
         }
-
         /**
          * Find those cells in S.
          */
-        val candidateCells = (0x80 ..< initializationWrite.exp.s.value.intValueExact()).step(EVM_WORD_SIZE_INT).mapToSet {
+        return (0x80 ..< initializationWrite.exp.s.value.intValueExact()).step(EVM_WORD_SIZE_INT).mapToSet {
             it.toBigInteger()
         }
+    }
+
+    private fun rewriteSpillLoadWithExpected(
+        c: CoreTACProgram,
+        spill: BigInteger,
+        r: LTACCmdView<TACCmd.Simple.AssigningCmd.ByteLoad>,
+        patch: SimplePatchingProgram,
+        holdsValue: TACSymbol
+    ) {
+        /**
+         * Now instrument all the read sites:
+         * `v = tacM[s]`
+         * change it to:
+         * ```
+         * t = tacM[s]
+         * assert t == holdsValue
+         * v = holdsValue
+         * ```
+         *
+         * NB that we have moved the definition of `v` from the read from memory to the copy of `holdsValue`.
+         */
+        if(Config.SuperOptimisticSpillLocations.get()) {
+            patch.replaceCommand(r.ptr, listOf(TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                lhs = r.cmd.lhs,
+                rhs = holdsValue.asSym()
+            )))
+            return
+        }
+        val tempRead = TACKeyword.TMP(Tag.Bit256, "optimisticReadValidate").toUnique("!")
+        patch.addVarDecl(tempRead)
+
+        val rewrittenCmd = r.cmd.copy(
+            lhs = tempRead
+        ).plusMeta(VALIDATION_READ)
+        val replacement = rewrittenCmd andThen ExprUnfolder.unfoldPlusOneCmd("validation", TXF { holdsValue eq tempRead }) {
+            TACCmd.Simple.AssertCmd(
+                o = it.s,
+                description = "Optimistic scalarization of spill location $spill in ${c.name} failed; please disable optimistic scalarization with the ${Config.EnableOptimisticSpillLocations.option.opt}"
+            )
+        } andThen TACCmd.Simple.AssigningCmd.AssignExpCmd(
+            lhs = r.cmd.lhs,
+            rhs = holdsValue.asSym()
+        )
+        patch.replaceCommand(r.ptr, replacement)
+    }
+
+    fun rewrite(c: CoreTACProgram) : CoreTACProgram {
+        val candidateCells = findSpillCandidates(c).takeIf { it.isNotEmpty() } ?: return c
+        val dom = c.analysisCache.domination
 
         /**
          * Find `w`, the singleton write to candidate cells
@@ -108,11 +155,40 @@ object OptimisticSpillRewriter {
             // this is actually responsible for making sure there is one such write
             v.size == 1
         }
-        if(withSingletonInit.isEmpty()) {
+        val withSameConstantInit = c.parallelLtacStream().mapNotNull { lc ->
+            lc.maybeNarrow<TACCmd.Simple.AssigningCmd.ByteStore>()
+        }.filter {
+            val lc = it.cmd
+            lc.loc is TACSymbol.Const && lc.loc.value in candidateCells && it.cmd.base == TACKeyword.MEMORY.toVar()
+        }.collect(
+            Collectors.groupingBy({ (it.cmd.loc as TACSymbol.Const).value }, Collectors.mapping({
+                (it.cmd.value as? TACSymbol.Const)?.value
+            }, MonadicNullCollector { mutableSetOf() }))
+        ).mapValuesNotNull { (_, initVal) ->
+            initVal?.singleOrNull()
+        }
+        if(withSingletonInit.isEmpty() && withSameConstantInit.isEmpty()) {
             return c
         }
 
         val patch = c.toPatchingProgram()
+
+        for((loc, constantVal) in withSameConstantInit) {
+            val toRewrite = c.parallelLtacStream().mapNotNull {
+                it.maybeNarrow<TACCmd.Simple.AssigningCmd.ByteLoad>()
+            }.filter {
+                it.cmd.base == TACKeyword.MEMORY.toVar() && (it.cmd.loc as? TACSymbol.Const)?.value == loc
+            }.toList()
+
+            if(toRewrite.isEmpty()) {
+                continue
+            }
+            for(r in toRewrite) {
+                rewriteSpillLoadWithExpected(
+                    c, spill = loc, holdsValue = constantVal.asTACSymbol(), r = r, patch = patch
+                )
+            }
+        }
 
         /**
          * here spill is `s`, an optimistic spill candidate, and initWriteL is the singleton list
@@ -158,42 +234,9 @@ object OptimisticSpillRewriter {
             }
 
             for(r in toRewrite) {
-                /**
-                 * Now instrument all the read sites:
-                 * `v = tacM[s]`
-                 * change it to:
-                 * ```
-                 * t = tacM[s]
-                 * assert t == holdsValue
-                 * v = holdsValue
-                 * ```
-                 *
-                 * NB that we have moved the definition of `v` from the read from memory to the copy of `holdsValue`.
-                 */
-                if(Config.SuperOptimisticSpillLocations.get()) {
-                    patch.replaceCommand(r.ptr, listOf(TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                        lhs = r.cmd.lhs,
-                        rhs = holdsValue.asSym()
-                    )))
-                    continue
-                }
-                val tempRead = TACKeyword.TMP(Tag.Bit256, "optimisticReadValidate").toUnique("!")
-                patch.addVarDecl(tempRead)
-
-                val rewrittenCmd = r.cmd.copy(
-                    lhs = tempRead
-                ).plusMeta(VALIDATION_READ)
-                val replacement = rewrittenCmd andThen ExprUnfolder.unfoldPlusOneCmd("validation", TXF { holdsValue eq tempRead }) {
-                    TACCmd.Simple.AssertCmd(
-                        o = it.s,
-                        description = "Optimistic scalarization of spill location $spill in ${c.name} failed; please disable optimistic scalarization with the ${Config.EnableOptimisticSpillLocations.option.opt}"
-                    )
-                } andThen TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                    lhs = r.cmd.lhs,
-                    rhs = holdsValue.asSym()
+                rewriteSpillLoadWithExpected(
+                    c, spill, r, patch, holdsValue
                 )
-
-                patch.replaceCommand(r.ptr, replacement)
             }
         }
         return patch.toCode(c)

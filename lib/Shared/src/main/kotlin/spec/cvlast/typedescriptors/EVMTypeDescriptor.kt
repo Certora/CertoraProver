@@ -786,8 +786,11 @@ sealed class EVMTypeDescriptor : VMTypeDescriptor {
             fromType: CVLType.PureCVLType,
             i: ToVMContextDispatcher<O, SRC, DST>,
         ): CollectingResult<ITypeDescriptorConverter<O, SRC, DST>, String> {
-            if(fromType !is CVLType.PureCVLType.Primitive.AccountIdentifier &&
-                (fromType !is CVLType.PureCVLType.Primitive.CodeContract)) {
+            // Anything that is a subtype of `address` holds an account identifier, and is therefore accepted here.
+            // Besides [CVLType.PureCVLType.Primitive.AccountIdentifier] itself, that admits the
+            // [CVLType.PureCVLType.Primitive.CodeContract] refinements and number literals that fit in an address,
+            // exactly as [EVMIsomorphicValueType.converterFrom] does for the plain `address` descriptor.
+            if(!(fromType isSubtypeOf CVLType.PureCVLType.Primitive.AccountIdentifier)) {
                 return "Cannot convert $fromType to a contract with type ${this.contractName}".asError()
             }
             // Note that we allow conversion between contracts with different [this.contractName] because

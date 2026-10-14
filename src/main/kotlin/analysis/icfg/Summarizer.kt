@@ -676,7 +676,7 @@ object Summarizer {
      * transformations via [TransformableSymEntity].
      *
      * For arrays: compares storage slot offsets (index * elementSize + structFieldOffset).
-     * For mappings: compares keccak results directly (avoids skey_add domain issues).
+     * For mappings: compares keccak results directly.
      */
     private fun buildWildcardPrecedenceAssumption(
         where: LTACCmdView<TACCmd.Simple.SummaryCmd>,

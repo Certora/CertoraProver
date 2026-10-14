@@ -17,50 +17,30 @@
 
 package smt.axiomgenerators.fullinstantiation.generatorcontainers
 
-import smt.HashingScheme
 import smt.axiomgenerators.BvOverflowChecksViaDefineFuns
 import smt.axiomgenerators.fullinstantiation.BVMathAxiomGenerator
-import smt.axiomgenerators.fullinstantiation.StorageHashAxiomGeneratorPlainInjectivity
+import smt.axiomgenerators.fullinstantiation.StorageHashAxiomGenerator
 import smt.newufliatranslator.AxiomGenerator
 import smt.newufliatranslator.AxiomGeneratorContainer
-import smt.newufliatranslator.HashAxiomGeneratorContainer
-import smt.newufliatranslator.StorageHashAxiomGenerator
 import smt.solverscript.LExpressionFactory
 import smt.solverscript.SmtTheory
-import smt.solverscript.SmtTheoryFeature
 import verifier.CreateAxiomGeneratorContainer
 
 /**
  * Should be suitable e.g. for AUFBV logic.
- *
- * This will only work with [HashingScheme]s that are compatible to BV logics.
  */
 class HashOnlyGeneratorContainer private constructor(
     lExprFact: LExpressionFactory,
-    storageHashAxiomGenerator: StorageHashAxiomGenerator,
-    noLargeGapsHashGenerator: StorageHashAxiomGeneratorPlainInjectivity?,
     generators: List<AxiomGenerator>,
-) : HashAxiomGeneratorContainer(
-    lExprFact,
-    generators,
-    storageHashAxiomGenerator,
-    noLargeGapsHashGenerator
-) {
+) : AxiomGeneratorContainer(lExprFact, generators) {
 
     companion object {
         fun create(
             lxf: LExpressionFactory,
             targetTheory: SmtTheory,
-            hashingScheme: HashingScheme,
             overflowChecks: CreateAxiomGeneratorContainer.Config.BvOverflowChecks,
         ): AxiomGeneratorContainer {
-            check(
-                hashingScheme !is HashingScheme.Legacy ||
-                        SmtTheoryFeature.Bitvectors !in targetTheory.theoryFeatures
-            ) { "cannot use legacy hashing scheme \"${hashingScheme}\" together with BV logic" }
-
-            val (hashGenerator, noLargeGapsHashGenerator) =
-                StorageHashAxiomGenerator.fromHashingScheme(lxf, hashingScheme, targetTheory)
+            val hashGenerator = StorageHashAxiomGenerator(lxf, targetTheory = targetTheory)
 
             val bvOverflowChecksViaDefineFuns: BvOverflowChecksViaDefineFuns? =
                 when (overflowChecks) {
@@ -72,10 +52,7 @@ class HashOnlyGeneratorContainer private constructor(
 
             return HashOnlyGeneratorContainer(
                 lxf,
-                hashGenerator,
-                noLargeGapsHashGenerator,
                 listOfNotNull(
-                    noLargeGapsHashGenerator,
                     hashGenerator,
                     bvOverflowChecksViaDefineFuns,
                     BVMathAxiomGenerator(lxf)

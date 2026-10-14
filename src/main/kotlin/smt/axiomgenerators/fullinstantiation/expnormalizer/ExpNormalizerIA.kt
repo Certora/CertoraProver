@@ -17,7 +17,6 @@
 
 package smt.axiomgenerators.fullinstantiation.expnormalizer
 
-import smt.HashingScheme
 import smt.solverscript.LExpressionFactory
 import smt.solverscript.SmtTheory
 import smt.solverscript.functionsymbols.*
@@ -35,9 +34,8 @@ import vc.data.lexpression.ContextLExpressionTransformer
 class ExpNormalizerIA(
     lExpressionFactory: LExpressionFactory,
     targetTheory: SmtTheory,
-    hashingScheme: HashingScheme,
     private val linearizationSelector: (LExpression) -> Boolean = { true }
-) : ExpNormalizer(lExpressionFactory, targetTheory, hashingScheme) {
+) : ExpNormalizer(lExpressionFactory, targetTheory) {
 
     init {
         lxf.registerFunctionSymbol(AxiomatizedFunctionSymbol.Bitwise.UninterpShiftRightLogical)
@@ -274,7 +272,6 @@ class ExpNormalizerIA(
                         f.tag
                     ).lift()
 
-                is NonSMTInterpretedFunctionSymbol.Hash -> null
                 is NonSMTInterpretedFunctionSymbol.MultiDimArray -> null
 
                 /**
@@ -336,9 +333,6 @@ class ExpNormalizerIA(
                 exp.copy(f = f.copy(signature = f.signature.transform { it.toInt() }))
 
             is AxiomatizedFunctionSymbol -> when (f) {
-                is AxiomatizedFunctionSymbol.SKeyDt ->
-                    exp.copy(f = normalizeSKeyDtFS(f))
-
                 is AxiomatizedFunctionSymbol.Hash.SimpleHashN ->
                     exp.copy(f = f.copy(tag = f.tag.toInt()))
 
@@ -358,19 +352,7 @@ class ExpNormalizerIA(
         }
     }
 
-    fun normalizeSKeyDtFS(f: AxiomatizedFunctionSymbol.SKeyDt): AxiomatizedFunctionSymbol.SKeyDt = when (f) {
-        is AxiomatizedFunctionSymbol.SKeyDt.Basic -> f.copy(tag = f.tag.toInt())
-        is AxiomatizedFunctionSymbol.SKeyDt.SkeyNode -> f
-        is AxiomatizedFunctionSymbol.SKeyDt.SkeyAdd -> f.copy(tag = f.tag.toInt())
-        is AxiomatizedFunctionSymbol.SKeyDt.ToSkey -> f.copy(tag = f.tag.toInt())
-        is AxiomatizedFunctionSymbol.SKeyDt.FromSkey -> f.copy(tag = f.tag.toInt())
-        is AxiomatizedFunctionSymbol.SKeyDt.SKeySelector ->
-            f.copy(tag = f.tag.toInt(), constructor = normalizeSKeyDtFS(f.constructor))
-    }
-
     override fun normalizeFunctionSymbol(fs: FunctionSymbol): FunctionSymbol = when (fs) {
-        is AxiomatizedFunctionSymbol.SKeyDt -> normalizeSKeyDtFS(fs)
-
         is AxiomatizedFunctionSymbol.DefFunc ->
             fs.copy(signature = fs.signature.transform { it.toInt() })
 

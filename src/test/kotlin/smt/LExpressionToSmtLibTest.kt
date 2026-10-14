@@ -18,6 +18,8 @@
 package smt
 
 import analysis.TACTypeChecker
+import config.Config
+import config.ConfigScope
 import evm.EVM_MOD_GROUP256
 import kotlinx.coroutines.runBlocking
 import loaders.WithTACSource
@@ -41,9 +43,8 @@ import kotlin.time.Duration.Companion.seconds
 
 internal class LExpressionToSmtLibTest : WithTACSource {
 
-    private fun mockAxiomGeneratorConfig(hashingScheme: HashingScheme): CreateAxiomGeneratorContainer.Config =
+    private fun mockAxiomGeneratorConfig(): CreateAxiomGeneratorContainer.Config =
         CreateAxiomGeneratorContainer.Config(
-            hashingScheme,
             listOf(),
             CreateAxiomGeneratorContainer.Config.BvOverflowChecks.ViaDefineFun
         )
@@ -62,7 +63,6 @@ internal class LExpressionToSmtLibTest : WithTACSource {
                 lExpToSmtSetupInfo.targetTheory,
             ),
             lExpToSmtSetupInfo.targetTheory,
-            lExpToSmtSetupInfo.hashingScheme,
             lExpToSmtSetupInfo.createExpNormalizer(lxf),
         )
     }
@@ -106,6 +106,19 @@ internal class LExpressionToSmtLibTest : WithTACSource {
     }
 
 
+    /**
+     * `-smt_preciseBytemaps` models a bytemap store by shifting the stored value, which needs the value's bit
+     * width. A store signature only requires the value to be an integer, so this checks that a `Tag.Int` value
+     * read back at a symbolic offset still produces a query.
+     */
+    @Test
+    fun preciseByteMapsIntValuedStore() {
+        ConfigScope(Config.PreciseByteMaps, true).use {
+            val res = checkTacProg("smt/precise-bytemap-int-store.tac", useArrayTheory = false, useQuantifiers = false)
+            assertTrue(res.satResult == SatResult.SAT)
+        }
+    }
+
     private fun checkTacProg(
         fileName: String,
         useArrayTheory: Boolean,
@@ -127,7 +140,7 @@ internal class LExpressionToSmtLibTest : WithTACSource {
                 LExpToSmtSetupInfo.UFLIAorAUFLIA(
                     useArrayTheory,
                     useQuantifiers,
-                    mockAxiomGeneratorConfig(HashingScheme.Legacy(EVM_MOD_GROUP256))
+                    mockAxiomGeneratorConfig()
                 ),
                 fileName
             ),

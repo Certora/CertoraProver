@@ -251,7 +251,9 @@ class CallTraceTest {
     private val maxUint = "MAX_U?INT[0-9]+"
     private val num = "[0-9A-Fa-fx]+"
     private val numberRE = "(($num)|\\(MAX_EVM_ADDRESS\\)|($maxUint)|(2\\^[0-9]+( - $num)?)?)"
-    private val addressRE = "($numberRE|([a-zA-Z0-9]+ \\([0xa-fA-F0-9]+\\)))"
+    // an address may display as a number, as "Name (0xaddr)", or — for known contract addresses — as the
+    // bare contract name (see FormatterStep: the pretty representation drops the numeric in favor of the name)
+    private val addressRE = "($numberRE|([a-zA-Z0-9]+ \\([0xa-fA-F0-9]+\\))|([a-zA-Z0-9]+))"
     private val boolRE = "(true|false)"
 
     @Test

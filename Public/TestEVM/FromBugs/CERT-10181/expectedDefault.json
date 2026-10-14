@@ -1,0 +1,11 @@
+{
+	"rules": {
+		"trivial": {
+			"SUCCESS": [
+				"<receiveOrFallback>()",
+				"balances(bytes4)"
+			]
+		},
+		"whatever": "SUCCESS"
+	}
+}

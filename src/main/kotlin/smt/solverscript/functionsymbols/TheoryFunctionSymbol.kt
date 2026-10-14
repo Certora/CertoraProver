@@ -22,7 +22,6 @@ import smt.solverscript.LExpressionFactory
 import smtlibutils.data.*
 import tac.Tag
 import tac.isSubtypeOf
-import vc.data.TACBuiltInFunction.Hash.Companion.skeySort
 import vc.data.ToSmtLibData
 import java.lang.UnsupportedOperationException
 
@@ -91,11 +90,6 @@ sealed class TheoryFunctionSymbol : InterpretedFunctionSymbol() {
             Vec.LOr -> SmtIntpFunctionSymbol.Core.LOr
             Vec.IntAdd -> SmtIntpFunctionSymbol.IRA.Add(Sort.IntSort)
             is Vec.IntMul -> SmtIntpFunctionSymbol.IRA.Mul(Sort.IntSort)
-            is Unary.Is -> SmtIntpFunctionSymbol.DT.Is(
-                LExpressionFactory.tagToSort(signature.getParamSort(0)!!, toSmtLibData),
-                this.constructor.name
-            )
-
             BV.BvNegO -> throw UnsupportedOperationException("not implemented -- unclear if bvnego is ever useful for us")
             is BV.BvUAddO -> SmtIntpFunctionSymbol.BV.Rel.BvUAddO(tag.bitwidth)
             is BV.BvSAddO -> SmtIntpFunctionSymbol.BV.Rel.BvSAddO(tag.bitwidth)
@@ -114,9 +108,9 @@ sealed class TheoryFunctionSymbol : InterpretedFunctionSymbol() {
     ) : TheoryFunctionSymbol() {
 
         /**
-         * @param storageKeySort The sort that the keys used to access storage have in the current translation (depends
-         *    on the chosen [HashingScheme] -- this field is only relevant in the case when [mapSort] is [Tag.WordMap]
-         *    (because only wordmaps are used to represent storage). In other cases it can be given as null.
+         * @param storageKeySort The sort that the keys used to access storage have in the current translation -- this
+         *    field is only relevant in the case when [mapSort] is [Tag.WordMap] (because only wordmaps are used to
+         *    represent storage). In other cases it can be given as null.
          */
         @utils.KSerializable
         data class Select(val mapSort: Tag, val storageKeySort: Tag?) :
@@ -131,7 +125,7 @@ sealed class TheoryFunctionSymbol : InterpretedFunctionSymbol() {
                 { "inconsistent sorts in $this" }
                 check(mapSort == Tag.WordMap || mapSort == Tag.ByteMap || mapSort is Tag.GhostMap)
                 { "unexpected map sort: $mapSort" }
-                check(storageKeySort == skeySort || storageKeySort == null ||
+                check(storageKeySort == null ||
                         storageKeySort.isSubtypeOf(Tag.Int))
                 { "unexpected storage key sort: $storageKeySort" }
                 check(mapSort != Tag.WordMap || storageKeySort != null)
@@ -158,7 +152,7 @@ sealed class TheoryFunctionSymbol : InterpretedFunctionSymbol() {
                 { "inconsistent sorts in $this" }
                 check(mapSort == Tag.WordMap || mapSort == Tag.ByteMap || mapSort is Tag.GhostMap)
                 { "unexpected map sort: $mapSort" }
-                check(storageKeySort == skeySort || storageKeySort == null || storageKeySort.isSubtypeOf(Tag.Int))
+                check(storageKeySort == null || storageKeySort.isSubtypeOf(Tag.Int))
                 { "unexpected storage key sort: $storageKeySort" }
                 check(mapSort != Tag.WordMap || storageKeySort != null)
                 { "must give a storage key sort for a wordmap-select" }
@@ -418,15 +412,6 @@ sealed class TheoryFunctionSymbol : InterpretedFunctionSymbol() {
         ) {
             private fun readResolve(): Any = Sub
             override fun hashCode(): Int = utils.hashObject(this)
-        }
-
-        /** The `is` operator from theory of datatypes. */
-        @utils.KSerializable
-        data class Is(val constructor: AxiomatizedFunctionSymbol.SKeyDt) :
-            Unary("$prefix${constructor.name}", IFixedFunctionSignatures.SkeyToBool) {
-            companion object {
-                const val prefix = "_is_"
-            }
         }
     }
 

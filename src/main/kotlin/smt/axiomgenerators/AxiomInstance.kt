@@ -17,8 +17,10 @@
 
 package smt.axiomgenerators
 
+import datastructures.stdcollections.*
 import smt.GenerateEnv
 import smt.solverscript.LExpressionFactory
+import smt.solverscript.functionsymbols.getFreeIdentifiers
 import smt.solverscript.functionsymbols.substitute
 import vc.data.LExpression
 import vc.data.LExpressionWithComment
@@ -68,23 +70,37 @@ class AxiomSet(val lxf: LExpressionFactory, val set: MutableSet<LExpressionWithC
         description: String,
         existentialVars: List<LExpression.Identifier>,
         env: GenerateEnv
-    ) = LExpressionWithComment(
-        if (env.quantifiedVariables.isEmpty()) {
-            val substitution =
-                existentialVars.associate { exVar ->
-                    (exVar as LExpression) to lxf.createSkolemConstant(exVar)
+    ): LExpressionWithComment {
+        /**
+         * Of the variables the environment quantifies, only those that [exp] actually mentions get bound
+         * here; [LExpDefineFun] does the same through [vc.data.LExpressionWithEnvironment.getQuantifiedVars]
+         * for the define-fun flavour of axioms. Binding the others would not only be redundant, it would
+         * hand the pipeline a quantifier that no other stage knows about:
+         * [smt.axiomgenerators.fullinstantiation.ArrayGenerator] collects the quantifiers it finds in the vc
+         * and requires every quantifier still present after axiom generation to be one of them.
+         */
+        val quantifiedVars = when {
+            env.isEmpty() -> emptySet()
+            else -> env.quantifiedVariables intersect exp.getFreeIdentifiers()
+        }
+        return LExpressionWithComment(
+            if (quantifiedVars.isEmpty()) {
+                val substitution =
+                    existentialVars.associate { exVar ->
+                        (exVar as LExpression) to lxf.createSkolemConstant(exVar)
+                    }
+                exp.substitute(lxf, substitution)
+            } else {
+                // quantified case
+                lxf {
+                    forall(quantifiedVars.toList()) {
+                        exists(existentialVars) { exp }
+                    }
                 }
-            exp.substitute(lxf, substitution)
-        } else {
-            // quantified case
-            lxf {
-                forall(env.quantifiedVariables.toList()) {
-                    exists(existentialVars) { exp }
-                }
-            }
-        },
-        description
-    )
+            },
+            description
+        )
+    }
 }
 
 

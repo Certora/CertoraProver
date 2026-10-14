@@ -216,7 +216,7 @@ class TernaryCalculator(
                 val t1 = evalExp(exp.o1, ptr)
                 val t2 = evalExp(exp.o2, ptr)
                 if (t1.isConstant() && t2.isConstant()) {
-                    return Ternary(exp.eval(t1.asConstant(), t2.asConstant()))
+                    exp.eval(t1.asConstant(), t2.asConstant())?.let { return Ternary(it) }
                 }
                 when (exp) {
                     is TACExpr.BinOp -> when (exp) {

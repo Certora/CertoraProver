@@ -156,7 +156,7 @@ private fun renameCVTCall(call: SbfInstruction.Call): SbfInstruction? {
             }
             CVTCore.ASSERT -> {
                 val cond = Condition(CondOp.NE, Value.Reg(SbfRegister.R1), Value.Imm(0UL))
-                return SbfInstruction.Assert(cond, call.metaData)
+                return SbfInstruction.Assert(cond, call.metaData + SbfMeta.USER_ASSERT())
             }
             else -> {
                 /* handled below */

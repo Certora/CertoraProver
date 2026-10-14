@@ -90,8 +90,8 @@ class U128Summarizer(mkFreshIntVar: (String) -> TACSymbol.Var) {
             CVTU128Intrinsics.U128_NONDET -> summarizeU128Nondet(locInst)
             CVTU128Intrinsics.U128_LEQ -> summarizeU128BinRel(locInst) { x, y -> x le y }
             CVTU128Intrinsics.U128_LT -> summarizeU128BinRel(locInst) { x, y -> x lt y }
-            CVTU128Intrinsics.U128_WRAPPING_SUBTRACTION -> summarizeU128BinArith(locInst) { x, y -> natIntTacB { x sub y } }
-            CVTU128Intrinsics.U128_WRAPPING_ADDITION -> summarizeU128BinArith(locInst) { x, y -> natIntTacB { x add y } }
+            CVTU128Intrinsics.U128_WRAPPING_SUBTRACTION -> summarizeU128BinArith(locInst) { x, y -> sbfTacB { x sub128 y } }
+            CVTU128Intrinsics.U128_WRAPPING_ADDITION -> summarizeU128BinArith(locInst) { x, y -> sbfTacB { x add128 y } }
         }
     }
 
@@ -233,10 +233,9 @@ class U128Summarizer(mkFreshIntVar: (String) -> TACSymbol.Var) {
         cmds += assign(sbfTacB.mkVar(spec.savedR0.reg), bufferPtr.asSym())
 
         // 1. Merge low and high halves
-        // 2. Apply op in bv256
-        // 3. mask with 2^128 - 1
-        // 4. split into two halves again
-        // Steps 1, 3, and 4 are done as part of `applyU128BinaryOperation`
+        // 2. Apply op on the 128-bit values
+        // 3. split into two halves again
+        // Steps 1 and 3 are done as part of `applyU128BinaryOperation`
         applyU128BinaryOperation(args, cmds) { res, _, x, y ->
             cmds += assign(res, op(x, y))
         }

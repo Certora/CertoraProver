@@ -30,6 +30,7 @@ import report.calltrace.printer.VariableType
 import report.calltrace.sarif.FmtArg
 import report.calltrace.sarif.Sarif
 import report.calltrace.sarif.SarifBuilder
+import report.calltrace.ModelSkeyReconstructor
 import report.calltrace.sarif.sarifForStorageLocation
 import report.globalstate.toInstantiatedDisplayPath
 import scene.ISceneIdentifiers
@@ -61,6 +62,9 @@ internal class EVMCallTraceGenerator(
     scene: ISceneIdentifiers,
     ruleCallString: String,
 ) : CallTraceGenerator(rule, cexId, model, program, formatter, scene, ruleCallString) {
+
+    private val skeyReconstructor by lazy { ModelSkeyReconstructor(program, model) }
+
     override fun handleCmd(cmd: TACCmd.Simple, cmdIdx: Int, currBlock: NBId, blockIdx: Int): HandleCmdResult {
         return when (cmd) {
             is TACCmd.Simple.AnnotationCmd -> {
@@ -746,7 +750,7 @@ internal class EVMCallTraceGenerator(
             return HandleCmdResult.Continue
         }
 
-        val result = sarifForStorageLocation(snippetCmd, model, formatter, scene)
+        val result = sarifForStorageLocation(snippetCmd, model, formatter, scene, skeyReconstructor)
         val where = when (result) {
             is Either.Left -> result.d
             is Either.Right -> {

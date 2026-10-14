@@ -26,7 +26,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import report.DummyLiveStatsReporter
 import scene.IScene
-import smt.HashingScheme
 import tac.Tag
 import vc.data.TACBuilderAuxiliaries
 import vc.data.TACExpr
@@ -48,8 +47,7 @@ class CounterexampleModelKtTest : TACBuilderAuxiliaries() {
         ConfigScope(Config.SolverProgramChoice, arrayOf(SolverConfig.cvc5.def))
     @Suppress("Unused")
     private val yicesScope =
-        ConfigScope(Config.HashingScheme, HashingScheme.PlainInjectivity)
-            .extend(Config.SolverProgramChoice, arrayOf(SolverConfig.yices.def))
+        ConfigScope(Config.SolverProgramChoice, arrayOf(SolverConfig.yices.def))
     private val solverChoiceConfigScopes =
         listOfNotNull(
             // z3Scope, // deactivating for now, until z3 gives correct models

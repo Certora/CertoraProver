@@ -21,7 +21,6 @@ import evm.MAX_EVM_INT256
 import evm.MAX_EVM_UINT256
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
-import smt.HashingScheme
 import smt.axiomgenerators.fullinstantiation.expnormalizer.ExpNormalizerIA
 import smt.solverscript.LExpressionFactory
 import smt.solverscript.SmtTheory
@@ -35,7 +34,7 @@ import java.math.BigInteger
 
 class ExpNormalizerIATest {
     private val lxf = LExpressionFactory()
-    private val expNormalizer = ExpNormalizerIA(lxf, SmtTheory.fromString("UFNIA"), HashingScheme.DefaultInt) { false }
+    private val expNormalizer = ExpNormalizerIA(lxf, SmtTheory.fromString("UFNIA")) { false }
 
     private fun handleBooleanLexp(lexp: LExpression): Boolean {
         val res = expNormalizer.normalizeRec(lexp)

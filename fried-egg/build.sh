@@ -2,7 +2,7 @@
 
 # The first argument to this script should be the path to the CertoraProver/bin directory
 
-cd fried-egg && cargo build --release && cd ../
+cd fried-egg && cargo build --locked --release && cd ../
 
 dir=${1}
 

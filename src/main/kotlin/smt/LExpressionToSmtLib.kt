@@ -39,7 +39,6 @@ import statistics.data.*
 import tac.Tag
 import utils.*
 import vc.data.*
-import vc.data.TACBuiltInFunction.Hash.Companion.skeySort
 import vc.data.lexpression.META_MODEL_TOI
 import vc.data.lexpression.META_TOPLVL_CMD
 import vc.data.state.TACValue
@@ -72,7 +71,6 @@ class LExpressionToSmtLib(
     private val lxf: LExpressionFactory = lExpressionToSmtLibScene.lExpressionFactory
     private val globalGeneratorContainer: AxiomGeneratorContainer = lExpressionToSmtLibScene.axiomGeneratorContainer
     private val targetTheory: SmtTheory = lExpressionToSmtLibScene.targetTheory
-    private val hashingScheme: HashingScheme = lExpressionToSmtLibScene.hashingScheme
     private val toSmtLibData = ToSmtLibDataWithScene(lExpressionToSmtLibScene)
 
     /**
@@ -119,7 +117,6 @@ class LExpressionToSmtLib(
      *  - visit the whole [vc] in each [AxiomGenerator].
      *  - constant propagation.
      *  - call [AxiomGenerator.visit] on every sub-expression of every expression in the [vc].
-     *  - transform expressions via [AxiomGeneratorContainer.postVisitTransform].
      *  "First Freeze"
      *  - call [AxiomGenerator.beforeScriptFreeze] on all axiom generators.
      *  "Yield"
@@ -134,7 +131,7 @@ class LExpressionToSmtLib(
     fun output(): SmtFormulaCheckerQuery {
         val vcStartTime = getCurrentTime()
 
-        val constComputer = ConstantComputer(hashingScheme, lxf, targetTheory)
+        val constComputer = ConstantComputer(lxf, targetTheory)
         val quantifierRewriter = QuantifierRewriter(lxf)
 
         globalGeneratorContainer.visitVCMetaData(vc)
@@ -161,9 +158,6 @@ class LExpressionToSmtLib(
             .map { it.mapLExp(constComputer::evalRec) }
             /* show each lexpression in the VC to the axiom generators */
             .onEach { globalGeneratorContainer.visitRec(it.lExpression) }
-            .oneTimeBuffer()
-            /* transform pass for axiom generators for transformations that must happen before script freezing */
-            .map { it.mapLExp(globalGeneratorContainer::postVisitTransform) }
             .oneTimeBuffer()
 
         /* First freeze */
@@ -213,18 +207,6 @@ class LExpressionToSmtLib(
 
         val termsOfInterest = vc.termsOfInterest
             ?.map(globalGeneratorContainer::transformTermsOfInterest)
-            ?.filterNot {
-                // When the hashing scheme is "plaininjectivity", the functions to_skey and from_skey are the
-                // identity.
-                // `postProcessAndNormalize` eliminates them both below and elsewhere for the smt formula.
-                // We model this optimization for backtranslation purposes by adding the model for the whole maps
-                // via `optimizedOutModelValues` below. (This makes things easier in the call trace as it can
-                //  treat all skey models the same, independent of hashing scheme.)
-                toSmtLibData.hashingScheme == HashingScheme.PlainInjectivity && (
-                    it.isApplyOf<NonSMTInterpretedFunctionSymbol.Hash.ToSkey>() ||
-                        it.isApplyOf<NonSMTInterpretedFunctionSymbol.Hash.FromSkey>()
-                    )
-            }
             ?.map { lExp -> postProcessAndNormalize(lExp, simplify = false) }
 
         lxf.freezeConstants()
@@ -283,7 +265,6 @@ class LExpressionToSmtLib(
 
         // Declare sorts
         sortsToDeclare
-            .filter { it != skeySort } // bit hacky -- `skey` does not need to be declared (it's declared by declare-datatypes if needed)
             .forEach { scriptWithSymbolTable.declareSort(it.name, 0) }
 
         // Declare symbols
@@ -495,21 +476,7 @@ class LExpressionToSmtLib(
                         null
                     }
                 }
-            // In case to_skey and from_skey are optimized away (currently: PI hashing scheme), we add their models here
-            // so they can be used for getting the tac assingment even though the smt model does not mention them.
-            // also see the related comment in the computation of [toisPostProcessed]
-            val optimizedOutModelValues: Map<TACExpr, TACValue> =
-                when (this.toSmtLibData.hashingScheme) {
-                    is HashingScheme.PlainInjectivity -> mapOf(
-                        // I'd like a TACExpr.MapDefinition.GhostMap here (for to/from_skey models in
-                        // plainInjectivity case), but adding it would have implications on TAC so not worth it
-                        // now it seems...
-                        TACBuiltInFunction.Hash.ToSkey.asMapVar to TACValue.MappingValue.MapDefinition.IdentityWordMap,
-                        TACBuiltInFunction.Hash.FromSkey.asMapVar to TACValue.MappingValue.MapDefinition.IdentityWordMap,
-                    )
-                    else -> emptyMap()
-                }
-            TacExpTermsOfInterest(toisPostProcessed, optimizedOutModelValues) { smtExp -> smtExpToTacExpr[smtExp] }
+            TacExpTermsOfInterest(toisPostProcessed, emptyMap()) { smtExp -> smtExpToTacExpr[smtExp] }
         } else {
             // default case -- when no terms of interest are passed in the VC, we just take every symbol of scalar type
             // that occurs in the formula
@@ -581,7 +548,6 @@ data class LExpressionToSmtLibScene(
     val lExpressionFactory: LExpressionFactory,
     val axiomGeneratorContainer: AxiomGeneratorContainer,
     val targetTheory: SmtTheory,
-    val hashingScheme: HashingScheme,
     val expNormalizer: ExpNormalizer,
 )
 

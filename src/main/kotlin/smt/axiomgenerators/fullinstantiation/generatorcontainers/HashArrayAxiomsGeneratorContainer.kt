@@ -17,15 +17,12 @@
 
 package smt.axiomgenerators.fullinstantiation.generatorcontainers
 
-import smt.HashingScheme
 import smt.axiomgenerators.BvOverflowChecksViaDefineFuns
 import smt.axiomgenerators.fullinstantiation.*
 import smt.newufliatranslator.AxiomGenerator
-import smt.newufliatranslator.HashAxiomGeneratorContainer
-import smt.newufliatranslator.StorageHashAxiomGenerator
+import smt.newufliatranslator.AxiomGeneratorContainer
 import smt.solverscript.LExpressionFactory
 import smt.solverscript.SmtTheory
-import smt.solverscript.SmtTheoryFeature
 import vc.data.lexpression.ChainedLExpressionTransformer
 import verifier.CreateAxiomGeneratorContainer
 
@@ -33,25 +30,12 @@ import verifier.CreateAxiomGeneratorContainer
  * Should be suitable e.g. for UFBV logic.
  *
  * Generates axioms for array modelling through uninterpreted functions. (and no others)
- *
- * When using some BV logic, this will only work with an [StorageHashAxiomGenerator] different from [HashGenerator].
  */
 class HashArrayAxiomsGeneratorContainer private constructor(
     lxf: LExpressionFactory,
     private val arrayGenerator: ArrayGenerator,
-    hashGenerator: StorageHashAxiomGenerator,
-    noLargeGapsHashGenerator: StorageHashAxiomGeneratorPlainInjectivity?,
     generators: List<AxiomGenerator>,
-) : HashAxiomGeneratorContainer(
-    lxf,
-    generators,
-    hashGenerator,
-    noLargeGapsHashGenerator,
-) {
-    init {
-        check(hashGenerator in generators)
-        check(arrayGenerator in generators)
-    }
+) : AxiomGeneratorContainer(lxf, generators) {
 
     override val postProcessTransformer = ChainedLExpressionTransformer(
         super.postProcessTransformer,
@@ -62,19 +46,10 @@ class HashArrayAxiomsGeneratorContainer private constructor(
         fun create(
             lxf: LExpressionFactory,
             targetTheory: SmtTheory,
-            hashingScheme: HashingScheme,
             overflowChecks: CreateAxiomGeneratorContainer.Config.BvOverflowChecks,
         ): HashArrayAxiomsGeneratorContainer {
-            check(
-                hashingScheme !is HashingScheme.Legacy ||
-                        SmtTheoryFeature.Bitvectors !in targetTheory.theoryFeatures
-            ) { "cannot use legacy hashing scheme \"$hashingScheme\" together with BV logic" }
-
-            val (hashGenerator, noLargeGapsHashGenerator) =
-                StorageHashAxiomGenerator.fromHashingScheme(lxf, hashingScheme, targetTheory)
-            val arrayGenerator = ArrayGenerator(lxf, targetTheory, hashingScheme) {
-                hashGenerator.postProcessSkeyTransformer?.invoke(it) ?: it
-            }
+            val hashGenerator = StorageHashAxiomGenerator(lxf, targetTheory = targetTheory)
+            val arrayGenerator = ArrayGenerator(lxf, targetTheory)
 
             val bvOverflowChecksViaDefineFuns: BvOverflowChecksViaDefineFuns? =
                 when (overflowChecks) {
@@ -90,10 +65,7 @@ class HashArrayAxiomsGeneratorContainer private constructor(
             return HashArrayAxiomsGeneratorContainer(
                 lxf,
                 arrayGenerator,
-                hashGenerator,
-                noLargeGapsHashGenerator,
                 listOfNotNull(
-                    noLargeGapsHashGenerator,
                     arrayGenerator,
                     hashGenerator,
                     bvOverflowChecksViaDefineFuns,

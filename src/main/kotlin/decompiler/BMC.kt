@@ -16,6 +16,7 @@
  */
 
 package decompiler
+import algorithms.SCCGraphInfo
 import algorithms.dominates
 import allocator.Allocator
 import analysis.*
@@ -875,10 +876,9 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
     * meta which includes the loop id for which it was introduced. When unrolling a loop L, for every already unrolled
     * loop *head* within L (as indicated by a [TACMeta.START_LOOP] annotation), we look
     * for commands tagged with [TACMeta.SYNTHETIC_LOOP_END] that have a matching loop id. For each such command,
-    * we check if there is a path back to the body of L. This path is checked to either revert, or *must* reach the synthetic loop end;
-    * in other words, the synthetic loop end command must post-dominate all blocks along the path, modulo
-    * reverts. If it does, then the chain of blocks reaching the synthetic loop end are considered to be part of the
-    * loop body of L. This is what the code below computes.
+    * we take the blocks which reach it without passing through the body of L, plus everything those blocks reach
+    * before rejoining the body of L. If that collection is private to a single iteration, i.e. the only way into it
+    * is from the body of L, then it is considered part of the loop body of L. This is what the code below computes.
     */
     private fun findSyntheticLoopEndBlocks(loopToUnroll: Loop): Set<NBId> {
 
@@ -953,40 +953,29 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
     /**
         See [findSyntheticLoopEndBlocks].
      */
-    private fun expandPathsToExtraBlocks(loopToUnroll: Loop, extraBlocks: Set<NBId>): Set<NBId> {
+    internal fun expandPathsToExtraBlocks(loopToUnroll: Loop, extraBlocks: Set<NBId>): Set<NBId> {
+        val graph = code.analysisCache.graph
         return extraBlocks.parallelStream().flatMap { extraBlock ->
             /**
-            * Now see if we can trace a path back to the loop body we're unrolling. This identifies an "offshoot" branch
-            * that is logically part of the loop body, but isn't detected by the loop body detection
+            * Trace paths back to the loop body we're unrolling. This identifies the "offshoot" branch that is
+            * logically part of the loop body, but isn't detected by the loop body detection: the blocks which reach
+            * [extraBlock] without passing through the body, together with the edges along which the body enters them.
+            *
+            * A loop whose condition short circuits has one such entry edge per branch of the condition, which is
+            * also why [createUnrollCmds] could not find its exit condition and we ended up with an [extraBlock] to
+            * begin with.
             */
-            val graph = code.analysisCache.graph
-            var inferredBranch : Pair<NBId, NBId>? = null
-            val worklist = arrayDequeOf(extraBlock)
+            val entryEdges = mutableSetOf<Pair<NBId, NBId>>()
             val visited = mutableSetOf<NBId>()
+            val worklist = arrayDequeOf(extraBlock)
             while(worklist.isNotEmpty()) {
                 val curr = worklist.removeLast()
                 if(!visited.add(curr)) {
                     continue
                 }
                 for(p in graph.pred(curr)) {
-                    // we have looping code somehow
-                    if(graph.cache.domination.dominates(curr, p)) {
-                        return@flatMap Stream.empty()
-                    }
                     if(p in loopToUnroll.body) {
-                        val edge = p to curr
-                        /*
-                        Do we have a principle edge that enters our offshoot branch?
-                        */
-                        if(inferredBranch == null || inferredBranch == edge) {
-                            if(inferredBranch == null) {
-                                inferredBranch = edge
-                            }
-                            continue
-                        } else {
-                            // no? Then bail
-                            return@flatMap Stream.empty()
-                        }
+                        entryEdges.add(p to curr)
                     } else {
                         // keep going backwards
                         worklist.add(p)
@@ -996,68 +985,61 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
             /*
             If we didn't actually reach the loop body, something has gone wrong.
             */
-            if(inferredBranch == null) {
+            if(entryEdges.isEmpty()) {
                 return@flatMap Stream.empty()
             }
-            val branchStart = inferredBranch.second
-            val validationWorklist = arrayDequeOf(branchStart)
-            val dom = graph.cache.domination
-            val toRet = mutableSetOf<NBId>()
             /*
-            we found a principle edge from the loop body. Now verify that all paths starting from this edge
-            must rejoin the loop body or reach the synthetic end block
+            Collect everything reachable from those entry edges, stopping wherever control rejoins the loop body.
+            NB this can happen for returns and reverts within the unrolled loop body.
             */
-            while(validationWorklist.isNotEmpty()) {
-                val curr = validationWorklist.removeLast()
-                if(!toRet.add(curr)) {
+            val toRet = mutableSetOf<NBId>()
+            val forwardWorklist = arrayDequeOf(entryEdges.map { it.second })
+            while(forwardWorklist.isNotEmpty()) {
+                val curr = forwardWorklist.removeLast()
+                if(curr in loopToUnroll.body || !toRet.add(curr)) {
                     continue
                 }
                 if(curr == extraBlock) {
                     /*
-                    This block (which was added while the BMC is still processing, is expected to be a sink. If it
+                    This block (which was added while the BMC is still processing) is expected to be a sink. If it
                     isn't, something has gone *very* wrong.
-
-                    NB: we could check this immediately at the top of this block, but choose to do it here as
-                    it fits with the rest of the validation
                     */
                     if(graph.succ(curr).isNotEmpty()) {
                         return@flatMap Stream.empty()
                     }
-                /*
-                AKA this is the dominance frontier of branchStart, and we are rejoining some other control flow.
-                Ensure that the control flow we are rejoining is within the loop. NB this can happen for
-                returns and reverts within the unrolled loop body.
-                */
-                } else if(!dom.dominates(branchStart, curr)) {
-                    if(curr !in loopToUnroll.body) {
-                        return@flatMap Stream.empty()
-                    }
                     continue
-                } else {
-                    /*
-                    This is more of a sanity check. We are somehow back in the loop body while still having
-                    travelled what we *thought* was an "offshoot" branch but to get here we *had* to travel
-                    through the offshoot. I can't think of any plausible solidity pattern that could
-                    cause this, but let's be explicit in our assumptions.
-                    */
-                    if(curr in loopToUnroll.body) {
-                        return@flatMap Stream.empty()
-                    }
-                    /*
-                    Expand our search
-                    */
-                    validationWorklist.addAll(graph.succ(curr))
                 }
+                forwardWorklist.addAll(graph.succ(curr))
             }
             /*
-            Then our validation is complete, and the blocks we visited during it are *exactly* the blocks we need
-            to add to the loop body.
-
-            Q: Couldn't you have done something with finding the closest ancestor in the dominance tree that
-            is also in the loop body, and then finding the subtree of that ancestor?
-            A: Maybe! But every time I try to be clever with dominance stuff I screw it up. This is less efficient
-            but I'm more confident it is correct...
+            Finally, check that the blocks we collected really are private to a single iteration: the only way into
+            them is from the loop body along one of the entry edges, or from within the collection itself. A block
+            that is also reachable from elsewhere is shared code which we must not duplicate along with the loop.
             */
+            if(toRet.any { blk ->
+                graph.pred(blk).any { p ->
+                    p !in toRet && (p to blk) !in entryEdges
+                }
+            }) {
+                return@flatMap Stream.empty()
+            }
+            /*
+            The collection must also be acyclic: unrolling copies each block of the loop body along with its original
+            successors, so a cycle among the collected blocks would be reproduced in every iteration. Test the
+            collected subgraph directly rather than looking for a back edge, as a cycle entered along several of the
+            entry edges has no block dominating the rest of it, and so no back edge to find. The test is local to the
+            collection: a path that leaves it into the loop body and comes back is not considered here, and does not
+            need to be. A natural loop has a single entry, so the only block of [loopToUnroll] a collected block can
+            jump to is the head, and the privacy check above puts the head in front of the whole collection, so such a
+            path is a back edge to the head. The loop analysis therefore reports it as a second loop of that head,
+            which [consolidateLoops] merges into the body before any of this runs.
+            */
+            val collectedSubgraph = toRet.associateWith { blk ->
+                graph.succ(blk).filterToSet { it in toRet }
+            }
+            if(!SCCGraphInfo(collectedSubgraph).isDag) {
+                return@flatMap Stream.empty()
+            }
             toRet.stream()
         }.collect(Collectors.toSet())
     }

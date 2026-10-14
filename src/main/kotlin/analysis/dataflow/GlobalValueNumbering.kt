@@ -145,6 +145,8 @@ class GlobalValueNumbering(graph: TACCommandGraph, val followIdentities: Boolean
     override fun findCopiesAt(target: CmdPointer, source: Pair<CmdPointer, TACSymbol.Var>): Set<TACSymbol.Var> =
         valueBefore(source.first, source.second)?.copiesBefore(target).orEmpty()
 
+    fun findCopiesAfter(target: CmdPointer, source: Pair<CmdPointer, TACSymbol.Var>): Set<TACSymbol.Var> =
+        valueAfter(source.first, source.second)?.copiesAfter(target).orEmpty()
     /**
      * Return the set of variables whose values are equal to [f] before
      * executing the command at [cmd]

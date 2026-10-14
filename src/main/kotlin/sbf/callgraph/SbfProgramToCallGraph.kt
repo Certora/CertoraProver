@@ -225,6 +225,9 @@ private fun postProcessCFG(cfg: MutableSbfCFG, debugSymbols: DebugSymbols, globa
     //do not call simplify before calling simplifyMemoryIntrinsics
     simplifyMemoryIntrinsics(cfg)
     cfg.verify(false, "[after simplifying builtin calls]")
+    // Must run before any pass can move the spilled arguments of `__muloti4` out of reach
+    lowerMuloti4Calls(cfg, globals)
+    cfg.verify(false, "[after lowering __muloti4 calls]")
     cfg.simplify(globals)
     cfg.verify(false, "[after simplify]")
     cfg.normalize()

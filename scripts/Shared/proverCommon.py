@@ -54,10 +54,12 @@ CLOUD_ERROR_EXIT_CODE = 426
 
 @dataclass
 class CertoraRunResult:
-    link: Optional[str]  # Path to emv_dir if running locally, or the link to the job status page
+    link: Optional[str]  # Path to emv_dir if running locally, or the link to the job report page
     is_local_link: bool
     src_dir: Path
     rule_report_link: Optional[str]
+    # The app report link that the server sends for API keys. It is only printed. Internal users read link.
+    app_report_link: Optional[str] = None
 
 class CertoraFoundViolations(Exception):
     def __init__(self, message: str, results: Optional[CertoraRunResult] = None) -> None:
@@ -229,12 +231,13 @@ def run_remote(
         exit_code = CLOUD_ERROR_EXIT_CODE
 
     result: Optional[CertoraRunResult] = None
-    if cloud.statusUrl:
+    if cloud.reportUrl:
         result = CertoraRunResult(
-            cloud.statusUrl,
+            cloud.reportUrl,
             False,
             Util.get_certora_sources_dir(),
             cloud.reportUrl,
+            cloud.app_report_url or None,
         )
     return exit_code, result
 
@@ -287,7 +290,7 @@ def catch_exits(fn: Callable[..., None]) -> Callable[..., NoReturn]:
             sys.exit(0)
 
         except CertoraFoundViolations as e:
-            link = getattr(e.results, "rule_report_link", None)
+            link = getattr(e.results, "app_report_link", None) or getattr(e.results, "rule_report_link", None)
             if link:
                 print(f"report url: {link}")
             console.print("[bold red]\nViolations were found\n")

@@ -39,6 +39,8 @@ class BvOverflowChecksViaDefineFuns(private val lxf: LExpressionFactory) : Axiom
             args = listOf(x, y),
             ret = Tag.Bool,
             def = lxf {
+                // the sign test compares against a zero of the same bit-width as the operands
+                val zero = lit(0, f.tag)
                 when (f) {
                     is AxiomatizedFunctionSymbol.BvOverflowChecks.NoUMulOverflow ->
                         ((x bvMul y) bvUDiv y) eq x
@@ -46,13 +48,13 @@ class BvOverflowChecksViaDefineFuns(private val lxf: LExpressionFactory) : Axiom
                         ((x bvMul y) bvSDiv y) eq x
                     is AxiomatizedFunctionSymbol.BvOverflowChecks.NoSAddOverUnderflow ->
                         ite(
-                            y bvSGe ZERO,
+                            y bvSGe zero,
                             (x bvAdd y) bvSGe x,
                             (x bvAdd y) bvSLt x
                         )
                     is AxiomatizedFunctionSymbol.BvOverflowChecks.NoSSubOverUnderflow ->
                         ite(
-                            y bvSGe ZERO,
+                            y bvSGe zero,
                             (x bvSub y) bvSLe x,
                             (x bvSub y) bvSGt x
                         )

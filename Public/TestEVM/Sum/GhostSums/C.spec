@@ -189,3 +189,28 @@ rule usumInQuant {
     require forall uint8 u. forall mathint m. (usum bytes4 b, address a. unsignedNestedGhost[u][b][m][a]) <= unsignedNestedGhost[u8][b4][mi][addr] + unsignedNestedGhost[u8][b42][mi][addr2];
     assert (usum bytes4 b, address a. unsignedNestedGhost[u8][b][mi][a]) == unsignedNestedGhost[u8][b4][mi][addr] + unsignedNestedGhost[u8][b42][mi][addr2];
 }
+
+// `havoc g assuming <exp>` where <exp> sums both states of `g`: the sum over `g@old` is the sum as it
+// was before the havoc, so pinning the new sum to it keeps the total.
+rule havocAssumingKeepsSum {
+    mathint initialSum = sum address a. ghostAddrToInt256[a];
+    havoc ghostAddrToInt256 assuming (sum address a. ghostAddrToInt256@new[a]) ==
+        (sum address a. ghostAddrToInt256@old[a]);
+    assert (sum address a. ghostAddrToInt256[a]) == initialSum;
+}
+
+rule havocAssumingKeepsSumNestedMapping {
+    uint8 u;
+    mathint m;
+    mathint initialSum = sum bytes4 b, address a. ghostNestedMapping[u][b][m][a];
+    havoc ghostNestedMapping assuming (sum bytes4 b, address a. ghostNestedMapping@new[u][b][m][a]) ==
+        (sum bytes4 b, address a. ghostNestedMapping@old[u][b][m][a]);
+    assert (sum bytes4 b, address a. ghostNestedMapping[u][b][m][a]) == initialSum;
+}
+
+rule havocAssumingKeepsUsum {
+    mathint initialSum = usum address a. unsignedGhost[a];
+    havoc unsignedGhost assuming (usum address a. unsignedGhost@new[a]) ==
+        (usum address a. unsignedGhost@old[a]);
+    assert (usum address a. unsignedGhost[a]) == initialSum;
+}

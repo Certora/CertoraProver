@@ -41,7 +41,6 @@ import vc.data.TACBuiltInFunction.*
 import vc.data.TACMeta.CVL_TYPE
 import vc.data.state.ConcreteTacValue
 import vc.data.state.TACValue
-import vc.data.tacexprutil.evaluators.TACExprInterpreter
 import verifier.AbstractTACChecker
 import java.math.BigInteger
 
@@ -77,9 +76,6 @@ sealed class CounterexampleModel: AmbiSerializable {
             override val message get() = "operation unsupported, or not yet implemented"
         }
 
-        data class UnhashableSKey(val skey: ConcreteTacValue, val e: TACExprInterpreter.HashingException) : ResolvingFailure() {
-            override val message get() = "SKey $skey could not be hashed"
-        }
 
         data class MissingMetaKey(val meta: MetaKey<*>) : ResolvingFailure() {
             override val message get() = "meta $meta not found in symbol"
@@ -139,39 +135,6 @@ sealed class CounterexampleModel: AmbiSerializable {
                 is ConcreteTacValue -> value
                 else -> null
             }
-        }
-    }
-
-    /**
-     * Given a [ConcreteTACValue] that belongs to a TAC expression of skey type, this attempts to convert the value
-     * to a [TACValue.PrimitiveValue.Integer] inside the Bit256 space using the model of the `from_skey` builtin
-     * function.
-     * This is done by constructing the [TACExpr] `from_skey(skey)`, and using [TACExprInterpreter] to evaluate it
-     * under [tacAssignments].
-     *
-     * (background: Under the Datatypes hashing scheme, this will convert from the skey datatype to bit256; under the
-     *  Legacy hashing scheme, this will convert a very large integer (> maxBv256) to an integer in the bit256 range);
-     *  under the PlainInjectivity hashing scheme, this will amount to applying the identity function, the input
-     *  is already in the bit256 space then.)
-     */
-    fun storageKeyToInteger(skey: ConcreteTacValue): Either<TACValue.PrimitiveValue.Integer, ResolvingFailure> {
-        val toInteger = TACExpr.Apply.Unary(
-            f = TACBuiltInFunction.Hash.FromSkey.toTACFunctionSym(),
-            op = skey.asConstantTacExpr(),
-            tag = Tag.Bit256
-        )
-
-        return try {
-            val tv = TACExprInterpreter.eval(tacAssignments, toInteger)
-            if (tv is TACValue.PrimitiveValue.Integer) {
-                tv.toLeft()
-            } else {
-                ResolvingFailure.UnexpectedResultValue(tv, Expected.INT_BV).toRight()
-            }
-        } catch (e: UnsupportedOperationException) {
-            ResolvingFailure.UnsupportedOperation(e).toRight()
-        } catch (e: TACExprInterpreter.HashingException) {
-            ResolvingFailure.UnhashableSKey(skey, e).toRight()
         }
     }
 
@@ -393,9 +356,7 @@ fun SmtFormulaCheckerResult.toTacAssignment(partialAssignment: Map<TACSymbol.Var
         val tacExpTermsOfInterest = query?.termsOfInterest as? TacExpTermsOfInterest
         if (tacExpTermsOfInterest != null) {
             // the backtranslation might have values for things that we have optimized out but are needed for
-            // call trace construction (example: to_skey / from_skey in plainInjectivity case -- they're the
-            // identity, but are just optimized out in the formula; in order to not have to make an exception in
-            // calltrace-land, we add that information here)
+            // call trace construction
             map.putAll(tacExpTermsOfInterest.optimizedOutModelValues)
         }
         val backTranslation = tacExpTermsOfInterest?.backTranslation
@@ -477,37 +438,6 @@ fun SmtFormulaCheckerResult.toTacAssignment(partialAssignment: Map<TACSymbol.Var
                             ?: error("got a non-primitive model value for a map entry ($value); unexpected..")
                     )
                 }
-            } else if (exp is TACExpr.Apply && exp.f is TACExpr.TACFunctionSym.BuiltIn ) {
-                val mapVar = when ((exp.f as TACExpr.TACFunctionSym.BuiltIn).bif) {
-                    TACBuiltInFunction.Hash.ToSkey -> TACBuiltInFunction.Hash.ToSkey.asMapVar.s
-                    TACBuiltInFunction.Hash.FromSkey -> TACBuiltInFunction.Hash.FromSkey.asMapVar.s
-                    else -> null
-                }
-                check(exp.ops.size == 1) {
-                    "only handling 1-argument uninterpreted functions for now, got expression \"$exp\""
-                }
-                val modelOfMapArg = getModelVal(exp.ops.first())
-
-                if (mapVar == null) {
-                    logger.warn { "don't know how to process model entry \"$exp\" -> \"$value\" (but might be fine)" }
-                    return@forEach
-                }
-                if (modelOfMapArg == null) {
-                    logger.warn {
-                        "failed to process model of map \"$exp\" at location \"${exp.ops.first()}\", " +
-                            "could not retrieve operand value from model"
-                    }
-                    return@forEach
-                }
-
-                res.compute(mapVar) { _, oldVal ->
-                    val mapVal = oldVal ?: TACValue.MappingValue.UninterpretedFunction(mapOf())
-                    check(mapVal is TACValue.MappingValue.UninterpretedFunction) {
-                        "something's wrong, value for program variable " +
-                            "\"${(exp.f as TACExpr.TACFunctionSym.BuiltIn).bif}\" is not an UninterpretedFunction"
-                    }
-                    mapVal.store(listOf(modelOfMapArg), value)
-                }
             } else {
                 logger.warn { "don't know how to process model entry \"$exp\" -> \"$value\" (but might be fine)" }
             }
@@ -533,9 +463,6 @@ private fun smtExpToTacValue(
     }
     value.isBooleanValueLit() -> {
         TACValue.PrimitiveValue.Bool(value.asBoolean())
-    }
-    value.isDatatypeLiteral(symbolTable) -> {
-        TACValue.SKey.fromSmtExp(value)
     }
     value.isMapDefinitionLiteral(symbolTable) -> {
         TACValue.MappingValue.MapDefinition.fromSmtExp(value, symbolTable)

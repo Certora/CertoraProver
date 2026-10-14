@@ -53,7 +53,6 @@ import utils.ModZm.Companion.highOnes
 import utils.ModZm.Companion.isZero
 import utils.ModZm.Companion.mulMod
 import utils.ModZm.Companion.shr
-import vc.data.TACBuiltInFunction.Hash.Companion.skeySort
 import vc.data.TACCmd.Simple.AnnotationCmd.Annotation
 import vc.data.TACCmd.Simple.AnnotationCmd.Companion.Annotation
 import vc.data.TACMeta.ACCESS_PATHS
@@ -436,12 +435,16 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
         val o2: TACExpr
 
         fun operandsAreSyms(): Boolean = o1 is Sym && o2 is Sym
-        fun evaluatable(o1: BigInteger, o2: BigInteger): Boolean = true
         fun o1AsNullableTACSymbol(): TACSymbol? = if (o1 is Sym) (o1 as Sym).s else null
         fun o2AsNullableTACSymbol(): TACSymbol? = if (o2 is Sym) (o2 as Sym).s else null
         fun o1AsTACSymbol(): TACSymbol = (o1 as Sym).s
         fun o2AsTACSymbol(): TACSymbol = (o2 as Sym).s
-        fun eval(o1: BigInteger, o2: BigInteger): BigInteger
+        /**
+         * The concrete value of this operator on two concrete operands, or null if it has none.
+         * [BinOp.IntDiv] and [BinOp.IntMod] are the partial cases: their SMT encoding leaves a zero divisor
+         * unconstrained, so no concrete value may be substituted for one.
+         */
+        fun eval(o1: BigInteger, o2: BigInteger): BigInteger?
 
         companion object {
             fun <T : BinExp> build(from: T): (TACExpr, TACExpr) -> TACExpr = { o1: TACExpr, o2: TACExpr ->
@@ -504,6 +507,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
 
         abstract val ls: List<TACExpr>
         abstract val initValue: BigInteger
+        abstract override fun eval(o1: BigInteger, o2: BigInteger): BigInteger
         override fun eval(cs: List<BigInteger>) = cs.fold(initValue) { a, b -> eval(a, b) }
 
         override val o1: TACExpr
@@ -961,7 +965,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
             is Sub -> Sub(o1, o2, tag as Tag.Bits?)
         }
 
-        override fun eval(cs: List<BigInteger>): BigInteger {
+        override fun eval(cs: List<BigInteger>): BigInteger? {
             require(cs.size == 2)
             return eval(cs[0], cs[1])
         }
@@ -1161,10 +1165,13 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
                 }
             }
 
-            /** EVM-style truncation toward zero: `BigInteger.divide` rounds toward zero. */
-            override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
+            /**
+             * EVM-style truncation toward zero: `BigInteger.divide` rounds toward zero.
+             * A zero divisor has no concrete value; [toLExpression] gives it an unconstrained skolem.
+             */
+            override fun eval(o1: BigInteger, o2: BigInteger): BigInteger? =
                 if (o2 == BigInteger.ZERO) {
-                    BigInteger.ZERO
+                    null
                 } else {
                     o1.divide(o2)
                 }
@@ -1257,9 +1264,16 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
                 return "${o1.toPrintRepWithParentheses(cb)}%${o2.toPrintRepWithParentheses(cb)}"
             }
 
-            /** Following evm's smod, always returns a non-negative number from zero to `abs(o2)`. */
-            override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                o1.mod(o2.abs())
+            /**
+             * Following evm's smod, always returns a non-negative number from zero to `abs(o2)`.
+             * A zero divisor has no concrete value; [toLExpression] gives it an unconstrained skolem.
+             */
+            override fun eval(o1: BigInteger, o2: BigInteger): BigInteger? =
+                if (o2 == BigInteger.ZERO) {
+                    null
+                } else {
+                    o1.mod(o2.abs())
+                }
 
             override fun toLExpression(conv: ToLExpression.Conv, meta: MetaMap?): LExpression {
                 // in the division-by-0 case, we allow an unconstrained value
@@ -1531,6 +1545,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
             is Slt -> Slt(o1, o2, tag)
         }
 
+        abstract override fun eval(o1: BigInteger, o2: BigInteger): BigInteger
         override fun eval(cs: List<BigInteger>): BigInteger {
             require(cs.size == 2)
             return eval(cs[0], cs[1])
@@ -1917,9 +1932,9 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
                     val locLExp = conv(loc, meta)
                     val locTag = loc.tagAssumeChecked
                     val baseLExp = conv(base, meta)
-                    val skeySort = if (baseTag == Tag.WordMap) locTag else null
+                    val storageKeySort = if (baseTag == Tag.WordMap) locTag else null
                     conv.lxf.applyExp(
-                        TheoryFunctionSymbol.Array.Select(baseTag, skeySort),
+                        TheoryFunctionSymbol.Array.Select(baseTag, storageKeySort),
                         baseLExp,
                         locLExp
                     )
@@ -2027,9 +2042,9 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
         ): LExpression {
             val baseTag = base.tagAssumeChecked
             val locTag = loc.tagAssumeChecked
-            val skeySort = if (baseTag == Tag.WordMap) locTag else null
+            val storageKeySort = if (baseTag == Tag.WordMap) locTag else null
             return conv.lxf.applyExp(
-                TheoryFunctionSymbol.Array.Store(baseTag, skeySort),
+                TheoryFunctionSymbol.Array.Store(baseTag, storageKeySort),
                 conv(base, meta),
                 conv(loc, meta),
                 conv(value, meta)
@@ -2369,10 +2384,6 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
 
         override fun eval(cs: List<BigInteger>) = null
 
-        /**
-         * Note that this function is only called for non-keccak (non "large gaps" hashing) instances of hashes.
-         * The other instances of this class have been transformed to TAC builtin functions by [AnnotateSkeyBifs].
-         */
         override fun toLExpression(conv: ToLExpression.Conv, meta: MetaMap?): LExpression =
             conv.lxf.applyExp(
                 AxiomatizedFunctionSymbol.Hash.SimpleHashN(Tag.Bit256, ls.size, hashFamily),
@@ -2446,7 +2457,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
             // to the lexpression world. Specifically it does not like the `UserArray` tag.
             // See the test `Test/CVLCompilation/DirectStorageAccess/Default.conf` - `test_bytes_keys`.
             // If we do want to support quantification over bytes keys, we'll need to solve this and some more.
-            private val validAccessPathIndexTags = setOf(Tag.Bool, Tag.Bit256, Tag.Int, skeySort)
+            private val validAccessPathIndexTags = setOf<Tag>(Tag.Bool, Tag.Bit256, Tag.Int)
 
             operator fun invoke(o: TACExpr, k: MetaKey<Nothing>) = AnnotationExp(o, Annotation(k))
         }

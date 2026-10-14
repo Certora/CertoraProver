@@ -1,0 +1,16 @@
+{
+	"rules": {
+		"envfreeFuncsStaticCheck": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"signedAdd()",
+				"signedSub()"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		},
+		"signedAddIsNonZero": "FAIL",
+		"signedSubIsNonZero": "FAIL"
+	}
+}

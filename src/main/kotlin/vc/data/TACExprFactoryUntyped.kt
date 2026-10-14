@@ -337,9 +337,6 @@ interface TACExprFact {
     fun noSSubOverAndUnderflow(op1: TACExpr, op2: TACExpr, tag: Tag.Bits = Tag.Bit256) =
         applyBIF(TACBuiltInFunction.NoSSubOverAndUnderflowCheck(tag), op1, op2)
 
-    fun fromSkey(op: TACExpr) =
-        applyBIF(TACBuiltInFunction.Hash.FromSkey, op)
-
     fun <@Treapable T : Serializable> AnnotationExp(o: TACExpr, k: MetaKey<T>, v: T) =
         TACExpr.AnnotationExp(o, k, v)
     fun AnnotationExp(o: TACExpr, k: MetaKey<Nothing>) =

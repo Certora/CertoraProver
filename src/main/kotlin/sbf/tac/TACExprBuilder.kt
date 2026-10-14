@@ -41,7 +41,7 @@ abstract class TACExprBase(private val regVars: ArrayList<TACSymbol.Var>) {
     val ZERO     = TACSymbol.Const(0.toBigInteger(), Tag.Bit256).asSym()
     val c64      = TACSymbol.Const(64.toBigInteger(), Tag.Bit256).asSym()
     val c128     = TACSymbol.Const(128.toBigInteger(), Tag.Bit256).asSym()
-    val c196     = TACSymbol.Const(196.toBigInteger(), Tag.Bit256).asSym()
+    val c192     = TACSymbol.Const(192.toBigInteger(), Tag.Bit256).asSym()
     val U64_MAX  = TACSymbol.Const(BigInteger.TWO.pow(64) - BigInteger.ONE, Tag.Bit256).asSym()
     val U128_MAX = TACSymbol.Const(BigInteger.TWO.pow(128) - BigInteger.ONE, Tag.Bit256).asSym()
     val U256_MAX = TACSymbol.Const(BigInteger.TWO.pow(256) - BigInteger.ONE, Tag.Bit256).asSym()
@@ -187,7 +187,6 @@ abstract class SbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : TACExprBase(re
     /** Return a 256-bit TAC constant from [BigInteger] **/
     abstract fun mkConst(value: BigInteger): TACSymbol.Const
 
-    abstract val needOverflowPromotion: Boolean
     abstract val useTACSignedMath: Boolean
 
     context(SbfCFGToTAC<*, *, *>)
@@ -201,11 +200,33 @@ abstract class SbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : TACExprBase(re
     /** Addition, annotated with a hint that the addition will not overflow.  We use this in later optimizations. */
     protected abstract fun AddNoOvf(ls: List<TACExpr>, reason: String): TACExpr
     protected abstract fun Sub(o1: TACExpr, o2: TACExpr): TACExpr
+    /** [Add] and [Sub] without truncating the result to 64 bits.  See [mkUntruncatedBinOpExp]. */
+    protected abstract fun AddUntruncated(ls: List<TACExpr>): TACExpr
+    protected abstract fun SubUntruncated(o1: TACExpr, o2: TACExpr): TACExpr
+    /** [Add] and [Sub] on 128-bit rather than 64-bit values **/
+    protected abstract fun Add128(ls: List<TACExpr>): TACExpr
+    protected abstract fun Sub128(o1: TACExpr, o2: TACExpr): TACExpr
     protected abstract fun Div(o1: TACExpr, o2: TACExpr): TACExpr
     protected abstract fun Div128(o1: TACExpr, o2: TACExpr): TACExpr
     protected abstract fun SDiv(o1: TACExpr, o2: TACExpr): TACExpr
     protected abstract fun SDiv128(o1: TACExpr, o2: TACExpr): TACExpr
     protected abstract fun Mod(o1: TACExpr, o2: TACExpr): TACExpr
+
+    /**
+     * Product of two 128-bit two's complement values, as a 256-bit two's complement value.
+     *
+     * Unlike [Mul128] the product is not truncated, which is what makes it possible to tell whether
+     * the 128-bit multiplication overflowed (see [FitsInSigned128]). The product is exact because
+     * `|x * y| < 2^254` for any two 128-bit signed `x` and `y`.
+     *
+     * This is independent of how 64-bit register semantics are modeled, hence not abstract.
+     **/
+    protected fun SMulWide128(o1: TACExpr, o2: TACExpr): TACExpr =
+        TACExpr.Vec.Mul(listOf(signExtendSbfValue(o1, 128), signExtendSbfValue(o2, 128)))
+
+    /** Whether [o], read as a 256-bit two's complement value, is in the range of a 128-bit signed integer **/
+    protected fun FitsInSigned128(o: TACExpr): TACExpr =
+        TACExpr.BinRel.Eq(o, signExtendSbfValue(o, 128))
 
     protected abstract fun Gt(o1: TACExpr, o2: TACExpr): TACExpr
     protected abstract fun Lt(o1: TACExpr, o2: TACExpr): TACExpr
@@ -242,7 +263,7 @@ abstract class SbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : TACExprBase(re
         mayMaskLowBits: Boolean
     ): TACExpr
 
-    /** Return expression `(w4 << 196) + (w3 << 128) + (w2 << 64) + w1` */
+    /** Return expression `(w4 << 192) + (w3 << 128) + (w2 << 64) + w1` */
     abstract fun mergeU256(
         w1: TACExpr.Sym,
         w2: TACExpr.Sym,
@@ -260,6 +281,12 @@ abstract class SbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : TACExprBase(re
      *  ```
      **/
     abstract fun splitU128(e: TACExpr): Pair<TACExpr, TACExpr>
+
+    /**
+     * Truncate [e] to 64 bits, restoring the invariant that a register holds a 64-bit value.
+     * This is only needed after [mkUntruncatedBinOpExp], since every other operation already respects the invariant.
+     **/
+    abstract fun truncateTo64(e: TACExpr): TACExpr
 
     /**
      * Return TAC instructions that read [width] bytes from [map] at index [idx] and stores the result in [lhs].
@@ -336,6 +363,21 @@ abstract class SbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : TACExprBase(re
         }
     }
 
+    /**
+     * Return the equivalent TAC expression from SBF [o1] [op] [o2], where [op] is an addition or a subtraction
+     * annotated with [SbfMeta.SAFE_MATH], keeping the result untruncated so that the
+     * [SbfMeta.PROMOTED_OVERFLOW_CHECK] that follows can tell whether it exceeded [mask64].
+     * The result must be truncated with [truncateTo64] once that check has been made.
+     **/
+    fun mkUntruncatedBinOpExp(op: BinOp, o1: TACExpr.Sym, o2: TACExpr.Sym): TACExpr {
+        typeCheck(op, o1, o2, useMathInt = false)
+        return when (op) {
+            BinOp.ADD -> AddUntruncated(listOf(o1, o2))
+            BinOp.SUB -> SubUntruncated(o1, o2)
+            else -> throw TACTranslationError("mkUntruncatedBinOpExp cannot be called with op=$op")
+        }
+    }
+
     /** Return the equivalent TAC expression from SBF [o1] [op] [o2] **/
     fun mkCondOpExp(op: CondOp, o1: TACExpr, o2: TACExpr): TACExpr =
         when (op) {
@@ -397,6 +439,8 @@ abstract class SbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : TACExprBase(re
 
     infix fun ToTACExpr.mul(other: ToTACExpr)    = this@SbfTACBuilder.Mul(listOf(this.toTACExpr(), other.toTACExpr()))
     infix fun ToTACExpr.mul128(other: ToTACExpr) = this@SbfTACBuilder.Mul128(listOf(this.toTACExpr(), other.toTACExpr()))
+    infix fun ToTACExpr.sMulWide128(other: ToTACExpr) = this@SbfTACBuilder.SMulWide128(this.toTACExpr(), other.toTACExpr())
+    fun fitsInSigned128(o: ToTACExpr) = this@SbfTACBuilder.FitsInSigned128(o.toTACExpr())
     infix fun ToTACExpr.intMul(other: ToTACExpr) = this@SbfTACBuilder.IntMul(listOf(this.toTACExpr(), other.toTACExpr()))
     infix fun ToTACExpr.div(other: ToTACExpr)    = this@SbfTACBuilder.Div(this.toTACExpr(), other.toTACExpr())
     infix fun ToTACExpr.div128(other: ToTACExpr) = this@SbfTACBuilder.Div128(this.toTACExpr(), other.toTACExpr())
@@ -404,8 +448,10 @@ abstract class SbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : TACExprBase(re
     infix fun ToTACExpr.sDiv128(other: ToTACExpr) = this@SbfTACBuilder.SDiv128(this.toTACExpr(), other.toTACExpr())
     infix fun ToTACExpr.intDiv(other: ToTACExpr) = this@SbfTACBuilder.IntDiv(this.toTACExpr(), other.toTACExpr())
     infix fun ToTACExpr.add(other: ToTACExpr)    = this@SbfTACBuilder.Add(listOf(this.toTACExpr(), other.toTACExpr()))
+    infix fun ToTACExpr.add128(other: ToTACExpr) = this@SbfTACBuilder.Add128(listOf(this.toTACExpr(), other.toTACExpr()))
     infix fun ToTACExpr.intAdd(other: ToTACExpr) = this@SbfTACBuilder.IntAdd(listOf(this.toTACExpr(), other.toTACExpr()))
     infix fun ToTACExpr.sub(other: ToTACExpr)    = this@SbfTACBuilder.Sub(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.sub128(other: ToTACExpr) = this@SbfTACBuilder.Sub128(this.toTACExpr(), other.toTACExpr())
     infix fun ToTACExpr.intSub(other: ToTACExpr) = this@SbfTACBuilder.IntSub(this.toTACExpr(), other.toTACExpr())
     infix fun ToTACExpr.mod(other: ToTACExpr)    = this@SbfTACBuilder.Mod(this.toTACExpr(), other.toTACExpr())
     fun ToTACExpr.addNoOvf(other: ToTACExpr, reason: String) = this@SbfTACBuilder.AddNoOvf(listOf(this.toTACExpr(), other.toTACExpr()), reason)
@@ -447,17 +493,12 @@ operator fun UnOp.invoke(r: Value.Reg, eFac: SbfTACBuilder) =
  * only inserted where it is strictly necessary (e.g. shifts, XOR, sign-extension, and the
  * 64-vs-256-bit fix in overflow conditions).
  *
- * Two flags control correctness in the edge cases this encoding does not correctly support:
- * - [SolanaConfig.TACPromoteOverflow]: when true, overflow checks are translated via
- *   `translateOverflowCond` rather than `translateCond`, avoiding the vacuously false
- *   comparison that would result from representing [ULong.MAX_VALUE] as a signed -1.
- * - [SolanaConfig.UseTACSignedMath]: when true, operands of signed comparisons are
- *   sign-extended from 64 to 256 bits before the comparison so that the 256-bit signed
- *   relation matches the intended 64-bit signed semantics.
+ * [SolanaConfig.UseTACSignedMath] controls correctness in an edge case this encoding does not correctly
+ * support: when true, operands of signed comparisons are sign-extended from 64 to 256 bits before the
+ * comparison so that the 256-bit signed relation matches the intended 64-bit signed semantics.
  **/
 class LazyMaskSbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : SbfTACBuilder(regVars) {
 
-    override val needOverflowPromotion get() = SolanaConfig.TACPromoteOverflow.get()
     override val useTACSignedMath get() = SolanaConfig.UseTACSignedMath.get()
 
     /** Convert [e] from Sbf semantics (64-bits arithmetic) to TAC semantics (256-bits arithmetic) **/
@@ -502,6 +543,11 @@ class LazyMaskSbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : SbfTACBuilder(r
         flipIfNegativeBigInteger(ls, { TACExpr.Vec.Add(it) }, { x, y -> TACExpr.BinOp.Sub(x, y) })
     override fun Sub(o1: TACExpr, o2: TACExpr) =
         flipIfNegativeBigInteger(o1, o2, { x, y -> TACExpr.BinOp.Sub(x, y) }, { x, y -> TACExpr.Vec.Add(x, y) })
+    // Lazy masking already leaves additions and subtractions untruncated
+    override fun AddUntruncated(ls: List<TACExpr>) = Add(ls)
+    override fun SubUntruncated(o1: TACExpr, o2: TACExpr) = Sub(o1, o2)
+    override fun Add128(ls: List<TACExpr>) = TACExpr.Vec.Add(ls)
+    override fun Sub128(o1: TACExpr, o2: TACExpr) = TACExpr.BinOp.Sub(o1, o2)
     override fun Mul(ls: List<TACExpr>): TACExpr = TACExpr.Vec.Mul(ls)
     override fun Div(o1: TACExpr, o2: TACExpr): TACExpr  = TACExpr.BinOp.Div(o1,o2)
     override fun SDiv(o1: TACExpr, o2: TACExpr): TACExpr = TACExpr.BinOp.SDiv(o1,o2)
@@ -574,7 +620,7 @@ class LazyMaskSbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : SbfTACBuilder(r
         val o2 = if (mayMaskLowBits) { mask(w2, 64) } else { w2 }
         val o1 = if (mayMaskLowBits) { mask(w1, 64) } else { w1 }
         return TACExpr.Vec.Add(listOf(
-            TACExpr.BinOp.ShiftLeft(w4, c196),
+            TACExpr.BinOp.ShiftLeft(w4, c192),
             TACExpr.BinOp.ShiftLeft(o3, c128),
             TACExpr.BinOp.ShiftLeft(o2, c64),
             o1)
@@ -599,6 +645,8 @@ class LazyMaskSbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : SbfTACBuilder(r
         return low to high
     }
 
+    override fun truncateTo64(e: TACExpr) = mask64(e)
+
     override fun load(lhs: TACSymbol.Var, idx: TACSymbol, widthBytes: Short, map: TACSymbol.Var) =
         listOf(TACCmd.Simple.AssigningCmd.ByteLoad(lhs, idx, map))
 }
@@ -617,7 +665,6 @@ class EagerMaskSbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : SbfTACBuilder(
     private fun TACExpr.mod64() = TACExpr.BinOp.Mod(this, modz64.modulus.asTACExpr)
     private fun TACExpr.mod128() = TACExpr.BinOp.Mod(this, modz128.modulus.asTACExpr)
 
-    override val needOverflowPromotion get() = false
     override val useTACSignedMath get() = true
 
     context(SbfCFGToTAC<*, *, *>)
@@ -641,8 +688,12 @@ class EagerMaskSbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : SbfTACBuilder(
         }
     }
 
-    override fun Add(ls: List<TACExpr>) = TXF { Add(ls).mod64() }
-    override fun Sub(o1: TACExpr, o2: TACExpr) = TXF { (o1 sub o2).mod64() }
+    override fun Add(ls: List<TACExpr>) = AddUntruncated(ls).mod64()
+    override fun Sub(o1: TACExpr, o2: TACExpr) = SubUntruncated(o1, o2).mod64()
+    override fun AddUntruncated(ls: List<TACExpr>) = TXF { Add(ls) }
+    override fun SubUntruncated(o1: TACExpr, o2: TACExpr) = TXF { o1 sub o2 }
+    override fun Add128(ls: List<TACExpr>) = TXF { Add(ls).mod128() }
+    override fun Sub128(o1: TACExpr, o2: TACExpr) = TXF { (o1 sub o2).mod128() }
     override fun Mul(ls: List<TACExpr>) = TXF { Mul(ls).mod64() }
     override fun Mul128(ls: List<TACExpr>) = TXF { Mul(ls).mod128() }
     override fun Div(o1: TACExpr, o2: TACExpr) = TXF { o1 div o2 }
@@ -682,7 +733,7 @@ class EagerMaskSbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : SbfTACBuilder(
         mayMaskLowBits: Boolean // Ignored; we always assume inputs are correctly sized
     ) = TACExpr.Vec.Add(TACExpr.BinOp.ShiftLeft(high, c64), low)
 
-    /** Return expression `(w4 << 196) + (w3 << 128) + (w2 << 64) + w1` */
+    /** Return expression `(w4 << 192) + (w3 << 128) + (w2 << 64) + w1` */
     override fun mergeU256(
         w1: TACExpr.Sym,
         w2: TACExpr.Sym,
@@ -690,7 +741,7 @@ class EagerMaskSbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : SbfTACBuilder(
         w4: TACExpr.Sym,
         mayMaskLowBits: Boolean // Ignored; we always assume inputs are correctly sized
     ) = TACExpr.Vec.Add(listOf(
-        TACExpr.BinOp.ShiftLeft(w4, c196),
+        TACExpr.BinOp.ShiftLeft(w4, c192),
         TACExpr.BinOp.ShiftLeft(w3, c128),
         TACExpr.BinOp.ShiftLeft(w2, c64),
         w1
@@ -708,6 +759,8 @@ class EagerMaskSbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : SbfTACBuilder(
         val high = TACExpr.BinOp.ShiftRightLogical(e, c64)
         return low to high
     }
+
+    override fun truncateTo64(e: TACExpr) = e.mod64()
 
     override fun load(lhs: TACSymbol.Var, idx: TACSymbol, widthBytes: Short, map: TACSymbol.Var): List<TACCmd.Simple> {
         check(widthBytes.toInt() <= 8) { "Memory load width($widthBytes bytes) is larger than 64 bits" }

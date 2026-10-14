@@ -60,7 +60,6 @@ import tac.TACBasicMeta
 import utils.*
 import vc.data.*
 import vc.data.TACMeta.ACCESS_PATHS
-import vc.data.TACMeta.REVERT_MANAGEMENT
 import vc.data.TACMeta.STORAGE_PATHS
 import vc.data.TACSymbol.Var.Companion.hasKeyword
 import java.math.BigInteger
@@ -161,7 +160,7 @@ object ContractUtils {
                         TACDSA.simplify(
                             prog = c,
                             isTypechecked = false,
-                            isErasable = FilteringFunctions.default(c, keepRevertManagment = true)::isErasable
+                            isErasable = FilteringFunctions.default(c)::isErasable
                         )
                     },
                     // TYPING
@@ -397,7 +396,9 @@ object ContractUtils {
             }
             .plus(EVMExternalMethodInfo.getFallback(code.source) to code.fallback)
             .mapValues {
-                SighashScalarizer.rewrite(ContractClass.transformCommon(it.value)).apply {
+                CoreToCoreTransformer(ReportTypes.SIGHASH_SCALARIZER, SighashScalarizer::rewrite).applyTransformer(
+                    ContractClass.transformCommon(it.value)
+                ).apply {
                     ArtifactManagerFactory().dumpCodeArtifacts(this, ReportTypes.CFG, StaticArtifactLocation.Outputs, DumpTime.AGNOSTIC)
                 }
             }.mapValues { (_,v) ->
@@ -453,7 +454,7 @@ object ContractUtils {
                             }
                             // keep reads from storage because hooks are not inlined yet
                             (cmd as? TACCmd.Simple.AssigningCmd)?.let { c ->
-                                if (STORAGE_PATHS in cmd.meta || REVERT_MANAGEMENT in cmd.meta) {
+                                if (STORAGE_PATHS in cmd.meta) {
                                     add(c.lhs)
                                 }
                             }
@@ -476,8 +477,7 @@ object ContractUtils {
                                 cmd is TACCmd.Simple.AssigningCmd.AssignExpCmd &&
                                     TACBasicMeta.STACK_HEIGHT in cmd.lhs.meta &&
                                     cmd.getRhs().none { it is TACSymbol.Var && it.isPreserved } &&
-                                    cmd.freeVars().none { it.foundryPreserved } &&
-                                    REVERT_MANAGEMENT !in cmd.meta
+                                    cmd.freeVars().none { it.foundryPreserved }
                         },
                         strict = true
                     )

@@ -51,9 +51,12 @@ interface CTPOptimizationPass {
 
         val snippetRemoval = make(ANNOTATION_REMOVAL, AnnotationRemovers::rewrite)
 
-        fun constantPropagatorAndSimplifier(mergeBlocks: Boolean) = make(PROPAGATOR_SIMPLIFIER) { ctp ->
-            ConstantPropagatorAndSimplifier(ctp).rewrite().letIf(mergeBlocks, BlockMerger::mergeBlocks)
-        }
+        fun constantPropagatorAndSimplifier(mergeBlocks: Boolean, cutAfterLastAsserts: Boolean = false) =
+            make(PROPAGATOR_SIMPLIFIER) { ctp ->
+                ConstantPropagatorAndSimplifier(ctp, cutAfterLastAsserts = cutAfterLastAsserts)
+                    .rewrite()
+                    .letIf(mergeBlocks, BlockMerger::mergeBlocks)
+            }
 
         val noUnderOverflowUnderApprox = make(NO_UNDEROVERFLOW_UNDERAPPROX) { code ->
             code.letIf(Config.AssumeNoUnderOverflows.get()) {
@@ -90,9 +93,17 @@ interface CTPOptimizationPass {
 
         val removeDeadPartitions = make(REMOVE_UNUSED_PARTITIONS, SimpleMemoryOptimizer::removeDeadPartitions)
 
-        fun optimizeAssignments(keepRevertManagement: Boolean = false, bmcAware: Boolean = false) =
+        /** Removal of unused assignments only, without [optimizeAssignments]'s (much costlier) inlining. */
+        fun removeUnused(bmcAware: Boolean = false) =
             make(UNUSED_ASSIGNMENTS) { ctp ->
-                optimizeAssignments(ctp, FilteringFunctions.default(ctp, keepRevertManagement, bmcAware), strict = false)
+                removeUnusedAssignments(
+                    ctp, expensive = true, FilteringFunctions.default(ctp, bmcAware)::isErasable, isTypechecked = true
+                )
+            }
+
+        fun optimizeAssignments(bmcAware: Boolean = false) =
+            make(UNUSED_ASSIGNMENTS) { ctp ->
+                optimizeAssignments(ctp, FilteringFunctions.default(ctp, bmcAware), strict = false)
                     .let(BlockMerger::mergeBlocks)
             }
 
@@ -129,7 +140,7 @@ interface CTPOptimizationPass {
                 else -> error("Invalid report num $reportNum")
             }
         ) {
-            optimizeBytemaps(it, FilteringFunctions.default(it, keepRevertManagment = true, bmcAware), cheap)
+            optimizeBytemaps(it, FilteringFunctions.default(it, bmcAware), cheap)
         }
 
         val overflowPatternRewriter = make(OPTIMIZE_OVERFLOW) { ctp -> OverflowPatternRewriter(ctp).go() }
@@ -140,6 +151,9 @@ interface CTPOptimizationPass {
 
         val intervalsRewriter =
             make(INTERVALS_OPTIMIZE) { ctp -> IntervalsRewriter.rewrite(ctp, handleLeinoVars = false) }
+
+        val definitionalEqualitySubstitution =
+            make(DEFINITIONAL_EQUALITY) { ctp -> DefinitionalEqualitySubstitution.go(ctp) }
 
         val blockMerger = make(OPTIMIZE_MERGE_BLOCKS, BlockMerger::mergeBlocks)
 

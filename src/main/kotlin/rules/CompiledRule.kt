@@ -399,6 +399,9 @@ open class CompiledRule<R: SingleRule> protected constructor(val rule: R, val ta
         fun optimize(scene: SceneIdentifiers, tacToCheck: CoreTACProgram, bmcMode: Boolean = false) = inCode(tacToCheck) {
             with(CTPOptimizationPass) {
                 listOf(
+                    // first, so that the passes before the first full `optimizeAssignments` already see the program
+                    // without the code only dead revert-management copies used (erased at REVERT_MANAGEMENT_CLEANUP)
+                    removeUnused(bmcAware = bmcMode),
                     snippetRemoval,
                     initByteMaps,
                     constantPropagatorAndSimplifier(mergeBlocks = true),
@@ -412,24 +415,25 @@ open class CompiledRule<R: SingleRule> protected constructor(val rule: R, val ta
                     removeUnusedWrites,
                     rewriteCopyLoops,
                     removeDeadPartitions,
-                    optimizeAssignments(keepRevertManagement = true, bmcAware = bmcMode),
+                    optimizeAssignments(bmcAware = bmcMode),
                     pruner(1),
                     infeasiblePaths,
                     simpleSummaries(1),
                     constantPropagatorAndSimplifier(mergeBlocks = false),
                     negationNormalizer,
                     patternRewriter(PatternRewriter::earlyPatternsList),
-                    optimizeAssignments(keepRevertManagement = true, bmcAware = bmcMode),
+                    optimizeAssignments(bmcAware = bmcMode),
                     negationNormalizer,
                     bytemapOptimizer(1, bmcAware = bmcMode, cheap = true),
                     constantPropagatorAndSimplifier(mergeBlocks = true),
-                    optimizeAssignments(keepRevertManagement = true, bmcAware = bmcMode),
+                    optimizeAssignments(bmcAware = bmcMode),
                     overflowPatternRewriter,
                     patternRewriter(PatternRewriter::basicPatternsList),
-                    optimizeAssignments(keepRevertManagement = true, bmcAware = bmcMode),
+                    optimizeAssignments(bmcAware = bmcMode),
                     noUnderOverflowUnderApprox,
                     ternarySimplifier,
                     intervalsRewriter,
+                    definitionalEqualitySubstitution,
                     patternRewriter(PatternRewriter::postIntervalsRewriterPatternList),
                     bytemapOptimizer(2, bmcAware = bmcMode),
                     // we run it again after the bytemap optimizer because bytemaps may contain both signed and unsigned
@@ -447,12 +451,13 @@ open class CompiledRule<R: SingleRule> protected constructor(val rule: R, val ta
         fun optimizeNonLocal(tacToCheck: CoreTACProgram) = inCode(tacToCheck) {
             with(CTPOptimizationPass) {
                 listOf(
-                    optimizeAssignments(keepRevertManagement = true, bmcAware = false),
+                    optimizeAssignments(bmcAware = false),
                     infeasiblePaths,
                     intervalsRewriter,
                     bytemapOptimizer(3, bmcAware = false),
                     ternarySimplifier,
-                    constantPropagatorAndSimplifier(mergeBlocks = true)
+                    // past `overflowPatternRewriter`, so whatever no assert can be reached from may go
+                    constantPropagatorAndSimplifier(mergeBlocks = true, cutAfterLastAsserts = true)
                 ).runOn(tacToCheck)
             }
         }
@@ -494,20 +499,35 @@ open class CompiledRule<R: SingleRule> protected constructor(val rule: R, val ta
             val patchingProg = compiledRuleTacProg.toPatchingProgram()
             when (val ruleType = rule.ruleType) {
                 is SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.SpecFile -> {
-                    // We have a multi-assert subrule that was generated for a single user-defined assert command.
-                    // It may be that this only assert command has been removed at a later stage by some transformation,
-                    // so we expected to find at most one assert command in the compiled rule.
-                    if (assertCmds.size > 1) {
-                        throw IllegalStateException(
-                            "Expected the multi-assert, compiled subrule ${
-                                rule.declarationId
-                            } to have at most one user-defined assert command, but found the asserts $assertCmds"
-                        )
-                    }
-                    assertCmds.firstOrNull()?.let { userDefAssertLtac: LTACCmd ->
-                        // Take the assertId that was allocated for this assert command when the rule was generated
-                        patchingProg.update(userDefAssertLtac.ptr) {
-                            userDefAssertLtac.cmd.plusMeta(TACMeta.ASSERT_ID, ruleType.assertId)
+                    // We have a multi-assert subrule that was generated for a single assert command.  The ecosystems
+                    // that split on the assert ids (see [sbf.tac.TACMultiAssert]) have already given that command its
+                    // id; any other assert of such a subrule is one that the Prover added after the split, and gets
+                    // a fresh id.
+                    val subRuleAssert = assertCmds.find { it.cmd.meta[TACMeta.ASSERT_ID] == ruleType.assertId }
+                    if (subRuleAssert != null) {
+                        assertCmds.filter { it != subRuleAssert }.forEach { proverAssertLtac: LTACCmd ->
+                            patchingProg.update(proverAssertLtac.ptr) {
+                                proverAssertLtac.cmd.plusMeta(
+                                    TACMeta.ASSERT_ID,
+                                    Allocator.getFreshId(Allocator.Id.ASSERTS)
+                                )
+                            }
+                        }
+                    } else {
+                        // It may be that this only assert command has been removed at a later stage by some
+                        // transformation, so we expected to find at most one assert command in the compiled rule.
+                        if (assertCmds.size > 1) {
+                            throw IllegalStateException(
+                                "Expected the multi-assert, compiled subrule ${
+                                    rule.declarationId
+                                } to have at most one user-defined assert command, but found the asserts $assertCmds"
+                            )
+                        }
+                        assertCmds.firstOrNull()?.let { userDefAssertLtac: LTACCmd ->
+                            // Take the assertId that was allocated for this assert command when the rule was generated
+                            patchingProg.update(userDefAssertLtac.ptr) {
+                                userDefAssertLtac.cmd.plusMeta(TACMeta.ASSERT_ID, ruleType.assertId)
+                            }
                         }
                     }
                 }

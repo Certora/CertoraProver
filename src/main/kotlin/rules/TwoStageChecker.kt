@@ -185,7 +185,6 @@ private fun passesSanityCheck(patchedTac: CoreTACProgram, model: CounterexampleM
 
                 when (val v = ltacmd.cmd.meta[TWOSTAGE_META_MODEL]) {
                     is TACValue.PrimitiveValue -> spot to Intervals(v.asBigInt)
-                    is TACValue.SKey.Basic -> spot to Intervals(v.offset.asBigInt)
                     else -> null
                 }
             }

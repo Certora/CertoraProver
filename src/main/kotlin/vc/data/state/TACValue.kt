@@ -25,15 +25,11 @@ import evm.EVM_WORD_SIZE
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
 import kotlinx.serialization.json.Json
-import smt.axiomgenerators.fullinstantiation.StorageHashAxiomGeneratorDataTypes
-import smt.solverscript.functionsymbols.AxiomatizedFunctionSymbol
 import smtlibutils.algorithms.Substitutor
 import smtlibutils.data.*
-import smtlibutils.data.Sort.Companion.SKeySort
 import tac.Tag
 import utils.*
 import vc.data.*
-import vc.data.TACBuiltInFunction.Hash.Companion.skeySort
 import vc.data.parser.parseExpr
 import vc.data.tacexprutil.TACExprPrettyPrinter
 import vc.data.tacexprutil.evaluators.TACExprInterpreter
@@ -47,8 +43,7 @@ import java.math.BigInteger
  * [asConstantTacExpr] method for every [TACValue], so this interface designates its presence.
  */
 interface ConcreteTacValue : SerializableWithAdapter {
-    /** Returns a [TACExpr] that corresponds to a value, including scalar constants, but also skey terms and
-     * map-definitions. */
+    /** Returns a [TACExpr] that corresponds to a value, including scalar constants, but also map-definitions. */
     fun asConstantTacExpr(): TACExpr
 }
 
@@ -118,6 +113,8 @@ sealed class TACValue : SerializableWithAdapter {
         @Serializable
         data class Integer(val value: BigInteger) :
             PrimitiveValue(), Comparable<Integer>, ConcreteTacValue { // A concrete value of an integer.
+            constructor(value: Int) : this(value.toBigInteger())
+
             // Should we know here whether its Tag.Int or Tag.Bit256 , perhaps PrimitiveValue.Bit256 would make sense?
             override fun asConstantTacExpr(): TACExpr.Sym.Const = TACSymbol.Const(value, Tag.Int).asSym()
 
@@ -257,10 +254,7 @@ sealed class TACValue : SerializableWithAdapter {
                             "back to a TAC expression when translating an UF or array model"
                     )
                     val args = e.args.map { translateBody(it, symbolTable) }
-                    return if (e.isDatatypeLiteral(symbolTable)) {
-                        SKey.fromSmtExp(e).asConstantTacExpr()
-                    } else {
-                        txf {
+                    return txf {
                             when (e.fs) {
                                 is SmtIntpFunctionSymbol.Core.Ite -> Ite(args[0], args[1], args[2])
                                 is SmtIntpFunctionSymbol.Core.Eq -> Eq(args[0], args[1])
@@ -292,7 +286,6 @@ sealed class TACValue : SerializableWithAdapter {
                                 else -> unsupp()
                             }
                         }
-                    }
                 }
 
 
@@ -332,7 +325,6 @@ sealed class TACValue : SerializableWithAdapter {
                         throw UnsupportedOperationException("failed to convert sort \"$s\" to Tag when translating " +
                             "an UF or array model")
                     return when (s) {
-                        SKeySort -> skeySort
                         Sort.BV256Sort,
                         Sort.IntSort -> Tag.Bit256
                         is Sort.Apply ->
@@ -467,13 +459,13 @@ sealed class TACValue : SerializableWithAdapter {
              */
             @Serializable(with = WordMapSerializer::class)
             data class WordMap(
-                val value: TreapMap<SKey, PrimitiveValue.Integer> = treapMapOf(),
+                val value: TreapMap<PrimitiveValue.Integer, PrimitiveValue.Integer> = treapMapOf(),
                 override val initialValue: PrimitiveValue.Integer? = null
             ) : KVMapping() {
 
-                operator fun get(offset: SKey): TACValue = internalSelect(offset)
+                operator fun get(offset: PrimitiveValue.Integer): TACValue = internalSelect(offset)
 
-                private fun internalSelect(offset: SKey): TACValue {
+                private fun internalSelect(offset: PrimitiveValue.Integer): TACValue {
                     return value[offset] ?: initialValue ?: Uninitialized
                 }
 
@@ -490,7 +482,7 @@ sealed class TACValue : SerializableWithAdapter {
                  */
                 override fun select(offset: TACValue, alwaysInitialized: Boolean, valueOracle: TACValueGenerator)
                         : Pair<TACValue, WordMap?> {
-                    require(offset is SKey) {"offset isn't of type SKey. offset=$offset"}
+                    require(offset is PrimitiveValue.Integer) { "offset isn't an integer. offset=$offset" }
                     return internalSelect(offset).let { value ->
                         if (value == Uninitialized) {
                             if (alwaysInitialized) {
@@ -506,18 +498,18 @@ sealed class TACValue : SerializableWithAdapter {
                     }
                 }
 
-                private fun internalStore(offset: SKey, value: PrimitiveValue.Integer):
-                        TreapMap<SKey, PrimitiveValue.Integer> {
+                private fun internalStore(offset: PrimitiveValue.Integer, value: PrimitiveValue.Integer):
+                        TreapMap<PrimitiveValue.Integer, PrimitiveValue.Integer> {
                     return this.value + (offset to value)
                 }
 
                 override fun store(offset: TACValue, value: PrimitiveValue.Integer): KVMapping {
-                    require(offset is SKey) { "offset isn't of type SKey. offset=$offset" }
+                    require(offset is PrimitiveValue.Integer) { "offset isn't an integer. offset=$offset" }
                     val updatedMap = internalStore(offset, value)
                     return WordMap(updatedMap, initialValue)
                 }
 
-                operator fun contains(offset: SKey): Boolean {
+                operator fun contains(offset: PrimitiveValue.Integer): Boolean {
                     return value.containsKey(offset)
                 }
 
@@ -754,110 +746,6 @@ sealed class TACValue : SerializableWithAdapter {
                 fields[fieldId] ?: Uninitialized
         }
     }
-
-    /**
-     * [TACValue] representing a storage key (skey) value.
-     *
-     * Note that we're using the [equals] method here to check semantic equality of the [SKey]s. Currently, this should
-     * work fine, since the data classes mirror the skey datatype exactly -- if this ever changes, we'll need to
-     * implement a custom equals method. (For an example use, see e.g. [TACExprInterpreter].
-     */
-    @Serializable
-    sealed class SKey : TACValue(), ConcreteTacValue {
-        abstract val offset: PrimitiveValue.Integer
-
-        companion object {
-            // NB (alex:) the `20` is just a (generous) magic constant used for these here typing purposes only
-            // -- if we get higher-arity hashes, this will crash and we should think of something better
-            val symbolTable = TACSymbolTable(setOf(TACBuiltInFunction.Hash.skeySort), setOf(), treapSetOf(), mapOf())
-            private val txf = TACExprFactTypeChecked(symbolTable)
-
-            val skeySmtSort =
-                Sort.Symbol(SortSymbol.UserDefined(StorageHashAxiomGeneratorDataTypes.dtSortDecSmt.name, 0))
-
-            /* the functions below provide some syntactic sugar on top of our basic type constructors Nil and Node */
-            fun basic(i: BigInteger): SKey = Basic(valueOf(i))
-            fun add(op1: SKey, value: BigInteger): TACValue =
-                when (op1) {
-                    is Basic -> Basic(offset = op1.offset + value)
-                    is Node -> Node(children = op1.children, offset = op1.offset + value)
-                }
-
-            fun simpleHash(ops: List<SKey>): TACValue = Node(ops.toList(), valueOf(0))
-
-            /**
-             * This does some parsing for the names of the skey costructor function symbols -- didn't see an elegant
-             * way around that so far ..
-             */
-            fun fromSmtExp(value: SmtExp): SKey = when (value) {
-                is SmtExp.Apply -> {
-                    val fsName = value.fs.name.sym
-                    if (fsName == AxiomatizedFunctionSymbol.SKeyDt.Basic(Tag.Bit256).name) {
-                        Basic(PrimitiveValue.Integer(value.args.single().asBigInt()))
-                    } else if (fsName.startsWith(AxiomatizedFunctionSymbol.SKeyDt.SkeyNode.namePrefix) &&
-                        /* todo: check for +-1 errors in arity computation..*/
-                        fsName.substring(AxiomatizedFunctionSymbol.SKeyDt.SkeyNode.namePrefix.length)
-                            .toIntOrNull() == value.args.size - 1
-                    ) {
-                        Node(
-                            value.args.dropLast(1).map { fromSmtExp(it) },
-                            PrimitiveValue.Integer(value.args.last().asBigInt()),
-                        )
-                    } else {
-                        throw UnsupportedOperationException(
-                            "unexpected function symbol \"${value.fs}\" in value " +
-                                    "expression (coming from a model) \"$value\""
-                        )
-                    }
-                }
-                is SmtExp.QualIdentifier ->
-                    throw UnsupportedOperationException(
-                        "unexpected identifier \"${value}\" in value expression (coming from a model), was expecting " +
-                                "an skey"
-                    )
-                else -> throw UnsupportedOperationException(
-                    "unexpected symbol type when expecting an skey model " +
-                            "value, got symbol \"$value\""
-                )
-            }
-        }
-
-        fun withOffset(offset: PrimitiveValue.Integer) =
-            when (this) {
-                is Basic -> copy(offset = offset)
-                is Node -> copy(offset = offset)
-            }
-
-        @Serializable
-        data class Basic(override val offset: PrimitiveValue.Integer) : SKey() {
-            override fun asConstantTacExpr(): TACExpr =
-                txf.Apply(
-                    TACBuiltInFunction.Hash.Basic.toTACFunctionSym(),
-                    listOf(offset.asConstantTacExpr()),
-                )
-        }
-
-        @Serializable
-        data class Node(val children: List<SKey>, override val offset: PrimitiveValue.Integer) : SKey() {
-            override fun asConstantTacExpr(): TACExpr {
-                fun hash(args: List<SKey>): TACExpr =
-                    txf.Apply(
-                        TACBuiltInFunction.Hash.SimpleHashApplication(args.size, HashFamily.Keccack).toTACFunctionSym(),
-                        args.map { it.asConstantTacExpr() },
-                    )
-
-                return if (offset.value == BigInteger.ZERO) {
-                    hash(children)
-                } else {
-                    txf.Apply(
-                        TACBuiltInFunction.Hash.Addition.toTACFunctionSym(),
-                        listOf(hash(children), offset.asConstantTacExpr()),
-                    )
-                }
-            }
-        }
-    }
-
 
     // (alex n): I'm sceptical this belongs here
     @Serializable

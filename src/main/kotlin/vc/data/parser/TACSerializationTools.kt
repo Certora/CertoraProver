@@ -241,6 +241,15 @@ private fun writeTACSymbolTable(
 }
 
 /**
+ * The whole structure of [cmd], including what its printed form leaves out: the [tac.Tag] of every expression node
+ * and the metas. Used to describe a command that differs from its own parse but prints the same.
+ */
+private fun fullStructure(cmd: Any?): String =
+    (cmd as? TACCmd.Simple)?.let {
+        runCatching { inlinedTACJson.encodeToString(TACCmd.Simple.serializer(), it) }.getOrNull()
+    } ?: cmd.toString()
+
+/**
  * utility function to Compares 2 programs. (not checking meta maps
  * serialization, it is checked after serializing [testMetaMapSerialization]
  * It is tested there because metas in vars was excluded for Var.hashCode and it is not available after parsing...
@@ -264,7 +273,11 @@ fun compareCoreTACPrograms(p1: CoreTACProgram, p2: CoreTACProgram) : Boolean {
             check(e1.value.size == e2.value.size) {"cmd list size is different. diff: ${e1.value - e2.value}"}
             e1.value.zip(e2.value).find {cmdPair -> cmdPair.first.hashCode() != cmdPair.second.hashCode()}?.let {
             cmdPair ->
-                throw SerializationException("cmds are different $cmdPair")
+                throw SerializationException(
+                    "cmds are different $cmdPair\n" +
+                        "before: ${fullStructure(cmdPair.first)}\n" +
+                        "after: ${fullStructure(cmdPair.second)}"
+                )
             } ?:
             throw SerializationException("unknown difference $e1, $e2")
         }

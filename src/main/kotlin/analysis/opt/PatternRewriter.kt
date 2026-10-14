@@ -108,7 +108,7 @@ class PatternRewriter private constructor(private val prog: CoreTACProgram) {
      * Returns a symbol that is sure to be equal to the one in [key], but queried at [queryPoint]
      * Instead of doing def analysis checks, we create a new variable that captures the original variable value.
      */
-    private fun symAtQuery(info: Info, queryPoint: CmdPointer, key: Key<LTACSymbol>): TACExpr.Sym {
+    private fun symAtQuery(info: Info, queryPoint: CmdPointer, key: InfoKey<LTACSymbol>): TACExpr.Sym {
         val (ptr, sym) = info[key]!!
         if (sym !is TACSymbol.Var || ptr == queryPoint) {
             return sym.asSym()
@@ -167,13 +167,13 @@ class PatternRewriter private constructor(private val prog: CoreTACProgram) {
 
         inner class Context(val info: Info, val ptr: CmdPointer, val cmd: AssignExpCmd) : TACExprFact by txf {
             /** used to check if two rhs symbols are the same */
-            fun src(key: Key<LTACSymbol>) =
+            fun src(key: InfoKey<LTACSymbol>) =
                 info[key]!!.let {
                     def.source(it.ptr, it.symbol)
                 }
 
             /** Returns a current (i.e., at [ptr]) equivalent version of the given symbol at the the given location. */
-            fun sym(key: Key<LTACSymbol>) =
+            fun sym(key: InfoKey<LTACSymbol>) =
                 symAtQuery(info, ptr, key)
 
             val Key<BigInteger>.asTACExpr

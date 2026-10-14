@@ -488,8 +488,7 @@ class StorageDisplayPathGenerator(val scene: ISceneIdentifiers) {
      * with this representation means that when dealing with flattened structs at the root, we can use the exact
      * same logic as would be used for such a struct within a map/array/etc.)
      *
-     * For a [TACValue.SKey.Basic] value, the [slotOffset] is simply the value of the [vc.data.state.TACValue.SKey.Basic]
-     * data type.
+     * For a [SKey.Basic] value, the [slotOffset] is simply the [SKey.Basic.offset].
      */
     private data class AtRoot(
         override val subWordOffset: Int,
@@ -520,23 +519,23 @@ class StorageDisplayPathGenerator(val scene: ISceneIdentifiers) {
 
     companion object {
         /**
-         * Lift an [TACValue.SKey] into a [StoragePath], including the [subWordOffset] information
+         * Lift an [SKey] into a [StoragePath], including the [subWordOffset] information
          * (extracted form the [ScalarizationSort] meta attached to the wordmap from which this
          * skey was read
          */
-        private fun tacValueToStoragePath(v: TACValue.SKey, subWordOffset: Int) : StoragePath {
+        private fun tacValueToStoragePath(v: SKey, subWordOffset: Int) : StoragePath {
             return when(v) {
-                is TACValue.SKey.Basic -> {
+                is SKey.Basic -> {
                     AtRoot(
-                        slotOffset = v.offset.value,
+                        slotOffset = v.offset,
                         subWordOffset = subWordOffset
                     )
                 }
-                is TACValue.SKey.Node -> {
+                is SKey.Node -> {
                     Skey(
                         wrapped = v.children,
                         subWordOffset = subWordOffset,
-                        slotOffset = v.offset.value
+                        slotOffset = v.offset
                     )
                 }
             }
@@ -544,7 +543,7 @@ class StorageDisplayPathGenerator(val scene: ISceneIdentifiers) {
     }
 
     private data class Skey(
-        val wrapped: List<TACValue.SKey>,
+        val wrapped: List<SKey>,
         override val slotOffset: BigInteger,
         override val subWordOffset: Int
     ) : StoragePath {
@@ -575,8 +574,8 @@ class StorageDisplayPathGenerator(val scene: ISceneIdentifiers) {
                         /**
                          * For maps, it is
                          * [64, key, map]
-                         * where `key` is expected to be a number (that is, [TACValue.SKey.Basic]), and map is
-                         * itself an instance of [TACValue.SKey]
+                         * where `key` is expected to be a number (that is, [SKey.Basic]), and map is
+                         * itself an instance of [SKey]
                          */
                         3 -> {
                             val sz = wrapped[0]
@@ -631,7 +630,7 @@ class StorageDisplayPathGenerator(val scene: ISceneIdentifiers) {
         )
     }
 
-    fun displayPathFor(id: BigInteger, s: TACValue.SKey, baseVar: TACSymbol.Var) : InstantiatedDisplayPath? {
+    fun displayPathFor(id: BigInteger, s: SKey, baseVar: TACSymbol.Var) : InstantiatedDisplayPath? {
         check(baseVar.tag == Tag.WordMap)
         val width = baseVar.meta.find(TACMeta.BIT_WIDTH) ?: return null
         val sort = baseVar.meta.find(TACMeta.SCALARIZATION_SORT) ?: return null
@@ -663,9 +662,9 @@ class StorageDisplayPathGenerator(val scene: ISceneIdentifiers) {
     }
 }
 
-private fun TACValue.SKey.extractBasicConst() : BigInteger? {
-    if(this !is TACValue.SKey.Basic) {
+private fun SKey.extractBasicConst() : BigInteger? {
+    if(this !is SKey.Basic) {
         return null
     }
-    return this.offset.value
+    return this.offset
 }

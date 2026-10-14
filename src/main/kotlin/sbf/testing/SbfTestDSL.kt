@@ -291,7 +291,7 @@ object SbfTestDSL {
         }
 
         fun assert(c: Condition) {
-            SbfInstruction.Assert(c).push()
+            SbfInstruction.Assert(c, MetaData(SbfMeta.USER_ASSERT())).push()
         }
 
         fun push(callName: String, callId: ULong) {

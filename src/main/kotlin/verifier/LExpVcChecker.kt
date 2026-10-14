@@ -137,7 +137,6 @@ class LExpVcChecker(
                 localLxf,
                 setup.createAxiomGeneratorContainer.create(localLxf, setup.targetTheory),
                 setup.targetTheory,
-                setup.hashingScheme,
                 setup.createExpNormalizer(localLxf),
             ),
             vc,
@@ -552,11 +551,7 @@ class LExpVcChecker(
             }
         }
 
-        val axiomGeneratorGeneratorConfigBv =
-            if (config.hashingScheme is HashingScheme.Legacy)
-                axiomGeneratorConfig.copy(hashingScheme = HashingScheme.DefaultBv)
-            else
-                axiomGeneratorConfig
+        val axiomGeneratorGeneratorConfigBv = axiomGeneratorConfig
 
         if (VcFeature.MulOverflowChecks in usedFeatures) {
             val (haveOflSymbols, dontHaveOflSymbols) =
@@ -705,7 +700,6 @@ class LExpVcChecker(
         /* TODO: do some experiments or something to see if this even makes sense, or should be differentiated by VC
             (e.g. when we're runing both LIA and NIA) or so */
         val axiomGeneratorConfig = Config(
-            config.hashingScheme,
             extraAxioms,
             // this will be overwritten in case of BV configs when there are overflow checks
             BvOverflowChecks.DontCare
@@ -824,7 +818,6 @@ class LExpVcChecker(
     @Suppress("LocalVariableName")
     private suspend fun runCEGAR(): SmtFormulaCheckerResultWithChecker {
         val axiomGeneratorConfig = Config(
-            config.hashingScheme,
             extraAxioms,
             BvOverflowChecks.ViaDefineFun
         )

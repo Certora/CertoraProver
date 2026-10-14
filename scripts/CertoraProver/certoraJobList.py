@@ -24,6 +24,7 @@ import time
 import logging
 
 from Shared import certoraUtils as Util
+from CertoraProver import certoraContextValidator as Cv
 
 job_logger = logging.getLogger("jobList")
 
@@ -242,11 +243,9 @@ class JobList:
             return None
         domain = latest_job.get("domain", None)
         job_id = latest_job.get("job_id", None)
-        user_id = latest_job.get("user_id", None)
-        anonymous_key = latest_job.get("anonymous_key", None)
-        if domain is None or job_id is None or user_id is None or anonymous_key is None:
+        if domain is None or job_id is None:
             return None
-        url = f"{domain}/output/{user_id}/{job_id}/{asset}?anonymousKey={anonymous_key}"
+        url = f"{Util.get_api_domain(domain)}/v1/domain/jobs/{job_id}/f/{asset}"
         return url
 
 
@@ -256,7 +255,13 @@ def download_asset(url: Optional[str], asset_name: str) -> bool:
         return False
 
     try:
-        r = requests.get(url, stream=True, timeout=10)
+        certora_key = Cv.validate_certora_key()
+    except Util.CertoraUserInputError as e:
+        job_logger.error(f"Cannot download {asset_name}: {e}")
+        return False
+    headers = Util.api_headers(certora_key)
+    try:
+        r = requests.get(url, stream=True, headers=headers, timeout=10)
         if r.status_code == requests.codes.ok:
             with open(asset_name, 'wb+') as downloaded_file:
                 for chunk in r.iter_content(chunk_size=8192):

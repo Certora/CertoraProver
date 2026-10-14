@@ -35,9 +35,7 @@ import spec.cvlast.GhostSort
 import utils.*
 import vc.data.SnippetCmd.CVLSnippetCmd.*
 import vc.data.SnippetCmd.EVMSnippetCmd.StorageGlobalChangeSnippet
-import vc.data.TACBuiltInFunction
 import vc.data.TACSymbol
-import vc.data.state.ConcreteTacValue
 import vc.data.state.TACValue
 import verifier.SKOLEM_VAR_NAME
 
@@ -431,12 +429,6 @@ fun GhostAccess.toInstantiatedDisplayPath(model: CounterexampleModel): Either<In
                 val cvlType = idx.meta[QUANTIFIED_VAR_TYPE]
                     ?: return@bindRight ResolvingFailure.MissingMetaKey(QUANTIFIED_VAR_TYPE).toRight()
                 Pair(value, cvlType).toLeft()
-            }.bindLeft { (tv, cvlType) ->
-                if (tv is ConcreteTacValue && idx.tag == TACBuiltInFunction.Hash.skeySort) {
-                    model.storageKeyToInteger(tv).mapLeft { it to cvlType }
-                } else {
-                    (tv to cvlType).toLeft()
-                }
             }
         } else {
             (TACValue.SumIndex to CVLType.PureCVLType.Bottom).toLeft()

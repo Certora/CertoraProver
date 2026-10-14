@@ -20,7 +20,6 @@ package verifier
 import config.Config
 import parallel.ParallelPool
 import parallel.coroutines.lazy
-import smt.HashingScheme
 import smt.solverscript.VcFeature
 import smtlibutils.data.SatResult
 import solver.SolverConfig
@@ -76,7 +75,6 @@ abstract class IntegerExecutableGenerator(checker: LExpVcChecker, raceDescriptio
     : ExecutableGenerator(checker, raceDescription) {
 
     override fun generateAGC() = CreateAxiomGeneratorContainer.Config(
-        checker.config.hashingScheme,
         checker.extraAxioms,
         CreateAxiomGeneratorContainer.Config.BvOverflowChecks.DontCare
     )
@@ -203,11 +201,6 @@ class BVExecutableGenerator(
 
     override fun generateAGC(): CreateAxiomGeneratorContainer.Config {
         return CreateAxiomGeneratorContainer.Config(
-            hashingScheme = if (checker.config.hashingScheme is HashingScheme.Legacy) {
-                HashingScheme.DefaultBv
-            } else {
-                checker.config.hashingScheme
-            },  //braces need to be everywhere because of detekt :/
             extraAxioms = checker.extraAxioms,
             overflowChecks = overflowChecks
         )

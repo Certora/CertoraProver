@@ -36,3 +36,9 @@ rule r3 {
     baz();
     assert true;
 }
+
+// a `sig:` literal for an `optional` method with no implementation is typed `vmethod`: only the selector is exposed,
+// and there is no contract whose address could stand in the `contract` field. Compiling it must still work.
+rule optionalMethodSigLiteral {
+    assert sig:nonExisting().selector != sig:nonExistingMultipleReturn().selector;
+}

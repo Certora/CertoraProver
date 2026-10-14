@@ -17,7 +17,7 @@
 
 package verifier
 
-import analysis.skeyannotation.AnnotateSkeyBifs
+import analysis.opt.BranchAwareSimplifier
 import config.Config
 import config.ConfigType
 import config.ReportTypes
@@ -214,6 +214,21 @@ abstract class AbstractTACChecker {
          */
         fun toSimpleSimpleSSA(tacObject: CoreTACProgram): CoreTACProgram {
             return CoreTACProgram.Linear(toSimpleSimpleDSA(tacObject))
+                // placed after [TACDSA] and before [DSAToSSA], where map variables are still in the same
+                // checked diamond-DSA form as scalars, so the pass can treat all variables uniformly — and
+                // where its own precondition, that the program is in DSA, has just been established.
+                // mapIfAllowed: folding redirects assert conditions away from the variables their snippets
+                // record, which the unsat-core snippet scoping cannot tolerate — skip it in that mode
+                .mapIfAllowed(
+                    CoreToCoreTransformer(ReportTypes.BRANCH_AWARE_SIMPLIFIER) {
+                        BranchAwareSimplifier.rewrite(it)
+                    }
+                )
+                // NOTE: restructuring the control flow here — which [BranchAwareSimplifier] does when it cuts a
+                // branch it decided — linearizes it, and [BlockMerger] in [lastOptimizations] then contracts the
+                // chains that creates. A contracted block's [DSAToSSA] reach variable may still be read, so
+                // [BlockMerger] renames it to its chain head's; without that rename [vc.gen.LeinoWP] fails with
+                // `Expected to find the ReachVarEquation of ...`.
                 .map(CoreToCoreTransformer(ReportTypes.DSA_TO_SSA) { DSAToSSA.rewrite(it) })
                 .ref
         }
@@ -247,18 +262,16 @@ abstract class AbstractTACChecker {
                     CoreToCoreTransformer(ReportTypes.DIVISION_UNDERAPPROXIMATION, DivisionUnderapproximation::doWork)
                 )
             }
-            linear.map(CoreToCoreTransformer(ReportTypes.DROP_BW_NOPS, DropBwNops::annotate))
             return linear.ref
         }
 
         /**
-         * Performs 3 transformations on a TAC object [tacObject]:
+         * Performs 2 transformations on a TAC object [tacObject]:
          * 1. Conversion to simple-simple + maps SSA-ing (Result in [ReportTypes.PRELASTOPT_RULE])
-         * 2. Perform last-phase optimizations + Skey annotation (Result in [ReportTypes.PRESOLVER_RULE])
-         * 3. Run Skey detection.
+         * 2. Perform last-phase optimizations (Result in [ReportTypes.PRESOLVER_RULE])
          * No more passes should be run on the result.
          */
-        fun toSimpleSimpleSSAFoldAndSkeyAnnotate(
+        fun toSimpleSimpleSSAAndFold(
             tacObject: CoreTACProgram,
             enableHeuristicalFolding: Boolean = true
         ): CoreTACProgram {
@@ -274,7 +287,6 @@ abstract class AbstractTACChecker {
 
             val preSolverProgram = lastOptimizations(fullySSAd, enableHeuristicalFolding)
                 .let(AssumeSafeMathGuarantees::transform)
-                .let(AnnotateSkeyBifs::annotate)
                 .let { QuantifierNormalizer(it).go() }
 
             // make sure there are no new/removed asserts in the code, as this will break multi_assert_check

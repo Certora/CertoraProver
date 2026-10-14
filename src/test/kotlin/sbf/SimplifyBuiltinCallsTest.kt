@@ -17,6 +17,7 @@
 
 package sbf
 
+import sbf.callgraph.CVTCore
 import sbf.callgraph.SolanaFunction
 import sbf.cfg.*
 import sbf.disassembler.*
@@ -147,5 +148,24 @@ class SimplifyBuiltinCallsTest {
         println("Before transformation\n$cfg")
         simplifyMemoryIntrinsics(cfg)
         println("After transformation\n$cfg")
+    }
+
+    /**
+     * The assertions of the user enter the program as a call to [CVTCore.ASSERT]; every other assert of an SBF
+     * program is one that the Prover inserted itself, and must not be marked as an assertion of the user.
+     */
+    @Test
+    fun aCvlrAssertIsMarkedAsAnAssertOfTheUser() {
+        val cfg = MutableSbfCFG("test")
+        val b1 = cfg.getOrInsertBlock(Label.Address(1))
+        cfg.setEntry(b1)
+        b1.add(SbfInstruction.Call(CVTCore.ASSERT.function.name))
+        b1.add(SbfInstruction.Exit())
+
+        renameCVTCalls(cfg)
+
+        val asserts = cfg.getBlocks().values.flatMap { it.getInstructions() }.filterIsInstance<SbfInstruction.Assert>()
+        Assertions.assertEquals(1, asserts.size)
+        Assertions.assertNotNull(asserts.single().metaData.getVal(SbfMeta.USER_ASSERT))
     }
 }

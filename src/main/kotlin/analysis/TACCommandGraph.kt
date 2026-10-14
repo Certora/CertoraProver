@@ -18,7 +18,6 @@
 package analysis
 
 import algorithms.SimpleDominanceAnalysis
-import algorithms.findRoots
 import annotations.PerformanceCriticalUsesOnly
 import com.certora.collect.*
 import datastructures.LinkedArrayHashMap
@@ -133,6 +132,9 @@ data class LTACSymbol(val ptr: CmdPointer, val symbol: TACSymbol) : Serializable
 @Treapable
 data class LTACVar(val ptr: CmdPointer, val v: TACSymbol.Var) : Serializable {
     constructor(pair: Pair<CmdPointer, TACSymbol.Var>) : this(pair.first, pair.second)
+    companion object {
+        fun Pair<CmdPointer, TACSymbol.Var>.toLVar() = LTACVar(this)
+    }
 }
 
 data class LTACAnnotation<T: Serializable>(
@@ -510,7 +512,14 @@ abstract class GenericTACCommandGraph<T: TACCmd, U: LTACCmdGen<T>, V: TACBlockGe
     val sinkBlockIds by lazy { blockSucc.filterValues { it.isEmpty() }.keys }
     val sinkBlocks by lazy { sinkBlockIds.map(::elab) }
 
-    val roots by lazy { findRoots(blockGraph).map { b -> CmdPointer(b, 0) }.map(::elab) }
+    /**
+     * The blocks with no predecessor but themselves: for a well-formed program, the entry block alone. That is what a
+     * root strongly-connected component amounts to once every block is reachable from the entry, which
+     * `checkCodeStructure` guarantees; the decomposition this once ran cost as much as an analysis.
+     */
+    val entryBlockIds: Set<NBId> by lazy { blockPred.filter { (b, preds) -> preds.all { it == b } }.keys }
+
+    val roots by lazy { entryBlockIds.map { elab(CmdPointer(it, 0)) } }
     val sinks by lazy { blockSucc.filterValues { it.isEmpty() }.keys.map { elab(CmdPointer(it, code[it]!!.size - 1)) } }
 
 
@@ -1012,6 +1021,27 @@ class TACCommandGraph(
             cache = null,
             name = this.name
         )
+    }
+
+    /**
+     * The definition site of every variable that has exactly one. Counts ASSIGNMENTS, as
+     * [analysis.dataflow.LooseDefAnalysis] does -- a `WordStore` or `ByteLongCopy` modifies the map
+     * it writes without being one, so such a map can appear here. It IS counted as a use by
+     * [soleUses], which is what makes a use-dominance check see it.
+     */
+    val soleDefs: Map<TACSymbol.Var, CmdPointer> by lazy {
+        commands
+            .mapNotNull { (ptr, cmd) -> cmd.getLhs()?.to(ptr) }
+            .onlyUniqueBy { it.first }
+            .toMap()
+    }
+
+    /** The use site of every variable that has exactly one. */
+    val soleUses: Map<TACSymbol.Var, CmdPointer> by lazy {
+        commands
+            .flatMap { (ptr, cmd) -> cmd.getFreeVarsOfRhs().map { it to ptr } }
+            .onlyUniqueBy { it.first }
+            .toMap()
     }
 
     // block to vars

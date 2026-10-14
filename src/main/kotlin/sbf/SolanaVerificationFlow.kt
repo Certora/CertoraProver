@@ -22,6 +22,7 @@ import datastructures.stdcollections.*
 import rules.RuleCheckResult
 import rules.TwoStageRound
 import rules.sanity.TACSanityChecks
+import sbf.tac.TACMultiAssert
 import sbf.tac.solanaOptimize
 import spec.cvlast.RuleIdentifier
 import spec.cvlast.SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.AssertsOnly
@@ -109,10 +110,11 @@ class SolanaVerificationFlow(
         code: CoreTACProgram,
         stage: TwoStageRound
     ): CoreTACProgram {
-        return when(stage){
+        val optimized = when(stage){
             TwoStageRound.ROUNDLESS -> solanaOptimize(code, rule)
             TwoStageRound.FIRST_ROUND -> solanaOptimize(code, rule)
             TwoStageRound.SECOND_ROUND -> code
         }
+        return TACMultiAssert.assumeProverAsserts(optimized, rule)
     }
 }

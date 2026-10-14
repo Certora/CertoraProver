@@ -93,7 +93,7 @@ object AllocationAnalysis {
         }
 
         @KSerializable
-        data class DynamicBlock(val eSz: BigInteger, val lengthSym: Pair<CmdPointer, TACSymbol.Var>) : Alloc(),
+        data class DynamicBlock(val eSz: BigInteger, val lengthSym: Pair<CmdPointer, TACSymbol.Var>, val lenScaleLoc: CmdPointer?) : Alloc(),
             WithElementSize {
             override fun getElementSize(): BigInteger = eSz
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): Alloc =
@@ -155,19 +155,19 @@ object AllocationAnalysis {
 
     private val linearScale = PatternDSL.build {
         val lengthScale = (Const * Var).commute.withAction { where, eSz, nSym ->
-            Alloc.DynamicBlock(eSz, where.ptr to nSym)
+            Alloc.DynamicBlock(eSz, where.ptr to nSym, lenScaleLoc = where.ptr)
         } `^` (Var shl Const).withAction { where, nSym, sizeScale ->
-            Alloc.DynamicBlock(eSz = BigInteger.TWO.pow(sizeScale.intValueExact()), where.ptr to nSym)
+            Alloc.DynamicBlock(eSz = BigInteger.TWO.pow(sizeScale.intValueExact()), where.ptr to nSym, lenScaleLoc = where.ptr)
         }
 
 
         val roundUpScale = (((31() + Var).commute.locSecond / 32()).first * 32()).commute.withAction { d, _ ->
-            Alloc.DynamicBlock(BigInteger.ONE, d.first.ptr to d.second)
+            Alloc.DynamicBlock(BigInteger.ONE, d.first.ptr to d.second, null)
         }
 
         fun lenComputation() =
             roundUpScale lor lengthScale lor roundUp {
-                Var { v, where -> PatternMatcher.VariableMatch.Match(Alloc.DynamicBlock(BigInteger.ONE, where.ptr to v)) }
+                Var { v, where -> PatternMatcher.VariableMatch.Match(Alloc.DynamicBlock(BigInteger.ONE, where.ptr to v, null)) }
             }
 
         val lengthBumpThenRound = roundUp {
@@ -199,25 +199,26 @@ object AllocationAnalysis {
         fun lenComputation() = roundUp {
             (Var * Const).commute.withAction { where, lsym, sz ->
                 Alloc.DynamicBlock(
-                    sz, where.ptr to lsym
+                    sz, where.ptr to lsym, where.ptr
                 )
             } `^` (Var shl Const).withAction { where, lsym, sizeScale ->
                 Alloc.DynamicBlock(
                     BigInteger.TWO.pow(sizeScale.intValueExact()),
-                    where.ptr to lsym
+                    where.ptr to lsym, where.ptr
                 )
             }
         } lor roundUp {
             ((Var { v, where ->
                 PatternMatcher.VariableMatch.Match(Alloc.DynamicBlock(
                     eSz = BigInteger.ONE,
-                    lengthSym = where.ptr to v
+                    lengthSym = where.ptr to v,
+                    lenScaleLoc = null
                 ))
             } + 31()).commute.first and lower32BitMask()).commute.first
         } lor roundUp {
             Var { v, where ->
                 PatternMatcher.VariableMatch.Match(Alloc.DynamicBlock(
-                    BigInteger.ONE, where.ptr to v
+                    BigInteger.ONE, where.ptr to v, lenScaleLoc = null
                 ))
             }
         }

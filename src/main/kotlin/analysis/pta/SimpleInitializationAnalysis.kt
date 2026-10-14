@@ -18,8 +18,8 @@
 package analysis.pta
 
 import algorithms.dominates
-import algorithms.strictlyDominates
 import analysis.*
+import analysis.LTACVar.Companion.toLVar
 import analysis.alloc.AllocationAnalysis
 import analysis.alloc.AllocationAnalysis.roundUp
 import analysis.alloc.AllocationInformation
@@ -122,6 +122,8 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
         NonTrivialDefAnalysis(graph, defAnalysis)
     }
 
+    private val gvn = graph.cache.gvn
+
     private val loopSummaries = ConcurrentHashMap<Loop, Optional<LoopSummarization.LoopIterationSummary>>()
 
     private fun summarizeLoop(l: Loop) : LoopSummarization.LoopIterationSummary? =
@@ -197,6 +199,58 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
         val markDefiniteBounds: Set<CmdPointer>,
         val inferredLoopBounds: Map<NBId, BigInteger>
     )
+
+    private fun lengthReadFinder(
+        lv: LTACVar
+    ): ((LTACCmdView<TACCmd.Simple.AssigningCmd>) -> LengthReadResult)? {
+        val uniqueDef = nonTrivialDefAnalysis.nontrivialDefSingleOrNull(
+            lv.v, lv.ptr
+        ) ?: return null
+        val lenLC = graph.elab(uniqueDef)
+        val chained = { x: LTACCmdView<TACCmd.Simple.AssigningCmd> ->
+            if (x.cmd.lhs == lv.v && setOf(uniqueDef) == setOf(x.ptr)) {
+                if (lenLC.cmd is TACCmd.Simple.AssigningCmd.ByteLoad && lenLC.cmd.base == TACKeyword.MEMORY.toVar()) {
+                    LengthReadResult.NON_ALIASING_BYTELOAD
+                } else {
+                    LengthReadResult.DIRECT
+                }
+            } else {
+                LengthReadResult.NONE
+            }
+        }
+        if(lenLC.cmd !is TACCmd.Simple.AssigningCmd.ByteLoad || (lenLC.cmd.base == TACKeyword.RETURNDATA.toVar())) {
+            return chained
+        }
+        val readAliasDecider = if(lenLC.cmd.loc is TACSymbol.Const) {
+            { l: LTACCmdView<TACCmd.Simple.AssigningCmd.ByteLoad> ->
+                l.cmd.base == lenLC.cmd.base && lenLC.cmd.loc == l.cmd.loc
+            }
+        } else {
+            check(lenLC.cmd.loc is TACSymbol.Var) {
+                "unknown symbol type: ${lenLC.cmd.loc}"
+            };
+            { l: LTACCmdView<TACCmd.Simple.AssigningCmd.ByteLoad> ->
+                val wrapped = l.cmd
+                l.cmd.base == lenLC.cmd.base && wrapped.loc is TACSymbol.Var &&
+                    lenLC.cmd.loc in gvn.findCopiesAt(
+                        target = lenLC.ptr, source = l.ptr to wrapped.loc
+                    )
+            }
+        }
+        return thunk@{ x: LTACCmdView<TACCmd.Simple.AssigningCmd> ->
+            val wrapped = x.wrapped
+            val prev = chained(x)
+            if(prev != LengthReadResult.NONE || wrapped.cmd !is TACCmd.Simple.AssigningCmd.ByteLoad) {
+                return@thunk prev
+            }
+            val isReadAlias = readAliasDecider(x.wrapped.narrow())
+            if(isReadAlias && lenLC.cmd.base == TACKeyword.MEMORY.toVar()) {
+                LengthReadResult.NON_ALIASING_BYTELOAD
+            } else {
+                LengthReadResult.DIRECT
+            }
+        }
+    }
 
     private fun outerAnalysisLoop(): InitLoopResult {
         val sites = allocSites.abstractAllocations.map { it.value to it.key }.groupBy({it.first}, {it.second})
@@ -325,62 +379,25 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
 
                     // let's check that the length is in scope *somewhere* at this point
                     val copies = graph.cache.gvn.findCopiesAt(start, dynBlock.lengthSym)
+                    val readFinder = lengthReadFinder(
+                        dynBlock.lengthSym.toLVar()
+                    )
                     if(copies.isEmpty()) {
                         logger.info {
                             "Could not find a copy of the array length at first read of $loc at $start, falling back on symbolic"
                         }
-                        val nonTrivialDefSite =
-                            nonTrivialDefAnalysis.nontrivialDefSingleOrNull(loc.sort.lengthSym.second, loc.sort.lengthSym.first)
-                        if (nonTrivialDefSite == null) {
+                        if (readFinder == null) {
                             logger.warn {
                                 "Could not find single definition site for the length @ ${loc.sort.lengthSym}. Giving up"
                             }
                             failures.addAll(readSites)
                             continue
                         }
-                        val dom = graph.cache.domination
-                        val indexForm = graph.elab(nonTrivialDefSite).cmd
                         Triple(
                             loc.sort.eSz,
-                            setOf<LinearAtom>(LinearAtom(LENGTH, loc.sort.eSz)).toRight()
-                        ) { x: LTACCmdView<TACCmd.Simple.AssigningCmd> ->
-                            if (x.cmd.lhs == loc.sort.lengthSym.second) {
-                                if (setOf(nonTrivialDefSite) == setOf(x.ptr)) {
-                                    if (graph.elab(nonTrivialDefSite).cmd is TACCmd.Simple.AssigningCmd.ByteLoad) {
-                                        LengthReadResult.NON_ALIASING_BYTELOAD
-                                    } else {
-                                        LengthReadResult.DIRECT
-                                    }
-                                } else {
-                                    LengthReadResult.NONE
-                                }
-                            } else if (x.cmd::class.java === indexForm::class.java &&
-                                x.cmd is TACCmd.Simple.AssigningCmd.ByteLoad &&
-                                (x.cmd as TACCmd.Simple.AssigningCmd.ByteLoad).loc is TACSymbol.Var &&
-                                (indexForm as TACCmd.Simple.AssigningCmd.ByteLoad).loc is TACSymbol.Var
-                            ) {
-                                /*
-                                  Are we reading from the same index in memory that defines the length?
-                                  If so, yeet!
-                                 */
-                                val loc1 = (x.cmd as TACCmd.Simple.AssigningCmd.ByteLoad).loc
-                                val loc2 = indexForm.loc
-                                val def1 = nonTrivialDefAnalysis.nontrivialDefSingleOrNull(loc1 as TACSymbol.Var, origin = x.ptr)
-                                val def2 = nonTrivialDefAnalysis.nontrivialDefSingleOrNull(
-                                    loc2 as TACSymbol.Var,
-                                    origin = nonTrivialDefSite
-                                )
-                                val check = def1 != null && def1 == def2 &&
-                                        dom.strictlyDominates(def1, x.ptr) && dom.strictlyDominates(def1, nonTrivialDefSite)
-                                if (check) {
-                                    LengthReadResult.NON_ALIASING_BYTELOAD
-                                } else {
-                                    LengthReadResult.NONE
-                                }
-                            } else {
-                                LengthReadResult.NONE
-                            }
-                        }
+                            setOf<LinearAtom>(LinearAtom(LENGTH, loc.sort.eSz)).toRight(),
+                            readFinder
+                        )
                     } else {
                         val linAtom = mutableSetOf<LinearAtom>()
                         copies.mapTo(linAtom) {
@@ -413,7 +430,7 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
                                 )
                             )
                         }
-                        Triple(loc.sort.eSz, linAtom.toRight(), null)
+                        Triple(loc.sort.eSz, linAtom.toRight(), readFinder)
                     }
                 } else {
                     check(loc.sort is AllocationAnalysis.Alloc.ConstantArrayAlloc)
@@ -1557,7 +1574,14 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
             } && (state.num[cand]?.qual?.none {
                 it == Roles.LENGTH
             } ?: true) || (saturatedInv matches {
-                cand `=` v("len_var") * k("scale")
+                /**
+                 * scale == 1 means that cand = L where L * 1 + WRITE = END_BLOCK.
+                 * This means `L` (and by extension, `cand`) is a length (and thus, not a
+                 * data segement size)
+                 */
+                cand `=` v("len_var") * k("scale") {
+                    it != BigInteger.ONE
+                }
             }).any {
                 saturatedInv implies {
                     it.symbols["len_var"]!! * it.factors["scale"]!! + WRITE `=` END_BLOCK
@@ -1617,7 +1641,24 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
                 saturatedInv matchesAny {
                     correlatedEndVar - correlatedStartVar `=` n("scale") * sz
                 }
-            }?.factors?.get("scale")
+            }?.factors?.get("scale") ?: run {
+                val via = saturatedInv.matches {
+                    v("_len") {
+                        it == LENGTH || (it is LVar.PVar && state.num[it.v]?.qual?.any { it == Roles.LENGTH } == true)
+                    } * n("scale") + v("other") {
+                        it is LVar.PVar
+                    } + k("offset") `=` correlatedEndVar
+                }
+                via.firstNotNullOfOrNull { m ->
+                    if(saturatedInv.matchesAny {
+                        (m.symbols["other"] as LVar.PVar).v + m.factors["offset"]!! `=` correlatedStartVar
+                    } != null) {
+                        m.factors["scale"]!!
+                    } else {
+                        null
+                    }
+                }
+            }
         }
 
         override public fun isConstantSizeArray(): BigInteger? {
@@ -2283,10 +2324,8 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
         val initInv = st.inv
         val nxtInv = when(ltacCmd.cmd) {
             is TACCmd.Simple.AssigningCmd -> {
-                val killed = if(isLengthAssign) {
-                    initInv.kill(ltacCmd.cmd.lhs).substitute(ltacCmd.cmd.lhs, sym = LENGTH)
-                } else {
-                    initInv.kill(ltacCmd.cmd.lhs)
+                val killed = initInv.kill(ltacCmd.cmd.lhs).letIf(isLengthAssign) {
+                    it.substitute(ltacCmd.cmd.lhs, sym = LENGTH)
                 }
                 if(ltacCmd.cmd.lhs == TACKeyword.MEM64.toVar() ) {
                     killed
@@ -2307,10 +2346,7 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
                             killed.propagateEquality(eqs) { null }
                         }
                 } else if(ltacCmd.cmd is TACCmd.Simple.AssigningCmd.ByteStore && ltacCmd.cmd.loc is TACSymbol.Var && ltacCmd.cmd.base == TACKeyword.MEMORY.toVar()) {
-                    val writtenSize = st.tryInterpAsConstant(ltacCmd.cmd.value)
-                    if(st.seenLengthWrite == false && st.elemSize != null && initInv implies {
-                                !ltacCmd.cmd.loc + !writtenSize  * st.elemSize + 0x20 `=` END_BLOCK
-                            } && (st.constSize == null || writtenSize == st.constSize.asTACSymbol())) { // if we have a constant size, make sure what we're writing is the, you know, constant size
+                    if(isLengthWrite(ltacCmd.narrow(), st, initInv)) { // if we have a constant size, make sure what we're writing is the, you know, constant size
                         seenLengthWrite = true
                         killed
                     } else if(initInv implies { !ltacCmd.cmd.loc `=` WRITE }) {
@@ -2403,6 +2439,11 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
                 }
             }
             else -> initInv
+        }.letIf(isLengthAssign) { next ->
+            check(ltacCmd.cmd is TACCmd.Simple.AssigningCmd)
+            next.add(LinearEquality.build {
+                LENGTH `=` LVar.PVar(ltacCmd.cmd.lhs)
+            })
         }
         var scratchState = st.mustScratch
         if(ltacCmd.cmd is TACCmd.Simple.AssigningCmd && ltacCmd.cmd.lhs in scratchState) {
@@ -2440,10 +2481,24 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
         })?.factors?.get("k")?.asTACSymbol() ?: sym
     }
 
-    private fun isLengthWrite(l: LTACCmdView<TACCmd.Simple.AssigningCmd.ByteStore>, st: State) : Boolean =
-        st.seenLengthWrite == false && st.elemSize != null && st.inv implies {
-            !l.cmd.loc + !st.tryInterpAsConstant(l.cmd.value) * st.elemSize + 0x20 `=` END_BLOCK
-        }
+    private fun isLengthWrite(l: LTACCmdView<TACCmd.Simple.AssigningCmd.ByteStore>, st: State, inv: LinearInvariants = st.inv) : Boolean {
+        val writtenSize = st.tryInterpAsConstant(l.cmd.value)
+        val writeLoc = l.cmd.loc
+        return st.seenLengthWrite == false && st.elemSize != null && ((inv implies {
+            !l.cmd.loc + !writtenSize * st.elemSize + 0x20 `=` END_BLOCK
+        } && (st.constSize == null || writtenSize == st.constSize.asTACSymbol())) || (
+            writeLoc is TACSymbol.Var &&
+            inv matchesAny {
+                v("_written") {
+                    it == LENGTH || (st.num[writtenSize]?.qual?.contains(Roles.LENGTH) == true)
+                } * st.elemSize + writeLoc + 0x20 `=` END_BLOCK
+            } != null && inv matchesAny {
+                v("_written") {
+                    it == LENGTH || (st.num[writtenSize]?.qual?.contains(Roles.LENGTH) == true)
+                } `=` writtenSize
+            } != null
+        ))
+    }
 
     private fun identifyTransform(exp: TACExpr, s: State) : Set<TACSymbol.Var> {
         if(exp !is TACExpr.BinExp) {

@@ -110,6 +110,10 @@ common_expected_files_set = {
 }
 
 common_build_files_set = {
+    '.certora_sources/Cargo.toml',
+    '.certora_sources/Cargo.lock',
+    '.certora_sources/rust-toolchain.toml',
+    '.certora_sources/programs/vault/Cargo.toml',
     '.certora_sources/programs/vault/src/processor.rs',
     '.certora_sources/programs/vault/src/loaders.rs',
     '.certora_sources/programs/vault/src/lib.rs',

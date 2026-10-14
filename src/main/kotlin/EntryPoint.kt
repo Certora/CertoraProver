@@ -228,6 +228,7 @@ fun main(args: Array<String>) {
             val cvtStopEventBuilder = CvtEvent.CvtStopEvent.Builder()
 
             Config.warnIfSetupPhaseFlagsEnabled()
+            Config.warnIfDeprecatedHashingSchemeSet()
             Config.validateResourceFiles()
 
             // Log the SMT solver versions in the environment
@@ -651,7 +652,9 @@ private fun autoConfig() {
         Config.prettifyCEX.set(PrettifyCEXEnum.JOINT) //used to minimise values of the hashing bounds
         Config.EnableSplitting.setIfUnset(false) //disable splitting so that we consider all paths while looking for suitable hashing bounds
         Config.Smt.BackendStrategy.set(BackendStrategyEnum.SINGLE_RACE)
-        Config.Smt.UseLIA.set(UseLIAEnum.UNSAT_ONLY) //We don't want to use Constraint Choosers during the CEX prettification
+        //We don't want to use Constraint Choosers during the CEX prettification, and LIA solvers must stay out of a
+        //single race against bit-vector solvers, see [solverPortfolioConflict]
+        Config.Smt.UseLIA.set(if (Config.Smt.UseBV.get()) { UseLIAEnum.NONE } else { UseLIAEnum.UNSAT_ONLY })
         Config.PrettifyCEXSmallBarriers.set(true) //We expect the hashing bound to be relatively small and hence use small barriers
         Config.PostProcessCEXSingleCheckTimeout.setIfUnset(100)
         Config.PostProcessCEXTimeoutSeconds.setIfUnset(600)
@@ -666,6 +669,9 @@ private fun autoConfig() {
         @OptIn(Config.DestructiveOptimizationsOption::class)
         Config.DestructiveOptimizationsMode.setIfUnset(DestructiveOptimizationsModeEnum.TWOSTAGE)
     }
+
+    // the settings above can reconfigure the solver portfolio, which the command line parser checked before that
+    CommandLineParser.checkLegalSolverPortfolio()
 }
 
 /** Set the verification flow that is being used for the current verification task. */
@@ -718,6 +724,26 @@ private fun Config.warnIfSetupPhaseFlagsEnabled() {
                 "Consider disabling these flags in production, or when running performance-intensive rules."
         )
     }
+}
+
+/**
+ * `smt_hashingScheme` used to select between several hashing axiomatizations. There is only one scheme now
+ * (plain injectivity), so the option is accepted -- so that existing configurations don't error -- but ignored.
+ *
+ * NOTE: this function expects [report.CVTAlertReporter] to have been initialized.
+ */
+private fun Config.warnIfDeprecatedHashingSchemeSet() {
+    val scheme = Config.Smt.HashingScheme.getOrNull() ?: return
+
+    CVTAlertReporter.reportAlert(
+        CVTAlertType.GENERAL,
+        CVTAlertSeverity.WARNING,
+        jumpToDefinition = null,
+        "The ${Config.Smt.HashingScheme.option.realOpt()} option is deprecated and ignored (given: \"$scheme\"); " +
+            "hashing is always modeled by the plain-injectivity scheme. The option will be removed in a " +
+            "future version.",
+        hint = "Remove ${Config.Smt.HashingScheme.option.realOpt()} from your configuration.",
+    )
 }
 
 /**

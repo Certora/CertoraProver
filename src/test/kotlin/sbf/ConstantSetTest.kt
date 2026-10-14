@@ -216,4 +216,65 @@ class ConstantSetTest {
         val result = s1.filter(CondOp.LE, s2)
         Assertions.assertEquals(setOf(1L, 2L, 3L), result.toLongList().toSet())
     }
+
+    // Regression tests (CERT-10126): every non-top, non-bottom `ConstantSet` must yield a non-empty
+    // `toLongList()`. Clients such as `mustBeNumber` in the scalar domain rely on that invariant, so a
+    // set whose size exceeded `maxNumDisjuncts` without being smashed to top used to crash them.
+
+    /** Assert that [s] is normalized, i.e., that it is top, bottom, or has a non-empty list of numbers **/
+    private fun assertNormalized(s: ConstantSet) {
+        Assertions.assertTrue(
+            s.isTop() || s.isBottom() || s.toLongList().isNotEmpty()
+        ) { "Non-top, non-bottom ConstantSet $s has an empty toLongList()" }
+    }
+
+    @Test
+    fun addCrossProductBeyondCapIsTop() {
+        // {1,2,3} + {10,20,30} has 9 distinct sums, which is beyond maxNumDisjuncts=3
+        val s1 = ConstantSet(listOf(1L, 2L, 3L).map { Constant(it) }.toSet(), 3UL)
+        val s2 = ConstantSet(listOf(10L, 20L, 30L).map { Constant(it) }.toSet(), 3UL)
+        val result = s1.add(s2)
+        assertNormalized(result)
+        Assertions.assertTrue(result.isTop())
+    }
+
+    @Test
+    fun addCrossProductWithinCapIsPreserved() {
+        // {1,2} + {10,20} has 4 distinct sums, which still fits within maxNumDisjuncts=4
+        val s1 = ConstantSet(listOf(1L, 2L).map { Constant(it) }.toSet(), 4UL)
+        val s2 = ConstantSet(listOf(10L, 20L).map { Constant(it) }.toSet(), 4UL)
+        val result = s1.add(s2)
+        assertNormalized(result)
+        Assertions.assertEquals(setOf(11L, 12L, 21L, 22L), result.toLongList().toSet())
+    }
+
+    @Test
+    fun mulCrossProductBeyondCapIsTop() {
+        // {2,3,5} * {7,11,13} has 9 distinct products, which is beyond maxNumDisjuncts=3
+        val s1 = ConstantSet(listOf(2L, 3L, 5L).map { Constant(it) }.toSet(), 3UL)
+        val s2 = ConstantSet(listOf(7L, 11L, 13L).map { Constant(it) }.toSet(), 3UL)
+        val result = s1.mul(s2)
+        assertNormalized(result)
+        Assertions.assertTrue(result.isTop())
+    }
+
+    @Test
+    fun filterLeAtCapIsNormalized() {
+        // top.filter(LE, {3}) with maxNumDisjuncts=3 cannot represent {0,1,2,3}, so it must be top
+        val top = ConstantSet.mkTop(3UL)
+        val s2 = ConstantSet(Constant(3L), 3UL)
+        val result = top.filter(CondOp.LE, s2)
+        assertNormalized(result)
+        Assertions.assertTrue(result.isTop())
+    }
+
+    @Test
+    fun filterLeBelowCapRefinesTop() {
+        // top.filter(LE, {2}) with maxNumDisjuncts=3 can represent {0,1,2}
+        val top = ConstantSet.mkTop(3UL)
+        val s2 = ConstantSet(Constant(2L), 3UL)
+        val result = top.filter(CondOp.LE, s2)
+        assertNormalized(result)
+        Assertions.assertEquals(setOf(0L, 1L, 2L), result.toLongList().toSet())
+    }
 }

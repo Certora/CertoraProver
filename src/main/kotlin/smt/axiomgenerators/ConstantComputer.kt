@@ -19,7 +19,6 @@ package smt.axiomgenerators
 
 import datastructures.stdcollections.*
 import evm.EVM_MOD_GROUP256
-import smt.HashingScheme
 import smt.solverscript.LExpressionFactory
 import smt.solverscript.SmtTheory
 import smt.solverscript.functionsymbols.*
@@ -39,14 +38,8 @@ interface ConstantComputer {
     fun evalRec(originalExp: LExpression): LExpression
 
     companion object {
-        operator fun invoke(hashingScheme: HashingScheme, lxf: LExpressionFactory, targetTheory: SmtTheory) =
-            when (hashingScheme) {
-                is HashingScheme.Legacy ->
-                    ConstantComputerWithHashSimplifications(lxf, hashingScheme.gapSize, targetTheory)
-
-                is HashingScheme.PlainInjectivity -> BasicConstantComputer(lxf, targetTheory)
-                is HashingScheme.Datatypes -> BasicConstantComputer(lxf, targetTheory)
-            }
+        operator fun invoke(lxf: LExpressionFactory, targetTheory: SmtTheory) =
+            BasicConstantComputer(lxf, targetTheory)
     }
 }
 
@@ -590,93 +583,4 @@ open class BasicConstantComputer(val lxf: LExpressionFactory, val targetTheory: 
     }
 
     protected open fun handleEvalEq(e: LExpression.ApplyExpr): LExpression = e
-}
-
-
-/**
- * This is only sound when using hash axioms when legacy hash axioms are used.
- * It's recommended to construct this via [ConstantComputer.invoke] and not directly.
- */
-class ConstantComputerWithHashSimplifications(
-    lxf: LExpressionFactory,
-    private val gapSize: BigInteger,
-    targetTheory: SmtTheory? = null
-) :
-    BasicConstantComputer(lxf, targetTheory) {
-
-    // TODO: all of this is pretty brittle -- e.g. might lead to very hard to find unsoundness because we miss some simplification...
-
-    override fun handleEvalEq(e: LExpression.ApplyExpr): LExpression {
-        with(lxf) {
-
-            val lhs = e.lhs
-            val rhs = e.rhs
-            return when {
-
-                // hash is never equal zero, or any constant less than [gapSize].
-                lhs.isConst && lhs.asConst < gapSize &&
-                    rhs.isApplyOf<AxiomatizedFunctionSymbol.Hash.SimpleHashN>() ->
-                    FALSE
-
-                rhs.isConst && rhs.asConst < gapSize &&
-                    lhs.isApplyOf<AxiomatizedFunctionSymbol.Hash.SimpleHashN>() ->
-                    FALSE
-
-                // l already evald, so definitely not a const
-                ((lhs.isApplyOf<IntAdd>() &&
-                    lhs.args.any { it.isApplyOf<AxiomatizedFunctionSymbol.Hash.SimpleHashN>() })
-                    /*|| lhs.isApplyOf<NonSMTInterpretedFunctionSymbol.SKey.SkeyAdd>() -- try this?? */) &&
-                    rhs.isConst &&
-                    rhs.asConst < gapSize ->
-                    FALSE
-
-                // r already evald, so definitely not a const
-                rhs.isApplyOf<IntAdd>() &&
-                    rhs.args.any { it.isApplyOf<AxiomatizedFunctionSymbol.Hash.SimpleHashN>() } &&
-                    lhs.isConst &&
-                    lhs.asConst < gapSize ->
-                    FALSE
-
-                // The checks in the above cases for the size of the constant are because otherwise the hash axioms we generate may be erased.
-
-                // TODO: Compare hash and addition
-
-                // compare two vector int additions
-                lhs.isApplyOf<IntAdd>() && rhs.isApplyOf<IntAdd>() -> {
-                    // assume already flattened
-                    val (lHash, lRemaining) = lhs.args.partition { it.isApplyOf<AxiomatizedFunctionSymbol.Hash.SimpleHashN>() }
-                    val (rHash, rRemaining) = rhs.args.partition { it.isApplyOf<AxiomatizedFunctionSymbol.Hash.SimpleHashN>() }
-                    check(lHash.size <= 1) { "Found expression that adds up two hash applications: $lhs" }
-                    check(rHash.size <= 1) { "Found expression that adds up two hash applications: $rhs" }
-                    when {
-                        lHash.size == 1 && rHash.size == 1 ->
-                            evalRec(and(lHash[0] eq rHash[0], intAdd(lRemaining) eq intAdd(rRemaining)))
-
-                        lHash.size == 1 && rHash.isEmpty() -> FALSE
-                        lHash.isEmpty() && rHash.size == 1 -> FALSE
-                        else -> e
-                    }
-                }
-
-                lhs.isApplyOf<AxiomatizedFunctionSymbol.Hash.SimpleHashN>() &&
-                    rhs.isApplyOf<AxiomatizedFunctionSymbol.Hash.SimpleHashN>() &&
-                    lhs.f != rhs.f ->
-                    // two hashes with different number of arguments are different (since can't be called with same slot by EVM) // TODO: Risk?
-                    // TODO: This assumption is prevailing here - h1(x)+z could be equal to h2(y,x) for some y,z. But can't have slot x in both h1 and h2.
-                    FALSE
-
-                lhs.isApplyOf<AxiomatizedFunctionSymbol.Hash.SimpleHashN>() &&
-                    rhs.isApplyOf<AxiomatizedFunctionSymbol.Hash.SimpleHashN>() &&
-                    (lhs.f as AxiomatizedFunctionSymbol.Hash.SimpleHashN).arity ==
-                    (rhs.f as AxiomatizedFunctionSymbol.Hash.SimpleHashN).arity ->
-                    evalRec(
-                        and(
-                            lhs.args.zip(rhs.args).map { (l, r) -> l eq r }
-                        )
-                    )
-
-                else -> e
-            }
-        }
-    }
 }

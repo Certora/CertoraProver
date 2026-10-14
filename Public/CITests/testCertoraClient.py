@@ -21,6 +21,7 @@ import os
 import shutil
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 from typing import List, Any, Dict, Optional
 from collections import OrderedDict
@@ -55,6 +56,8 @@ if not TestEVM_path or not CITests_path:
 os.environ["CERTORA_TEST_DATA_DIRECTORY"] = f"{CITests_path}/test_data"
 
 import CertoraProver.certoraContextAttributes as Attrs
+from CertoraProver import certoraContextValidator as Cv
+from CertoraProver.certoraContextValidator import KEY_ENV_VAR
 from Mutate import mutateAttributes as MutAttrs
 import CITests.testCertoraUtils as TestUtil
 from certoraSorobanProver import run_soroban_prover
@@ -823,6 +826,55 @@ class TestClient(unittest.TestCase):
 
         Path(VYPER_FILE).unlink(missing_ok=True)
 
+    def test_key_validation(self) -> None:
+        """
+        Checks validate_certora_key() against every key shape it must accept or reject:
+        a legacy 32-hex key, a legacy 40-hex key, a 69-character API key, and a set of shapes
+        that must be rejected (wrong length, a non-alphanumeric character, an empty value, and
+        a 32-character non-hex string). Also checks that the legacy-key advisory fires exactly
+        once per accepted legacy key, and never for an API key.
+        """
+        legacy_keys = ['a' * 32, 'A' * 40]
+        api_keys = ['a' * 69]
+        invalid_keys = ['a' * 68, 'a' * 70, ('a' * 68) + '+', '', 'g' * 32]
+
+        for key in legacy_keys:
+            with self.subTest(key=key):
+                # Reset the once-per-process advisory flag so each subtest starts clean: the flag
+                # exists to stop the advisory firing once per mutant, not once per legacy key here.
+                with mock.patch.object(Cv, '_legacy_key_advisory_shown', False), \
+                        mock.patch.dict(os.environ, {KEY_ENV_VAR: key}), \
+                        mock.patch.object(Cv.validation_logger, 'warning') as warning_mock:
+                    self.assertEqual(Cv.validate_certora_key(), key)
+                    warning_mock.assert_called_once()
+
+        for key in api_keys:
+            with self.subTest(key=key):
+                with mock.patch.object(Cv, '_legacy_key_advisory_shown', False), \
+                        mock.patch.dict(os.environ, {KEY_ENV_VAR: key}), \
+                        mock.patch.object(Cv.validation_logger, 'warning') as warning_mock:
+                    self.assertEqual(Cv.validate_certora_key(), key)
+                    warning_mock.assert_not_called()
+
+        for key in invalid_keys:
+            with self.subTest(key=key):
+                with mock.patch.dict(os.environ, {KEY_ENV_VAR: key}):
+                    with self.assertRaises(Util.CertoraUserInputError):
+                        Cv.validate_certora_key()
+
+    def test_key_validation_advisory_fires_once_per_process(self) -> None:
+        """
+        Checks that the legacy-key advisory fires at most once per process. A mutate run calls
+        validate_certora_key() once per mutant, so a repeated call with a legacy key must not
+        repeat the advisory.
+        """
+        key = 'a' * 32
+        with mock.patch.object(Cv, '_legacy_key_advisory_shown', False), \
+                mock.patch.dict(os.environ, {KEY_ENV_VAR: key}), \
+                mock.patch.object(Cv.validation_logger, 'warning') as warning_mock:
+            self.assertEqual(Cv.validate_certora_key(), key)
+            self.assertEqual(Cv.validate_certora_key(), key)
+            warning_mock.assert_called_once()
 
     def test_package_file(self) -> None:
         def check_run(expect: List[str]) -> None:

@@ -1112,14 +1112,13 @@ object ReturnBufferAnalysis {
                 rhs = TACKeyword.MEM64.toVar()
             ))
         }
-        val k = fpAlias
         val nextFP = TACKeyword.TMP(Tag.Bit256, "!nextFp")
         simplePatchingProgram.addVarDecl(nextFP)
         simplePatchingProgram.replaceCommand(fpWriteLocation, listOf(
             TACCmd.Simple.AssigningCmd.AssignExpCmd(
                 lhs = nextFP,
                 rhs = TACExpr.Vec.Add(
-                    k.asSym(),
+                    fpAlias.asSym(),
                     size.asTACExpr
                 )
             ),
@@ -1132,12 +1131,12 @@ object ReturnBufferAnalysis {
                 length = size.asTACSymbol(),
                 dstBase = TACKeyword.MEMORY.toVar(),
                 srcOffset = TACSymbol.Zero,
-                dstOffset = k
+                dstOffset = fpAlias
             ),
             TACCmd.Simple.AnnotationCmd(
                 ConstantReturnBufferAllocComplete.META_KEY,
                 ConstantReturnBufferAllocComplete(
-                    outputVar = k,
+                    outputVar = fpAlias,
                     allocSize = size
                 )
             )

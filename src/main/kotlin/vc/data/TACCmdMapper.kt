@@ -570,7 +570,7 @@ abstract class AbstractDefaultTACCmdMapper : TACCmdMapper<TACCmd.Simple>() {
         annotation: TACCmd.Simple.AnnotationCmd.Annotation<T>
     ) = mapMetaPair(annotation.k, annotation.v).let { TACCmd.Simple.AnnotationCmd.Annotation(annotation.k, it) }
 
-    fun <T : Serializable> mapMetaPair(k: MetaKey<T>, v: T): T =
+    open fun <T : Serializable> mapMetaPair(k: MetaKey<T>, v: T): T =
         applyTransEntityMappers(v, k,
             mapSymbol = { mapSymbol(it, -1) },
             mapVar = { mapVar(it, -1) }

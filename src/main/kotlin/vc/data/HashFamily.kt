@@ -23,7 +23,7 @@ import vc.data.HashFamily.Keccack
 import java.io.Serializable
 
 /** Note that for now we assume that there is exactly one [HashFamily] that requires the "large gaps" modeling.
- * And that is [Keccack]. If this changes, the pipeline ([SkeyDetection] etc.) will need a slight rework. */
+ * And that is [Keccack]. */
 @KSerializable
 @Treapable
 sealed class HashFamily: Serializable, HasKSerializable {
@@ -91,6 +91,14 @@ sealed class HashFamily: Serializable, HasKSerializable {
         override fun hashCode(): Int = hashObject(this)
         override fun toString(): String = "mvVecElem"
         private fun readResolve(): Any = MoveVectorElemHash
+        override val isContractCreation: Boolean get() = false
+    }
+
+    @KSerializable
+    object MoveEnumVariantHash : HashFamily() {
+        override fun hashCode(): Int = hashObject(this)
+        override fun toString(): String = "mvEnumVariant"
+        private fun readResolve(): Any = MoveEnumVariantHash
         override val isContractCreation: Boolean get() = false
     }
 

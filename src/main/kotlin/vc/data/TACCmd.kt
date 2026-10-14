@@ -19,6 +19,7 @@
 package vc.data
 
 import com.certora.collect.*
+import cli.Ecosystem
 import config.Config
 import config.DestructiveOptimizationsModeEnum
 import datastructures.stdcollections.*
@@ -34,7 +35,6 @@ import spec.cvlast.CVLType
 import spec.cvlast.ComparisonBasis
 import tac.*
 import utils.*
-import vc.data.TACBuiltInFunction.Hash.Companion.skeySort
 import vc.data.annotation.HookableOpcode
 import vc.data.annotation.OpcodeEnvironmentParam
 import vc.data.annotation.OpcodeOutput
@@ -744,8 +744,8 @@ sealed class TACCmd : Serializable, ITACCmd {
                 override val meta: MetaMap = MetaMap()
             ) : AssigningCmd(), DirectMemoryAccessCmd { //tacM (store with overlapping)
                 init {
-                    check(loc.tag.isSubtypeOf(Tag.Int) || loc.tag.isSubtypeOf(skeySort)) {
-                        "$this requires loc to be an int or skey"
+                    check(loc.tag.isSubtypeOf(Tag.Int)) {
+                        "$this requires loc to be an int"
                     }
                     check(value.tag.isSubtypeOf(Tag.Int)) { "$this requires values to be numeric, but got ${value.tag}" }
                 }
@@ -852,8 +852,8 @@ sealed class TACCmd : Serializable, ITACCmd {
             override val meta: MetaMap = MetaMap()
         ) : Simple(), StorageAccessCmd { //tacS (store without overlapping) //TODO: Check if Simple(meta) should be replaced with AssigningCmd(base, meta) ?
             init {
-                check(loc.tag.isSubtypeOf(Tag.Int) || loc.tag.isSubtypeOf(skeySort)) {
-                    "$this requires loc to be an int or skey"
+                check(loc.tag.isSubtypeOf(Tag.Int)) {
+                    "$this requires loc to be an int"
                 }
                 check(value.tag.isSubtypeOf(Tag.Int)) { "$this requires values to be numeric, but got ${value.tag}" }
             }
@@ -1330,8 +1330,15 @@ sealed class TACCmd : Serializable, ITACCmd {
                 }
             }
 
+            /**
+             * [trim] compensates for the way that the CVL compiler builds a description, so it does not apply to
+             * the Solana flow: its front-end words the description itself, and regularly longer than [trim] keeps -
+             * the name of a function it could not resolve, for one.
+             */
             val msg: String get() {
-                return if (meta.containsKey(TACMeta.CVL_USER_DEFINED_ASSERT)) {
+                return if (meta.containsKey(TACMeta.CVL_USER_DEFINED_ASSERT) &&
+                    Config.ActiveEcosystem.getOrNull() != Ecosystem.SOLANA
+                ) {
                     trim(description)
                 } else {
                     description

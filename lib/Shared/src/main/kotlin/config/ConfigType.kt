@@ -314,15 +314,6 @@ sealed class ConfigType<T : Serializable>(
         CEGARConfigConverter, option, aliases
     )
 
-    open class HashingSchemeCmdLine(
-        default: HashingScheme?,
-        option: Option,
-        aliases: List<Option> = listOf()
-    ) : CmdLine<HashingScheme>(
-        default,
-        HashingSchemeConverter, option, aliases
-    )
-
     open class DebugAdapterCmdLine(
         default: DebugAdapterProtocolMode?,
         option: Option,

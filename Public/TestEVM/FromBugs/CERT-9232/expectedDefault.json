@@ -1,0 +1,6 @@
+{
+	"rules": {
+		"oneArgumentArrivesIntact": "SUCCESS",
+		"twoArgumentsArriveIntact": "SUCCESS"
+	}
+}

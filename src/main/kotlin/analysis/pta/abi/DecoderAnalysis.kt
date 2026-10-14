@@ -888,9 +888,16 @@ class DecoderAnalysis(
              */
 
             rootTypes[ObjectPathAnalysis.ObjectRoot.CalldataRoot(bp = bp, fieldDepth = fieldDepth)] = rootType
+            /*
+               Record that the value at [bp] may be this very object, i.e., not a field/element of anything.
+               The root used for that identity must carry the field depth of the type we are currently at:
+               a static type that begins at offset 0 of its parent shares its parent's buffer access path, and
+               [fieldDepth] is the only thing separating the two identities (and hence the two entries in
+               rootTypes just above).
+             */
             output[bp] = (currSpec + ProcessSpec(
                 f = { it },
-                fieldDepth = 0,
+                fieldDepth = fieldDepth,
                 pathProcess = Root
             )).wrapped
             if(rootType is ArrayType) {

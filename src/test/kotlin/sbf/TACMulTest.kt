@@ -19,6 +19,7 @@ package sbf
 
 import config.*
 import sbf.cfg.*
+import sbf.disassembler.GlobalVariables
 import sbf.testing.SbfTestDSL
 import org.junit.jupiter.api.*
 import org.junit.jupiter.params.*
@@ -101,58 +102,56 @@ class TACMulTest {
         }
     }
 
-    /** `5 x 7` with `-solanaTACMathInt false` **/
-    //@Test
-    fun test03() {
-        val cfg = SbfTestDSL.makeCFG("test3") {
-            bb(0) {
-                r1 = r10
-                BinOp.SUB(r1, 24)
-                r10[-4088] = r1 // sp(4072): overflow pointer
-                r10[-4096] = 0  // high bits of 2nd operand
-                r1 = r10
-                BinOp.SUB(r1, 40)  // sp(4056)
-                r2 = 5
-                r3 = 0
-                r4 = 7
-                r5 = r10
-                "__muloti4"()
-                r2 = r1[0]
-                r3 = r1[8]
-                r4 = r10[-24]
-                assert(CondOp.EQ(r2, 35UL))
-                assert(CondOp.EQ(r3, 0UL))
-                assert(CondOp.EQ(r4, 0UL))
-                exit()
-            }
-        }
-
+    /**
+     * Build, lower and verify a CFG that calls `__muloti4`.
+     *
+     * The CFG is built in the shape the SBF ABI produces (with the high half of the second operand
+     * and the overflow pointer spilled to the bottom of the frame), so it has to go through
+     * [lowerMuloti4Calls] like it would in the real front-end.
+     */
+    private fun verifyMuloti4(sound: Boolean, mathInt: Boolean, cfg: MutableSbfCFG, expected: Boolean = true) {
         cfg.normalize()
+        cfg.verify(true)
+        lowerMuloti4Calls(cfg, GlobalVariables(DefaultElfFileView))
         cfg.verify(true)
 
         println("$cfg")
-        val tacProg = toTAC(cfg)
-        println(dumpTAC(tacProg))
-        // Expected to fail because we need to enable `-solanaTACMathInt`
-        Assertions.assertEquals(false, verify(tacProg))
+        ConfigScope(SolanaConfig.TACSoundSignedMath, sound)
+            .extend(SolanaConfig.UseTACMathInt, mathInt)
+            .use {
+                val tacProg = toTAC(cfg)
+                println(dumpTAC(tacProg))
+                Assertions.assertEquals(expected, verify(tacProg))
+            }
     }
 
-    /** `5 x 7` with `-solanaTACMathInt true` **/
-    //@Test
-    fun test04() {
-        val cfg = SbfTestDSL.makeCFG("test4") {
+    /**
+     * Set up a call site for `__muloti4` in the shape the ABI produces: `r1` points at the 16-byte
+     * result buffer at `r10-40`, `r2`/`r3` hold the halves of the first operand, `r4` the low half
+     * of the second one, and the frame carries [yHigh] together with a pointer to the overflow flag,
+     * which lives at `r10-24`.
+     */
+    private fun SbfTestDSL.BlockBuilderScope.callMuloti4(xLow: Any, xHigh: Any, yLow: Any, yHigh: Any) {
+        r1 = r10
+        BinOp.SUB(r1, 24)
+        r10[-4088] = r1    // spilled argument: pointer to the overflow flag
+        r10[-4096] = yHigh // spilled argument: high 64 bits of the second operand
+        r1 = r10
+        BinOp.SUB(r1, 40)
+        r2 = xLow
+        r3 = xHigh
+        r4 = yLow
+        r5 = r10
+        "__muloti4"()
+    }
+
+    /** `5 x 7` **/
+    @ParameterizedTest
+    @CsvSource("true,true", "true,false", "false,true", "false,false")
+    fun test03(sound: Boolean, mathInt: Boolean) {
+        val cfg = SbfTestDSL.makeCFG("test3") {
             bb(0) {
-                r1 = r10
-                BinOp.SUB(r1, 24)
-                r10[-4088] = r1 // sp(4072): overflow pointer
-                r10[-4096] = 0  // high bits of 2nd operand
-                r1 = r10
-                BinOp.SUB(r1, 40)  // sp(4056)
-                r2 = 5
-                r3 = 0
-                r4 = 7
-                r5 = r10
-                "__muloti4"()
+                callMuloti4(xLow = 5, xHigh = 0, yLow = 7, yHigh = 0)
                 r2 = r1[0]
                 r3 = r1[8]
                 r4 = r10[-24]
@@ -162,81 +161,56 @@ class TACMulTest {
                 exit()
             }
         }
-
-        cfg.normalize()
-        cfg.verify(true)
-
-        println("$cfg")
-        ConfigScope(SolanaConfig.UseTACMathInt, true).use {
-            val tacProg = toTAC(cfg)
-            println(dumpTAC(tacProg))
-            Assertions.assertEquals(true, verify(tacProg))
-        }
+        verifyMuloti4(sound, mathInt, cfg)
     }
 
-    /*private fun split128(x: BigInteger): Pair<BigInteger, BigInteger> {
-        val low = x.and(BigInteger.TWO.pow(64) - BigInteger.ONE)
-        val high = x.shr(64)
-        return low to high
-    }*/
-
-
-    /** `2^127 x 2` with `-solanaTACMathInt true` **/
-    //@Test
-    fun test05() {
-        val cfg = SbfTestDSL.makeCFG("test5") {
+    /** `i128::MIN x 2` overflows **/
+    @ParameterizedTest
+    @CsvSource("true,true", "true,false", "false,true", "false,false")
+    fun test04(sound: Boolean, mathInt: Boolean) {
+        val cfg = SbfTestDSL.makeCFG("test4") {
             bb(0) {
-                r1 = r10
-                BinOp.SUB(r1, 24)
-                r10[-4088] = r1 // sp(4072): overflow pointer
-                r10[-4096] = 0  // high bits of 2nd operand
-                r1 = r10
-                BinOp.SUB(r1, 40)  // sp(4056)
-                // r2 and r3 when interpreted as a single 128-bit number is 2^127
-                r2 = 0
-                r3 = 0x8000_0000_0000_0000UL
-                r4 = 2
-                r5 = r10
-                "__muloti4"() // the result is 2^128 which doesn't fit in 128 bits
+                // r2 and r3 when interpreted as a single 128-bit number is -2^127
+                callMuloti4(xLow = 0, xHigh = 0x8000_0000_0000_0000UL, yLow = 2, yHigh = 0)
                 r4 = r10[-24]
                 assert(CondOp.EQ(r4, 1UL)) // overflow
                 exit()
             }
         }
-
-        cfg.normalize()
-        cfg.verify(true)
-
-        println("$cfg")
-        ConfigScope(SolanaConfig.UseTACMathInt, true).use {
-            val tacProg = toTAC(cfg)
-            println(dumpTAC(tacProg))
-            Assertions.assertEquals(true, verify(tacProg))
-        }
+        verifyMuloti4(sound, mathInt, cfg)
     }
 
+    /** `i128::MIN x -1` overflows **/
+    @ParameterizedTest
+    @CsvSource("true,true", "true,false", "false,true", "false,false")
+    fun test05(sound: Boolean, mathInt: Boolean) {
+        val cfg = SbfTestDSL.makeCFG("test5") {
+            bb(0) {
+                callMuloti4(xLow = 0, xHigh = 0x8000_0000_0000_0000UL, yLow = -1, yHigh = -1)
+                r4 = r10[-24]
+                assert(CondOp.EQ(r4, 1UL)) // overflow
+                exit()
+            }
+        }
+        verifyMuloti4(sound, mathInt, cfg)
+    }
 
-    /** `(2^127 -1) x 2` with `-solanaTACMathInt true` **/
-    //@Test
-    fun test06() {
+    /** `(2^124 -1) x 2` **/
+    @ParameterizedTest
+    @CsvSource("true,true", "true,false", "false,true", "false,false")
+    fun test06(sound: Boolean, mathInt: Boolean) {
         val cfg = SbfTestDSL.makeCFG("test6") {
             bb(0) {
-                r1 = r10
-                BinOp.SUB(r1, 24)
-                r10[-4088] = r1 // sp(4072): overflow pointer
-                r10[-4096] = 0  // high bits of 2nd operand
-                r1 = r10
-                BinOp.SUB(r1, 40)  // sp(4056)
-                // r2 and r3 when interpreted as a single 128-bit number is 2^127 -1
-                r2 = 0xFFFF_FFFF_FFFF_FFFFUL
-                r3 = 0x0FFF_FFFF_FFFF_FFFFUL
-                r4 = 2
-                r5 = r10
-                "__muloti4"() // 0FFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF x 2 = 1FFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFE
+                // 0FFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF x 2 = 1FFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFE
+                callMuloti4(
+                    xLow = 0xFFFF_FFFF_FFFF_FFFFUL,
+                    xHigh = 0x0FFF_FFFF_FFFF_FFFFUL,
+                    yLow = 2,
+                    yHigh = 0
+                )
                 r2 = r1[0]
                 r3 = r1[8]
                 r4 = r10[-24]
-                r6 = 18446744073709551614UL
 
                 // hack to avoid FFFF_FFFF_FFFF_FFFE being internally signed extended to 256 by the prover
                 r1 = 18446744073709551614UL
@@ -247,48 +221,20 @@ class TACMulTest {
                 exit()
             }
         }
-
-        cfg.normalize()
-        cfg.verify(true)
-
-        println("$cfg")
-        ConfigScope(SolanaConfig.UseTACMathInt, true).use {
-            val tacProg = toTAC(cfg)
-            println(dumpTAC(tacProg))
-            Assertions.assertEquals(true, verify(tacProg))
-        }
+        verifyMuloti4(sound, mathInt, cfg)
     }
 
-
-    /** `-1 x 2` with `-solanaTACMathInt true` **/
-    //@Test
-    fun test07() {
+    /** `(2^64 -1) x 2` **/
+    @ParameterizedTest
+    @CsvSource("true,true", "true,false", "false,true", "false,false")
+    fun test07(sound: Boolean, mathInt: Boolean) {
         val cfg = SbfTestDSL.makeCFG("test7") {
             bb(0) {
-                r1 = r10
-                BinOp.SUB(r1, 24)
-                r10[-4088] = r1 // sp(4072): overflow pointer
-                r10[-4096] = 0  // high bits of 2nd operand
-                r1 = r10
-                BinOp.SUB(r1, 40)  // sp(4056)
-                r2 = -1
-                r3 = 0
-                r4 = 2
-                r5 = r10
-                "__muloti4"() // 0xFFFF_FFFF_FFFF_FFFF x 0x2 = 0x1_FFFF_FFFF_FFFF_FFFE
+                // 0xFFFF_FFFF_FFFF_FFFF x 0x2 = 0x1_FFFF_FFFF_FFFF_FFFE
+                callMuloti4(xLow = -1, xHigh = 0, yLow = 2, yHigh = 0)
                 r6 = r1[0]
                 r7 = r1[8]
                 r8 = r10[-24]
-
-                // HACK to see the values in the html report
-                r1 = 345678 // address that looks like a constant string
-                r2 = 8      // length of the constant string
-                r3 = r6
-                "CVT_calltrace_print_u64_3"()
-                r3 = r7
-                "CVT_calltrace_print_u64_3"()
-                r3 = r8
-                "CVT_calltrace_print_u64_3"()
 
                 // Hack to avoid the prover to signed extension to 256 bits.
                 r1 = -2
@@ -299,15 +245,79 @@ class TACMulTest {
                 exit()
             }
         }
+        verifyMuloti4(sound, mathInt, cfg)
+    }
 
+    /** `-1 x 2` **/
+    @ParameterizedTest
+    @CsvSource("true,true", "true,false", "false,true", "false,false")
+    fun test08(sound: Boolean, mathInt: Boolean) {
+        val cfg = SbfTestDSL.makeCFG("test8") {
+            bb(0) {
+                callMuloti4(xLow = -1, xHigh = -1, yLow = 2, yHigh = 0)
+                r6 = r1[0]
+                r7 = r1[8]
+                r8 = r10[-24]
+
+                // Hack to avoid the prover to signed extension to 256 bits.
+                r1 = -2
+                "CVT_mask_64"()
+                assert(CondOp.EQ(r6, r0))
+                r1 = -1
+                "CVT_mask_64"()
+                assert(CondOp.EQ(r7, r0))
+                assert(CondOp.EQ(r8, 0UL)) // no overflow
+                exit()
+            }
+        }
+        verifyMuloti4(sound, mathInt, cfg)
+    }
+
+    /** `(2^100 + 1) x 2^40`: `__multi3` wraps around, keeping the low 128 bits of the product **/
+    @ParameterizedTest
+    @CsvSource("true,true", "true,false", "false,true", "false,false")
+    fun test10(sound: Boolean, mathInt: Boolean) {
+        val cfg = SbfTestDSL.makeCFG("test10") {
+            bb(0) {
+                r1 = r10
+                BinOp.SUB(r1, 100)
+                r2 = 1
+                r3 = 1L shl 36
+                r4 = 1L shl 40
+                r5 = 0
+                "__multi3"()
+                r2 = r1[0]
+                r3 = r1[8]
+                // 2^140 does not fit in 128 bits, so only the 2^40 term is left
+                assert(CondOp.EQ(r2, 1UL shl 40))
+                assert(CondOp.EQ(r3, 0UL))
+                exit()
+            }
+        }
         cfg.normalize()
         cfg.verify(true)
-
         println("$cfg")
-        ConfigScope(SolanaConfig.UseTACMathInt, true).use {
-            val tacProg = toTAC(cfg)
-            println(dumpTAC(tacProg))
-            Assertions.assertEquals(true, verify(tacProg))
+        ConfigScope(SolanaConfig.TACSoundSignedMath, sound)
+            .extend(SolanaConfig.UseTACMathInt, mathInt)
+            .use {
+                val tacProg = toTAC(cfg)
+                println(dumpTAC(tacProg))
+                Assertions.assertEquals(true, verify(tacProg))
+            }
+    }
+
+    /** A wrong expectation is refuted, so the other `__muloti4` tests do not hold vacuously **/
+    @ParameterizedTest
+    @CsvSource("true,true", "true,false", "false,true", "false,false")
+    fun test09(sound: Boolean, mathInt: Boolean) {
+        val cfg = SbfTestDSL.makeCFG("test9") {
+            bb(0) {
+                callMuloti4(xLow = 5, xHigh = 0, yLow = 7, yHigh = 0)
+                r2 = r1[0]
+                assert(CondOp.EQ(r2, 36UL))
+                exit()
+            }
         }
+        verifyMuloti4(sound, mathInt, cfg, expected = false)
     }
 }

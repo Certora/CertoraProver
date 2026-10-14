@@ -255,6 +255,57 @@ abstract class EncoderAnalysisTest : SingleMethodTest, SolidityContractTest {
             )
         }
     }
+
+    @ParameterizedTest
+    @ScopedMatrix
+    fun testStaticStructFirstFieldEncoding(solc: String, optimize: Boolean) {
+        /*
+           The first field of a static calldata struct starts at the same buffer access path as the struct
+           itself, so the encoded word is a primitive whose location is also the location of the whole struct.
+         */
+        val contract = """
+           $header
+           contract Test  {
+                struct S {
+                    address b;
+                    address c;
+                }
+
+                function test(S calldata moo) external {
+                    abi.encode(moo.b);
+                }
+           }
+        """.trimIndent()
+        testABIEncodeComplete(contract, solc, optimize, { "$solc, optimize = $optimize"}) { enc ->
+            Assertions.assertEquals(
+                HeapType.Int,
+                enc.buffer.buffer.entries.singleOrNull()?.value?.ty
+            )
+        }
+    }
+
+    @ParameterizedTest
+    @ScopedMatrix
+    fun testStaticCalldataArrayElementEncoding(solc: String, optimize: Boolean) {
+        /*
+           As above, but for the first element of a static calldata array.
+         */
+        val contract = """
+           $header
+           contract Test  {
+                function test(uint256[2] calldata values) external {
+                    abi.encode(values[0]);
+                }
+           }
+        """.trimIndent()
+        testABIEncodeComplete(contract, solc, optimize, { "$solc, optimize = $optimize"}) { enc ->
+            Assertions.assertEquals(
+                HeapType.Int,
+                enc.buffer.buffer.entries.singleOrNull()?.value?.ty
+            )
+        }
+    }
+
     private fun testNumberOfRoots(src: String, solc: String, optimize: Boolean, numberRoots: Int, msg: () -> String) {
         testNumberOfRoots(this.loadTestMethod(src, solc, optimize), numberRoots, msg)
     }

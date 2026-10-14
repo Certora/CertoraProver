@@ -33,11 +33,41 @@ import vc.data.TACCmd
 /** Default implementation using bit-fixed numbers **/
 open class SummarizeIntegerU128CompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> {
 
+    /**
+     * `res := (x * y) mod 2^128`.
+     *
+     * There is deliberately no mathint specialization of this.  A product of two 128-bit values fits in 256 bits,
+     * so the 256-bit multiplication is already exact, and [SbfTACBuilder.Mul128] wraps it to 128 bits the way each
+     * masking mode requires.  Computing it over mathematical integers instead would hand the solver an unbounded
+     * product and a narrowing constraint in place of a multiplication it can bound natively, which costs far more
+     * than it buys - see the note in [SummarizeIntegerU128CompilerRtWithMathInt].
+     **/
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     internal open fun summarizeMulti3(args: U128BinaryOperands): List<TACCmd.Simple> {
         val cmds = mutableListOf<TACCmd.Simple>()
         applyU128BinaryOperation(args, cmds) { res, _, x, y ->
             cmds += assign(res, sbfTacB { x.asSym() mul128 y.asSym() })
+        }
+        return cmds
+    }
+
+    /**
+     * `res := (x * y) mod 2^128` and `overflow := 1` exactly when the signed product of `x` and `y`
+     * does not fit in 128 bits.
+     *
+     * Both outputs come from a single 256-bit product `p` of the sign-extended operands: `p` agrees
+     * with the unsigned product modulo 2^128, so it yields `res`, and it is exact as a signed value,
+     * so it also decides the overflow flag.
+     **/
+    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+    internal open fun summarizeMuloti4(args: U128BinaryOperands): List<TACCmd.Simple> {
+        val cmds = mutableListOf<TACCmd.Simple>()
+        applyU128BinaryOperation(args, cmds) { res, overflow, x, y ->
+            check(overflow != null) { "__muloti4 was summarized without a variable for its overflow flag" }
+            val product = vFac.mkFreshIntVar()
+            cmds += assign(product, sbfTacB { x.asSym() sMulWide128 y.asSym() })
+            cmds += assign(res, sbfTacB.mask128(product.asSym()))
+            cmds += assign(overflow, sbfTacB { ite(fitsInSigned128(product.asSym()), ZERO, ONE) })
         }
         return cmds
     }
@@ -108,29 +138,17 @@ open class SummarizeIntegerU128CompilerRt<TNum : INumValue<TNum>, TOffset : IOff
     }
 }
 
-/** Specialization using mathint **/
+/**
+ * Specialization using mathint.
+ *
+ * Only the operations that mathint actually makes more precise are overridden here.  `__multi3` is not one of them:
+ * it wraps, so the exactness of a mathint product buys nothing, while the unbounded product and the narrowing that
+ * comes with it are markedly harder to solve than a 256-bit multiplication.  Summarizing it over mathint made
+ * `checked_mul_i64` and `saturating_mul_i64` - whose overflow check is one `__multi3` call - go from seconds to a
+ * solver timeout.
+ **/
 class SummarizeIntegerU128CompilerRtWithMathInt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
     : SummarizeIntegerU128CompilerRt<TNum, TOffset, TFlags>() {
-
-    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    override fun summarizeMulti3(args: U128BinaryOperands): List<TACCmd.Simple> {
-        // TODO CERT-10061 revisit the TACSoundSignedMath and UseTACMathInt logic
-        if (SolanaConfig.TACSoundSignedMath.get()) {
-            return super.summarizeMulti3(args)
-        }
-        // We are using 256-bits so multiplication of 128-bits cannot overflow
-        val xMath = vFac.mkFreshMathIntVar()
-        val yMath = vFac.mkFreshMathIntVar()
-        val resMath = vFac.mkFreshMathIntVar()
-        val cmds = mutableListOf<TACCmd.Simple>()
-        applyU128BinaryOperation(args, cmds) { res, _, x, y ->
-            cmds += promoteToMathInt(x.asSym(), xMath)
-            cmds += promoteToMathInt(y.asSym(), yMath)
-            cmds += assign(resMath, sbfTacB { xMath.asSym() intMul yMath.asSym() })
-            cmds += narrowFromMathInt(resMath.asSym(), res)
-        }
-        return cmds
-    }
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     override fun summarizeUDivti3(args: U128BinaryOperands): List<TACCmd.Simple> {

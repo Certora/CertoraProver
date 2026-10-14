@@ -21,6 +21,9 @@
 			"TIMEOUT": [],
 			"UNKNOWN": []
 		},
+		"havocAssumingKeepsSum": "SUCCESS",
+		"havocAssumingKeepsSumNestedMapping": "SUCCESS",
+		"havocAssumingKeepsUsum": "SUCCESS",
 		"havocSumBasic": "SUCCESS",
 		"havocSumNestedMapping": "SUCCESS",
 		"havocUsumBasic": "SUCCESS",

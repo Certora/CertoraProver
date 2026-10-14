@@ -35,7 +35,6 @@ import utils.SignUtilities.maxSignedValueOfBitwidth
 import utils.SignUtilities.minSignedValueOfBitwidth
 import utils.SignUtilities.to2sComplement
 import vc.data.LExpression
-import vc.data.TACBuiltInFunction
 import vc.data.TACKeyword.BALANCE
 import vc.data.TACKeyword.EXTCODESIZE
 import vc.data.TACMeta.DIRECT_STORAGE_ACCESS_TYPE
@@ -173,7 +172,6 @@ class TypeBoundsGenerator(val lxf: LExpressionFactory, val targetTheory: SmtTheo
 
     override fun visitVCMetaData(lExpVc: LExpVCMetaData) {
         ghostInfos = lExpVc.tacProgram.symbolTable.uninterpretedFunctions()
-            .filter { it.returnSort != TACBuiltInFunction.Hash.skeySort } // no type-based bounds for skeys
             .associate { it.name to GhostInfo(it.cvlResultType, it.cvlParamTypes) }
     }
 
@@ -288,7 +286,7 @@ class TypeBoundsGenerator(val lxf: LExpressionFactory, val targetTheory: SmtTheo
                     val tag = when (val t = a.tag) {
                         is Tag.GhostMap -> t.paramSorts[i]
                         Tag.ByteMap -> Tag.Int
-                        Tag.WordMap -> axiomGeneratorContainer.sortOfStorageKeys
+                        Tag.WordMap -> Tag.Int
                         else -> error("Don't know what is the parameter type of quantified map $a with tag $t")
                     }
                     val qVar = LExpression.Identifier("x!$i", tag)
@@ -312,14 +310,14 @@ class TypeBoundsGenerator(val lxf: LExpressionFactory, val targetTheory: SmtTheo
     /**
      * Note that this generates somewhat of an anomaly:
      *    `forall x. storage-access[x] is in bounds`
-     * Normally, we will see storage accesses indexed using an skey-expression, and not directly. However, in this
+     * Normally, we will see storage accesses indexed using a storage-key expression, and not directly. However, in this
      * case, since we know storage was split correctly (otherwise we can't have direct-storage-access), we can just
      * quantify over the whole array/mapping for this specific part of storage.
      */
     private fun quantifiedDirectStorageAxiom(base: LExpression.Identifier): LExpression? {
         val type = base.meta[DIRECT_STORAGE_ACCESS_TYPE]!!
         val resultBound = directStorageBoundAxiom(type) ?: return null
-        val paramTag = axiomGeneratorContainer.sortOfStorageKeys
+        val paramTag = Tag.Int
         return lxf {
             val qVar = freshVariable("d", paramTag)
             val bound = lExpressionBoundsOf(lxf, qVar, null, paramTag, twosComplement = true)

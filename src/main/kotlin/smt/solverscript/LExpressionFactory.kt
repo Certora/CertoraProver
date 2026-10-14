@@ -24,7 +24,6 @@ import datastructures.enumSetOf
 import datastructures.stdcollections.*
 import evm.*
 import log.*
-import smt.HashingScheme
 import smt.axiomgenerators.LExpDefineFun
 import smt.axiomgenerators.fullinstantiation.expnormalizer.ExpNormalizerIA.Companion.atMostOneNonConstant
 import smt.solverscript.functionsymbols.*
@@ -697,20 +696,11 @@ class LExpressionFactory private constructor(
                 Sort.IntSort
             }
 
-        fun getSortOfStorageKeyValues(targetTheory: SmtTheory, hashingScheme: HashingScheme): Sort =
-            when (hashingScheme) {
-                is HashingScheme.Legacy,
-                HashingScheme.PlainInjectivity -> getSortOfIntValues(targetTheory)
-
-                HashingScheme.Datatypes -> Sort.SKeySort
-            }
-
-
         fun tagToSort(tag: Tag, toSmtLibData: ToSmtLibData): Sort =
             tagToSort(
                 tag,
                 getSortOfIntValues(toSmtLibData.targetTheory),
-                getSortOfStorageKeyValues(toSmtLibData.targetTheory, toSmtLibData.hashingScheme)
+                getSortOfIntValues(toSmtLibData.targetTheory)
             )
 
         /**
@@ -1060,7 +1050,12 @@ class LExpressionFactory private constructor(
             ?: applyExp(AxiomatizedFunctionSymbol.Bitwise.BinarySignExtend(tag), this, other)
 
     infix fun LExpression.shl(other: LExpression) =
-        applyExp(NonSMTInterpretedFunctionSymbol.Binary.ShiftLeft(tag as Tag.Bits), this, other)
+        applyExp(
+            NonSMTInterpretedFunctionSymbol.Binary.ShiftLeft(
+                // shift-left is modelled modulo 2^bitwidth, so the shifted operand must carry a bit width
+                tag as? Tag.Bits ?: error("shift-left needs a bit width, but \"$this\" has tag \"$tag\"")
+            ), this, other
+        )
 
     /** Use this to give the shift amount in number of bytes rather than bits. */
     infix fun LExpression.shlBytes(other: LExpression) = shl(8 * other)
@@ -1078,8 +1073,6 @@ class LExpressionFactory private constructor(
 
     // datatypes
 
-    infix fun LExpression.`is`(fs: AxiomatizedFunctionSymbol.SKeyDt) =
-        applyExp(TheoryFunctionSymbol.Unary.Is(fs), this)
 
     // extra convenience methods
 

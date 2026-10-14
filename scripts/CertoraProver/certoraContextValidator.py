@@ -40,6 +40,12 @@ sys.path.insert(0, str(scripts_dir_path))
 validation_logger = logging.getLogger("validation")
 
 KEY_ENV_VAR = "CERTORAKEY"
+API_KEY_RE = re.compile(r'^[A-Za-z0-9_-]{69}$')
+
+# Set once the legacy-key advisory in validate_certora_key() has fired. A mutate run calls
+# validate_certora_key() once per mutant, and the advisory must reach the user once per process,
+# not once per mutant.
+_legacy_key_advisory_shown = False
 
 class CertoraContextValidator:
     def __init__(self, context: CertoraContext):
@@ -907,19 +913,28 @@ def check_conflicting_branch_and_hash(context: CertoraContext) -> None:
 def validate_certora_key() -> str:
     f"""
     Checks that the environment variable {KEY_ENV_VAR} is legal and returns a valid Certora key.
-    If the environment variable {KEY_ENV_VAR} has a legal value, returns it.
-    @raise RuntimeError if {KEY_ENV_VAR} is undefined, empty, or has an illegal value.
+    A valid key is either a Certora API key or a legacy Certora key. If the environment variable
+    {KEY_ENV_VAR} has a legal value, returns it.
+    @raise CertoraUserInputError if {KEY_ENV_VAR} is undefined, empty, or has an illegal value.
     """
     key = os.environ.get(KEY_ENV_VAR, "")
     if not key:
         raise Util.CertoraUserInputError(f"The environment variable {KEY_ENV_VAR} does not contain a Certora key.\n"
                                          f"To get a free Certora key please visit {Util.KEY_SIGNUP_URL}")
 
-    if not re.match(r'^[0-9A-Fa-f]+$', key):  # checks if the key is a hexadecimal number (without leading 0x)
-        raise Util.CertoraUserInputError(f"environment variable {KEY_ENV_VAR} has an illegal value")
-    if not len(key) in Util.LEGAL_CERTORA_KEY_LENGTHS:
-        raise Util.CertoraUserInputError(f"environment variable {KEY_ENV_VAR} has an illegal length")
-    return key
+    if API_KEY_RE.match(key):
+        return key
+    if re.match(r'^[0-9A-Fa-f]+$', key) and len(key) in Util.LEGAL_CERTORA_KEY_LENGTHS:
+        global _legacy_key_advisory_shown
+        if not _legacy_key_advisory_shown:
+            _legacy_key_advisory_shown = True
+            validation_logger.warning(
+                f"{KEY_ENV_VAR} holds a legacy Certora key. Legacy keys still work, but new API keys are "
+                f"issued at {Util.KEY_MANAGEMENT_URL}. Please create an API key there and set {KEY_ENV_VAR} to it.")
+        return key
+    raise Util.CertoraUserInputError(
+        f"The environment variable {KEY_ENV_VAR} does not hold a valid Certora key. "
+        f"Get an API key at {Util.KEY_MANAGEMENT_URL} and set {KEY_ENV_VAR} to it.")
 
 def check_files_input(file_list: List[str]) -> None:
     """

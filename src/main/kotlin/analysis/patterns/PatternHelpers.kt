@@ -98,12 +98,21 @@ object PatternHelpers {
                 }
             },
             inner = p1,
-            out = { _, i -> i }
+            out = { lcmd, i -> i.setLastCmd(lcmd) }
         )
 
     fun safeMathNarrow(p1: PI) = unaryApply(TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256), p1)
 
+    /** Pinned to [Tag.Bit256] (as [safeMathNarrow] is): `unwrap_256(wrap_8(x))` is not `x`. */
+    fun twosWrap(p1: PI) = unaryApply(TACBuiltInFunction.TwosComplement.Wrap(Tag.Bit256), p1)
+
+    fun twosUnwrap(p1: PI) = unaryApply(TACBuiltInFunction.TwosComplement.Unwrap(Tag.Bit256), p1)
+
     fun maybeNarrow(p1: PI) = p1 OR safeMathNarrow(p1)
+
+    fun safeMathPromotion(p1: PI) = unaryApply(TACBuiltInFunction.SafeMathPromotion(Tag.Bit256), p1)
+
+    fun maybePromote(p1: PI) = p1 OR safeMathPromotion(p1)
 
     fun <T : Serializable> PI.annotated(k: MetaKey<T>, pred: (T) -> Boolean = { true }) =
         Pattern.FromAnnotationExp(

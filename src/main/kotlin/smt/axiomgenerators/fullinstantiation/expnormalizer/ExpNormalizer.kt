@@ -19,7 +19,6 @@ package smt.axiomgenerators.fullinstantiation.expnormalizer
 
 import log.Logger
 import log.LoggerTypes
-import smt.HashingScheme
 import smt.axiomgenerators.ConstantComputer
 import smt.axiomgenerators.DefType
 import smt.solverscript.LExpressionFactory
@@ -49,25 +48,22 @@ import verifier.CreateAxiomGeneratorContainer
 abstract class ExpNormalizer(
     val lxf: LExpressionFactory,
     val targetTheory: SmtTheory,
-    val hashingScheme: HashingScheme,
 ) {
     companion object {
         fun create(
             targetTheory: SmtTheory,
-            hashingScheme: HashingScheme,
             overflowChecks: CreateAxiomGeneratorContainer.Config.BvOverflowChecks,
             linearizationSelector: (LExpression) -> Boolean = { true },
         ): (LExpressionFactory) -> ExpNormalizer =
             when (targetTheory.arithmeticOperations) {
                 SmtTheory.ArithmeticOperations.LinearOnly ->
-                    { lExpFactory: LExpressionFactory -> ExpNormalizerIA(lExpFactory, targetTheory, hashingScheme) }
+                    { lExpFactory: LExpressionFactory -> ExpNormalizerIA(lExpFactory, targetTheory) }
 
                 SmtTheory.ArithmeticOperations.NonLinear ->
                     { lExpFactory: LExpressionFactory ->
                         ExpNormalizerIA(
                             lExpFactory,
                             targetTheory,
-                            hashingScheme,
                             linearizationSelector
                         )
                     }
@@ -77,7 +73,6 @@ abstract class ExpNormalizer(
                         ExpNormalizerBV(
                             lExpFactory,
                             targetTheory,
-                            hashingScheme,
                             overflowChecks
                         )
                     }
@@ -109,7 +104,7 @@ abstract class ExpNormalizer(
      */
     abstract val functionSymbolNormalizer: PlainLExpressionTransformer
 
-    private val constComputer = ConstantComputer(hashingScheme, lxf, targetTheory)
+    private val constComputer = ConstantComputer(lxf, targetTheory)
 
     /** brings commutative bitwise expressions that involve a constant into a normal form where the constant is always on the left */
     private fun convertBwExp(e: LExpression) =

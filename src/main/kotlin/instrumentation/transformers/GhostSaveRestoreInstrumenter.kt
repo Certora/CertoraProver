@@ -44,7 +44,7 @@ object GhostSaveRestoreInstrumenter {
     /**
      * If possible, try to save the meta of a ghost variable (not a function) so that the default variable
      * initializer picks up this meta and generates a havoc of a variable with the correct meta, so THAT meta
-     * is picked up by the DSA and is propagated to a conditional write, so the SKEY annotation doesn't freak out.
+     * is picked up by the DSA and is propagated to a conditional write.
      */
     private fun ghostToVar(ghostFun: FunctionInScope.UF) : TACSymbol.Var {
         return TACSymbol.Var(ghostFun.name, ghostFun.asTag).letIf(ghostFun.cvlParamTypes.isEmpty()) { v ->

@@ -178,12 +178,19 @@ class CVLExpressionCompiler(
             ), outVar
         )
 
+    /**
+     * A user-defined value type is an alias for its base primitive in CVL, and shares the base's
+     * representation and bit width. Bitwise compilation dispatches on the primitive, so operand and
+     * result types are resolved through here first.
+     */
+    private fun CVLType.PureCVLType.underlyingPrimitive(): CVLType.PureCVLType = when (this) {
+        is CVLType.PureCVLType.UserDefinedValueType -> this.base
+        else -> this
+    }
+
     private fun doWrapping(inVar: TACSymbol.Var, t: CVLType.PureCVLType): Pair<TACSymbol.Var, CommandWithRequiredDecls<TACCmd.Spec>> {
         val outVar = inVar.updateTagUnique(Tag.Bit256)
-        val actualType = when(t){
-            is CVLType.PureCVLType.UserDefinedValueType -> t.base
-            else -> t
-        }
+        val actualType = t.underlyingPrimitive()
         return if (actualType is CVLType.PureCVLType.Primitive.IntK ||
             (actualType is CVLType.PureCVLType.Primitive.NumberLiteral && actualType.n < BigInteger.ZERO)) {
             outVar to CommandWithRequiredDecls<TACCmd.Spec>(
@@ -272,9 +279,9 @@ class CVLExpressionCompiler(
 
         val lCompiled = compileExp(exp.l)
         val rCompiled = compileExp(exp.r)
-        val lType = exp.l.getOrInferPureCVLType()
-        val rType = exp.r.getOrInferPureCVLType()
-        val outType = exp.getPureCVLType()
+        val lType = exp.l.getOrInferPureCVLType().underlyingPrimitive()
+        val rType = exp.r.getOrInferPureCVLType().underlyingPrimitive()
+        val outType = exp.getPureCVLType().underlyingPrimitive()
         val (lwrapped, preOpLhsManipulationCommands) = preOpLhsManipulation(lCompiled.out, lType)
         val (rwrapped, preOpRhsManipulationCommands) = preOpRhsManipulation(rCompiled.out, rType)
 
@@ -622,7 +629,7 @@ class CVLExpressionCompiler(
         compileConstantUnary(out, exp)?.also { return it }
 
         val innerCompiled = compileExp(exp.e)
-        val outType = exp.getPureCVLType()
+        val outType = exp.getPureCVLType().underlyingPrimitive()
         val (wrappedInner, preOpManipulation) = doWrapping(innerCompiled.out, exp.e.getOrInferPureCVLType())
         val outBitvector = out.updateTagUnique(Tag.Bit256)
         val bitwisOp = CommandWithRequiredDecls<TACCmd.Spec>(TACCmd.Simple.AssigningCmd.AssignExpCmd(outBitvector, wrappedInner.asSym(), cvlCompiler.exprFact::BWNot).plusMeta(
@@ -728,7 +735,7 @@ class CVLExpressionCompiler(
     ) = compileBinaryBitwiseOp(
         out,
         exp,
-        if (exp.l.getOrInferPureCVLType() is CVLType.PureCVLType.Primitive.IntK) {
+        if (exp.l.getOrInferPureCVLType().underlyingPrimitive() is CVLType.PureCVLType.Primitive.IntK) {
             // only signed integers really do arithmetical rshift, and at the lexpression level we assume arithmetical
             // rshift is being performed on a number encoded as two's-complement, i.e. on a signed integer.
             cvlCompiler.exprFact::ShiftRightArithmetical
@@ -991,7 +998,8 @@ class CVLExpressionCompiler(
         out: CVLParam,
         exp: CVLExp.SumExp,
     ): ParametricInstantiation<CVLTACProgram> {
-        val thisGhost = cvlCompiler.cvl.ghosts.find { it.id == exp.sumGhostName } ?: error("should have found the ghost")
+        val thisGhost = cvlCompiler.ghostDeclarations.find { it.id == exp.sumGhostName }
+            ?: error("should have found the ghost ${exp.sumGhostName}")
         check(thisGhost is CVLGhostDeclaration.Sum) { "the sum ghost is supposed to be a variable and not a function" }
 
         fun generateSumAccessExp(
@@ -1020,7 +1028,10 @@ class CVLExpressionCompiler(
 
         val sumGhostAccessExp = generateSumAccessExp(exp.body.indices.filterIndexed { i, _ -> i in exp.nonSummedIndices }, CVLType.PureCVLType.Primitive.Mathint)
         return compileExp(out, sumGhostAccessExp).transformCode { code ->
-            val ghostReadSnippetAnnot = code.ltacStream().asSequence().single { it.maybeAnnotation(TACMeta.SNIPPET) is SnippetCmd.CVLSnippetCmd.GhostRead }
+            // the `_old` copies of sum ghosts live only in the compiler, so a read of one is not annotated as a
+            // ghost read and there is nothing to turn into a sum-ghost read for the call trace
+            val ghostReadSnippetAnnot = code.ltacStream().asSequence().singleOrNull { it.maybeAnnotation(TACMeta.SNIPPET) is SnippetCmd.CVLSnippetCmd.GhostRead }
+                ?: return@transformCode code
             val snippet = ghostReadSnippetAnnot.maybeAnnotation(TACMeta.SNIPPET) as SnippetCmd.CVLSnippetCmd.GhostRead
             code.patching { it.replaceCommand(ghostReadSnippetAnnot.ptr, listOf(SnippetCmd.CVLSnippetCmd.SumGhostRead(
                 allocatedTACSymbols.get(out.id).withMeta(CVL_TYPE, CVLType.PureCVLType.Primitive.Mathint),
@@ -1818,7 +1829,7 @@ class CVLExpressionCompiler(
             is CVLExp.Constant.NumberLit -> getSimple(compileNumberLit(getOutVar(), exp, out.type))
             is CVLExp.Constant.StringLit -> compileStringLit(getOutVar(), exp)
             is CVLExp.Constant.StructLit -> compileStructLiteralExpr(getOutVar(), exp)
-            is CVLExp.Constant.SignatureLiteralExp -> compileSignatureliteralExp(out, exp)
+            is CVLExp.Constant.SignatureLiteralExp -> compileSignatureliteralExp(getOutVar(), exp)
             is CVLExp.BinaryExp.AddExp -> compileAddExp(getOutVar(), exp)
             is CVLExp.BinaryExp.DivExp -> compileDivExp(getOutVar(), exp)
             is CVLExp.BinaryExp.ModExp -> compileModExp(getOutVar(), exp)
@@ -1861,7 +1872,11 @@ class CVLExpressionCompiler(
             }
             is CVLExp.CastExpr -> compileCastExpression(getOutVar(), exp)
             is CVLExp.CondExp -> compileCondExp(getOutVar(), exp)
-            is CVLExp.UnresolvedApplyExp -> error("Should not happen, type checking should resolve applications")
+            is CVLExp.UnresolvedApplyExp -> if (exp.tag.annotation == CVLExp.UnresolvedApplyExp.VirtualFunc) {
+                exp.optionalMethodHasNoImplementation()
+            } else {
+                error("Should not happen, type checking should resolve applications")
+            }
             is CVLExp.Constant.EnumConstant -> compileEnumConstant(getOutVar(), exp)
             is CVLExp.ApplyExp.CVLBuiltIn -> {
                 compileCVLBuiltIn(getOutVar(), exp)
@@ -2760,13 +2775,19 @@ class CVLExpressionCompiler(
         // note: no out of bounds checking - will just havoc
     }
 
+    /**
+     * Note that this deliberately does *not* compile the [CVLExp.Constant.StructLit] the type checker attached to
+     * [exp]: that struct holds the declaring contract's instance id as a constant, whereas compiled code expects an
+     * address. [CVLCompiler.signatureLiteralStruct] substitutes the contract's address symbol, which makes a signature
+     * literal and a `method` parameter denote the very same value, so that e.g.
+     * `sig:foo().contract == currentContract` holds.
+     */
     private fun compileSignatureliteralExp(
-            out: CVLParam,
+            out: TACSymbol.Var,
             exp: CVLExp.Constant.SignatureLiteralExp
-    ): ParametricInstantiation<CVLTACProgram> {
-        val structLit = exp.tag.annotation as CVLExp.Constant.StructLit
-        return compileExp(out, structLit)
-    }
+    ): ParametricInstantiation<CVLTACProgram> = getSimple(
+        codeFromCommandWithVarDecls(cvlCompiler.signatureLiteralStruct(out, exp), compilationEnvironment)
+    )
 
     private fun compileGhostMappingExp(
         out: TACSymbol.Var,
@@ -2993,10 +3014,7 @@ class CVLExpressionCompiler(
                 check(exp.tag.annotation == CVLExp.UnresolvedApplyExp.VirtualFunc) {
                     "The only unresolvedApply expressions that make sense here are of virtual functions"
                 }
-                throw CertoraException(
-                    CertoraErrorType.CVL,
-                    "The function `${exp.methodId}` was marked `optional` in the spec file, yet this rule tried to inline it (perhaps within some function summary?), so this rule cannot run."
-                )
+                exp.optionalMethodHasNoImplementation()
             }
 
             else -> {

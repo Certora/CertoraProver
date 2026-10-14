@@ -20,7 +20,6 @@ package smt.axiomgenerators
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
-import smt.HashingScheme
 import smt.solverscript.LExpressionFactory
 import tac.Tag
 import vc.data.LExpression
@@ -28,8 +27,7 @@ import vc.data.LExpression
 internal class BasicConstantComputerTest {
 
     private val lxf = LExpressionFactory()
-    private val legacyGapSize = HashingScheme.defaultLegacyGapSize
-    private val constantComputer = ConstantComputerWithHashSimplifications(lxf, legacyGapSize)
+    private val constantComputer = BasicConstantComputer(lxf)
 
     private fun check2(expected: LExpressionFactory.() -> LExpression, actual: LExpressionFactory.() -> LExpression) =
         assertEquals(

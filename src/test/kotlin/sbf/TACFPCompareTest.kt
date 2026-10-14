@@ -22,6 +22,8 @@ import sbf.cfg.*
 import sbf.testing.SbfTestDSL
 import org.junit.jupiter.api.*
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import kotlin.booleanArrayOf
 
@@ -34,6 +36,31 @@ class TACFPCompareTest {
         private val f64One      = 0x3FF0_0000_0000_0000UL  // 1.0
         private val f64Two      = 0x4000_0000_0000_0000UL  // 2.0
         private val f64Five     = 0x4014_0000_0000_0000UL  // 5.0
+
+        /** A comparison routine, the relation it computes, and the sign conditions on `r0` meaning true and false. */
+        enum class FPCompare(
+            val fn: String,
+            val holds: (Double, Double) -> Boolean,
+            val onTrue: CondOp,
+            val onFalse: CondOp
+        ) {
+            LT("__ltdf2", { a, b -> a < b }, CondOp.SLT, CondOp.SGE),
+            LE("__ledf2", { a, b -> a <= b }, CondOp.SLE, CondOp.SGT),
+            GE("__gedf2", { a, b -> a >= b }, CondOp.SGE, CondOp.SLT),
+            GT("__gtdf2", { a, b -> a > b }, CondOp.SGT, CondOp.SLE),
+        }
+
+        @JvmStatic
+        fun zeroOperandCases(): List<Arguments> {
+            val operands = listOf(0.0, -0.0, 5.0, -5.0, Double.NaN)
+            return FPCompare.entries.flatMap { cmp ->
+                operands.flatMap { a ->
+                    operands
+                        .filter { b -> a == 0.0 || b == 0.0 }
+                        .flatMap { b -> listOf(true, false).map { dual -> Arguments.of(cmp, a, b, dual) } }
+                }
+            }
+        }
     }
 
     // region __unorddf2
@@ -641,6 +668,29 @@ class TACFPCompareTest {
                     r2 = r7
                     "__gtdf2"()
                     assert(CondOp.SLE(r0, 0UL))
+                    exit()
+                }
+            }
+            val tacProg = toTAC(cfg)
+            Assertions.assertEquals(true, verify(tacProg))
+        }
+    }
+
+    // endregion
+
+    // region comparisons with a zero operand
+
+    @ParameterizedTest(name = "{0}({1}, {2}) dual={3}")
+    @MethodSource("zeroOperandCases")
+    fun `comparison with a zero operand`(cmp: FPCompare, a: Double, b: Double, useDualEncoding: Boolean) {
+        ConfigScope(SolanaConfig.UseTACFPDualEncoding, useDualEncoding).use {
+            val expected = if (cmp.holds(a, b)) { cmp.onTrue } else { cmp.onFalse }
+            val cfg = SbfTestDSL.makeCFG("test") {
+                bb(0) {
+                    r1 = a.toRawBits().toULong()
+                    r2 = b.toRawBits().toULong()
+                    cmp.fn()
+                    assert(expected(r0, 0UL))
                     exit()
                 }
             }

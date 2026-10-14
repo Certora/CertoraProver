@@ -49,6 +49,13 @@ class SkipOptionalRules(val symbolTable: CVLSymbolTable) {
                     acc: SpecType.Single.SkippedMissingOptionalMethod?,
                     exp: CVLExp.ApplyExp.CVLFunction
                 ): SpecType.Single.SkippedMissingOptionalMethod? {
+                    if (acc != null) {
+                        return acc
+                    }
+                    // The arguments belong to the caller, so they are folded here (by the default [call]) rather than
+                    // by the recursion into the callee's body below.
+                    super.call(acc, exp)?.let { return it }
+
                     val funcInfo = symbolTable.lookUpFunctionLikeSymbol((exp as CVLExp.ApplyExp).callableName, exp.getScope())?.symbolValue as? CVLFunction
                     check(funcInfo != null) {
                         "Expected to find CVL function ${exp.callableName} in the symbol table"
@@ -59,6 +66,27 @@ class SkipOptionalRules(val symbolTable: CVLSymbolTable) {
                 }
             }
             return finder.expr(acc, exp)
+        }
+
+        /**
+         * `requireInvariant` inlines the body of the referenced invariant into the rule
+         * ([spec.CVLCompiler.compileAssumeInvariantGlobally]), so an invocation of a missing optional method inside
+         * that body has to be found here as well. The invariant body is not part of the rule block, so it is reached
+         * through the symbol table, the same way the compiler reaches it.
+         */
+        override fun assumeInvariant(
+            acc: SpecType.Single.SkippedMissingOptionalMethod?,
+            cmd: CVLCmd.Simple.AssumeCmd.AssumeInvariant
+        ): SpecType.Single.SkippedMissingOptionalMethod? {
+            val fromParams = super.assumeInvariant(acc, cmd)
+            if (fromParams != null) {
+                return fromParams
+            }
+            val inv = symbolTable.lookUpNonFunctionLikeSymbol(cmd.id, cmd.scope)?.symbolValue as? CVLInvariant
+            check(inv != null) {
+                "Expected to find invariant ${cmd.id} in the symbol table"
+            }
+            return cvlExp(null, inv.exp)
         }
 
         override fun lhs(acc: SpecType.Single.SkippedMissingOptionalMethod?, lhs: CVLLhs): SpecType.Single.SkippedMissingOptionalMethod? = acc

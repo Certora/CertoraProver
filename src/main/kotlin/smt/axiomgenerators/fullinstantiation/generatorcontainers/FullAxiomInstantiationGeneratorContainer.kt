@@ -17,12 +17,11 @@
 
 package smt.axiomgenerators.fullinstantiation.generatorcontainers
 
-import smt.HashingScheme
+import datastructures.stdcollections.*
 import smt.axiomgenerators.TypeBoundsGenerator
 import smt.axiomgenerators.fullinstantiation.*
 import smt.newufliatranslator.AxiomGenerator
-import smt.newufliatranslator.HashAxiomGeneratorContainer
-import smt.newufliatranslator.StorageHashAxiomGenerator
+import smt.newufliatranslator.AxiomGeneratorContainer
 import smt.solverscript.LExpressionFactory
 import smt.solverscript.SmtTheory
 import vc.data.LExpression
@@ -34,46 +33,28 @@ import vc.data.lexpression.ChainedLExpressionTransformer
  */
 class FullAxiomInstantiationGeneratorContainer private constructor(
     lxf: LExpressionFactory,
-    hashGenerator: StorageHashAxiomGenerator,
-    noLargeGapsHashGenerator: StorageHashAxiomGeneratorPlainInjectivity?,
     private val arrayGenerator: ArrayGenerator,
     generators: List<AxiomGenerator>,
-) : HashAxiomGeneratorContainer(
-    lxf,
-    generators,
-    hashGenerator,
-    noLargeGapsHashGenerator,
-) {
-    init {
-        check(hashGenerator in generators)
-        check(arrayGenerator in generators)
-    }
+) : AxiomGeneratorContainer(lxf, generators) {
 
     companion object {
 
         fun create(
             lxf: LExpressionFactory,
             targetTheory: SmtTheory,
-            hashingScheme: HashingScheme,
             linearizationSelector: (LExpression) -> Boolean = { true },
         ): FullAxiomInstantiationGeneratorContainer {
             val mathGenerator = LinearMathAxiomGenerator(lxf, linearizationSelector)
             val bitwiseGenerator = BitwiseAxiomGenerator(lxf, targetTheory, mathGenerator)
             val intMathAxiomGenerator = IntMathAxiomGenerator(lxf, mathGenerator)
-            val (hashGenerator, noLargeGapsHashGenerator) =
-                StorageHashAxiomGenerator.fromHashingScheme(lxf, hashingScheme, targetTheory)
-            val arrayGenerator = ArrayGenerator(lxf, targetTheory, hashingScheme) {
-                hashGenerator.postProcessSkeyTransformer?.invoke(it) ?: it
-            }
+            val hashGenerator = StorageHashAxiomGenerator(lxf, targetTheory = targetTheory)
+            val arrayGenerator = ArrayGenerator(lxf, targetTheory)
             val typeBasedAxiomsForConstantsGenerator = TypeBoundsGenerator(lxf, targetTheory)
 
             return FullAxiomInstantiationGeneratorContainer(
                 lxf,
-                hashGenerator,
-                noLargeGapsHashGenerator,
                 arrayGenerator,
-                listOfNotNull(
-                    noLargeGapsHashGenerator,
+                listOf(
                     hashGenerator,
                     arrayGenerator,
                     bitwiseGenerator,

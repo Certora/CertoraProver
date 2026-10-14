@@ -59,8 +59,6 @@ class TACExprInterpreterTest : TACBuilderAuxiliaries() {
         else -> error("can't convert $this to a Bool TACValue")
     }
 
-    private val Int.asBasicSkeyVal get() = TACValue.SKey.Basic(this.asTACVal)
-
     private val state1 = SimpleTACState(
         treapMapOf(
             x1 to TACValue.valueOf(1),
@@ -82,9 +80,9 @@ class TACExprInterpreterTest : TACBuilderAuxiliaries() {
 
             // defining this as the very partial identity
             wm1 to TACValue.MappingValue.KVMapping.WordMap()
-                .store(0.asBasicSkeyVal, 0.asTACVal)
-                .store(1.asBasicSkeyVal, 1.asTACVal)
-                .store(2.asBasicSkeyVal, 2.asTACVal)
+                .store(0.asTACVal, 0.asTACVal)
+                .store(1.asTACVal, 1.asTACVal)
+                .store(2.asTACVal, 2.asTACVal)
 
         )
     )

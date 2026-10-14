@@ -248,11 +248,7 @@ object HeuristicalFolding {
     private fun rewriteInternal(p: CoreTACProgram): Pair<CoreTACProgram, Boolean> {
         val g = p.analysisCache.graph
         val use = SingleUseAnalysis(g, p.topoSortFw)
-        val definedOnce = g.commands.filter { lcmd ->
-            lcmd.cmd is TACCmd.Simple.AssigningCmd
-        }.mapNotNull {
-            it.cmd.getLhs()
-        }.groupingBy { it }.eachCount().filter { it.value == 1 }
+        val definedOnce = g.soleDefs.keys
 
         val ufVariablesDoNotFold = p.symbolTable.uninterpretedFunctions().filter { uf -> uf.paramSorts.isEmpty() }
             .map { uf -> TACSymbol.Var(uf.name, uf.returnSort) }

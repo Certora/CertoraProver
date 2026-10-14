@@ -637,9 +637,11 @@ class CVLExpToTACExpr(private val cvlCompiler: CVLCompiler) {
                 cvlCompiler.exprFact::IntSub
             )
             is CVLExp.Constant.SignatureLiteralExp -> {
-                val struct = e.tag.annotation as CVLExp.Constant.StructLit
-                compileToTacExpr(struct, allocatedTACSymbols, env)
-
+                // as in [CVLExpressionCompiler.compileSignatureliteralExp], build the struct rather than compiling the
+                // annotation, so that the `contract` field is the declaring contract's address symbol
+                val out = TACKeyword.TMP(e.getPureCVLType().toTag(), "sigLiteral").toUnique("!")
+                val struct = cvlCompiler.signatureLiteralStruct(out, e)
+                Standard(out.asSym(), newDecls = struct.varDecls, newCmds = struct.cmds).lift()
             }
 
             is CVLExp.ApplyExp.Definition -> error(

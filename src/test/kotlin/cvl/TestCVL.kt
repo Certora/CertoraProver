@@ -21,7 +21,10 @@ import infra.CVLFlow
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
+import scene.ProverQuery
+import spec.cvlast.SpecType
 import spec.cvlast.typechecker.ToCVLTypeError
+import spec.rules.CVLSingleRule
 import kotlin.io.path.Path
 
 
@@ -290,6 +293,39 @@ final class TestCVL : AbstractCVLTest() {
             }
             """.trimIndent()
         testNoErrors(CVLFlow().getProverQuery(confPath, cvlText, primaryContractName))
+    }
+
+    /**
+     * A rule that reaches a missing optional method only through `requireInvariant` must be marked
+     * [SpecType.Single.SkippedMissingOptionalMethod], since the invariant body gets inlined into it.
+     */
+    @Test
+    fun testRequireInvariantOfMissingOptionalMethod() {
+        val confPath = Path("src/test/resources/cvl/Bank/BankTestConf/BankTestConf.conf")
+        val primaryContractName = "Bank"
+        val cvlText = """
+            methods {
+                function missingGetter() external returns uint256 envfree optional;
+            }
+
+            invariant getterPositive()
+                missingGetter() > 0;
+
+            rule requireInvariantOverMissingOptional() {
+                requireInvariant getterPositive();
+                assert true;
+            }
+            """.trimIndent()
+        val result = CVLFlow().getProverQuery(confPath, cvlText, primaryContractName)
+        testNoErrors(result)
+
+        val cvl = (result.force() as ProverQuery.CVLQuery.Single).cvl
+        val rule = cvl.rules
+            .filterIsInstance<CVLSingleRule>()
+            .single { it.declarationId == "requireInvariantOverMissingOptional" }
+        assert(rule.ruleType is SpecType.Single.SkippedMissingOptionalMethod) {
+            "expected the rule to be skipped, got rule type ${rule.ruleType}"
+        }
     }
 
     @Test

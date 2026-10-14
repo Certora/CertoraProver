@@ -937,7 +937,7 @@ class RuleChecker(
         val progWithoutUnusedAssignments = removeUnusedAssignments(
             code = code,
             expensive = true,
-            isErasable = FilteringFunctions.NoFilterExceptRevertManagment::isErasable,
+            isErasable = FilteringFunctions.NoFilter::isErasable,
             isTypechecked = true
         )
 

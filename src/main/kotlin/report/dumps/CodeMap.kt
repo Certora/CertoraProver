@@ -303,7 +303,6 @@ data class CodeMap(
             when (this) {
                 null -> ""
                 is TACValue.PrimitiveValue -> bigIntPretty(asBigInt) ?: toString()
-                is TACValue.SKey -> skeyValueToHTML(this)
                 else -> this.toString().sanitize()
             }
 

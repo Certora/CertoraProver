@@ -33,6 +33,10 @@ import org.apache.commons.cli.Options
 import report.CVTAlertSeverity
 import report.CVTAlertType
 import report.CVTAlertReporter
+import smt.BackendStrategyEnum
+import smt.SolverPortfolioConflict
+import smt.UseLIAEnum
+import smt.solverPortfolioConflict
 import utils.*
 import utils.CheckedUrl
 import java.io.File
@@ -195,7 +199,81 @@ open class DefaultCommandLineParser {
             )
         }
 
+        checkLegalSolverPortfolio()
         checkLegalSolanaConfig()
+    }
+
+    /**
+     * Solvers that race under [BackendStrategyEnum.SINGLE_RACE] must agree on the semantics of the verification
+     * condition, see [solverPortfolioConflict]. Rules and rule-sanity checks get a portfolio each, so both are checked.
+     *
+     * Public because options may configure a portfolio after the command line was parsed, and such a portfolio has to
+     * be checked too.
+     */
+    fun checkLegalSolverPortfolio() {
+        // Config.Smt.BackendStrategy.get() asserts consistency of its portfolio, so going through it here would turn
+        // the message below into an internal error. getOrNull() reads the option without the assertion.
+        val strategy = Config.Smt.BackendStrategy.getOrNull()
+            ?: error("This configuration must be non-null: ${Config.Smt.BackendStrategy.name}")
+        val useBV = Config.Smt.UseBV.get()
+
+        val useLIA = Config.Smt.UseLIA.get()
+        val useNIA = Config.Smt.UseNIA.get()
+        solverPortfolioConflict(strategy, useBV, useLIA, useNIA)?.let { conflict ->
+            printErrAndExit(
+                solverPortfolioErrMsg(
+                    conflict, Config.Smt.BackendStrategy, useBV, Config.Smt.UseLIA, useLIA, Config.Smt.UseNIA, useNIA
+                ),
+                withProverArgsDocLink = true
+            )
+        }
+
+        val sanityStrategy = if (Config.SanityBackendStrategy.isDefault()) {
+            strategy
+        } else {
+            Config.SanityBackendStrategy.get()
+        }
+        val sanityUseLIA = Config.SanityUseLIA.get()
+        val sanityUseNIA = Config.SanityUseNIA.get()
+        solverPortfolioConflict(sanityStrategy, useBV, sanityUseLIA, sanityUseNIA)?.let { conflict ->
+            printErrAndExit(
+                solverPortfolioErrMsg(
+                    conflict, Config.SanityBackendStrategy, useBV,
+                    Config.SanityUseLIA, sanityUseLIA, Config.SanityUseNIA, sanityUseNIA
+                ),
+                withProverArgsDocLink = true
+            )
+        }
+    }
+
+    private fun solverPortfolioErrMsg(
+        conflict: SolverPortfolioConflict,
+        strategy: ConfigType.CmdLine<BackendStrategyEnum>,
+        useBV: Boolean,
+        liaOption: ConfigType.CmdLine<UseLIAEnum>,
+        useLIA: UseLIAEnum,
+        niaOption: ConfigType.CmdLine<Boolean>,
+        useNIA: Boolean,
+    ): String {
+        @OptIn(Config.Smt.PreciseBitwiseOpsOption::class) // names the option in a message, does not read its value
+        val bvOptions = "${Config.Smt.UseBV.userFacingName()} / ${Config.Smt.PreciseBitwiseOps.userFacingName()}"
+        val requested = "-${strategy.name} singlerace, -${Config.Smt.UseBV.name} $useBV, " +
+            "-${liaOption.name} ${useLIA.name.lowercase()}, -${niaOption.name} $useNIA"
+        val resolution = when (conflict) {
+            SolverPortfolioConflict.BV_WITH_INT_ARITHMETIC -> listOfNotNull(
+                runIf(useLIA != UseLIAEnum.NONE) { "-${liaOption.name} false" },
+                runIf(useNIA) { "-${niaOption.name} false" },
+            ).joinToString(" and ").let { toTurnOff ->
+                "set $toTurnOff to race the bit-vector solvers alone, or turn bit-vector solving off ($bvOptions)"
+            }
+
+            SolverPortfolioConflict.NIA_WITH_UNVERIFIED_LIA ->
+                "set -${liaOption.name} true to have the LIA counterexamples verified, " +
+                    "or -${niaOption.name} false to drop the NIA solvers"
+        }
+        return "Conflicting solver settings ($requested): -${strategy.name} singlerace runs all solvers of the " +
+            "portfolio in one race and takes the first answer, and ${conflict.explanation}. To fix, $resolution, " +
+            "or pick a -${strategy.name} other than singlerace"
     }
 
     private fun checkLegalSolanaConfig() {
