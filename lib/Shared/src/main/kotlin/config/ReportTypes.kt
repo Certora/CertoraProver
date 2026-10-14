@@ -76,6 +76,7 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     INLINED(LoggerTypes.INLINER),
     CALLEE_ANALYSIS(LoggerTypes.INLINER),
     REVERT_MATERIALIZATION(LoggerTypes.INLINER),
+    REVERT_MANAGEMENT_CLEANUP(LoggerTypes.INLINER),
     REVERT_PATH_GENERATOR(LoggerTypes.INLINER),
     // TAC after loop unrolling
     UNROLL(LoggerTypes.BMC),

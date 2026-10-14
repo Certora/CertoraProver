@@ -4320,7 +4320,7 @@ object CallGraphBuilder {
             TACDSA.simplify(
                 code,
                 protectedVars = emptySet(),
-                isErasable = FilteringFunctions.default(code, keepRevertManagment = true)::isErasable
+                isErasable = FilteringFunctions.default(code)::isErasable
             )
         } catch (e: Exception) {
             if (m.attribute is MethodAttribute.Unique.Constructor) {

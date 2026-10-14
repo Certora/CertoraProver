@@ -93,9 +93,17 @@ interface CTPOptimizationPass {
 
         val removeDeadPartitions = make(REMOVE_UNUSED_PARTITIONS, SimpleMemoryOptimizer::removeDeadPartitions)
 
-        fun optimizeAssignments(keepRevertManagement: Boolean = false, bmcAware: Boolean = false) =
+        /** Removal of unused assignments only, without [optimizeAssignments]'s (much costlier) inlining. */
+        fun removeUnused(bmcAware: Boolean = false) =
             make(UNUSED_ASSIGNMENTS) { ctp ->
-                optimizeAssignments(ctp, FilteringFunctions.default(ctp, keepRevertManagement, bmcAware), strict = false)
+                removeUnusedAssignments(
+                    ctp, expensive = true, FilteringFunctions.default(ctp, bmcAware)::isErasable, isTypechecked = true
+                )
+            }
+
+        fun optimizeAssignments(bmcAware: Boolean = false) =
+            make(UNUSED_ASSIGNMENTS) { ctp ->
+                optimizeAssignments(ctp, FilteringFunctions.default(ctp, bmcAware), strict = false)
                     .let(BlockMerger::mergeBlocks)
             }
 
@@ -132,7 +140,7 @@ interface CTPOptimizationPass {
                 else -> error("Invalid report num $reportNum")
             }
         ) {
-            optimizeBytemaps(it, FilteringFunctions.default(it, keepRevertManagment = true, bmcAware), cheap)
+            optimizeBytemaps(it, FilteringFunctions.default(it, bmcAware), cheap)
         }
 
         val overflowPatternRewriter = make(OPTIMIZE_OVERFLOW) { ctp -> OverflowPatternRewriter(ctp).go() }

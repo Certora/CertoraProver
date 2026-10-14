@@ -399,6 +399,9 @@ open class CompiledRule<R: SingleRule> protected constructor(val rule: R, val ta
         fun optimize(scene: SceneIdentifiers, tacToCheck: CoreTACProgram, bmcMode: Boolean = false) = inCode(tacToCheck) {
             with(CTPOptimizationPass) {
                 listOf(
+                    // first, so that the passes before the first full `optimizeAssignments` already see the program
+                    // without the code only dead revert-management copies used (erased at REVERT_MANAGEMENT_CLEANUP)
+                    removeUnused(bmcAware = bmcMode),
                     snippetRemoval,
                     initByteMaps,
                     constantPropagatorAndSimplifier(mergeBlocks = true),
@@ -412,21 +415,21 @@ open class CompiledRule<R: SingleRule> protected constructor(val rule: R, val ta
                     removeUnusedWrites,
                     rewriteCopyLoops,
                     removeDeadPartitions,
-                    optimizeAssignments(keepRevertManagement = true, bmcAware = bmcMode),
+                    optimizeAssignments(bmcAware = bmcMode),
                     pruner(1),
                     infeasiblePaths,
                     simpleSummaries(1),
                     constantPropagatorAndSimplifier(mergeBlocks = false),
                     negationNormalizer,
                     patternRewriter(PatternRewriter::earlyPatternsList),
-                    optimizeAssignments(keepRevertManagement = true, bmcAware = bmcMode),
+                    optimizeAssignments(bmcAware = bmcMode),
                     negationNormalizer,
                     bytemapOptimizer(1, bmcAware = bmcMode, cheap = true),
                     constantPropagatorAndSimplifier(mergeBlocks = true),
-                    optimizeAssignments(keepRevertManagement = true, bmcAware = bmcMode),
+                    optimizeAssignments(bmcAware = bmcMode),
                     overflowPatternRewriter,
                     patternRewriter(PatternRewriter::basicPatternsList),
-                    optimizeAssignments(keepRevertManagement = true, bmcAware = bmcMode),
+                    optimizeAssignments(bmcAware = bmcMode),
                     noUnderOverflowUnderApprox,
                     ternarySimplifier,
                     intervalsRewriter,
@@ -448,7 +451,7 @@ open class CompiledRule<R: SingleRule> protected constructor(val rule: R, val ta
         fun optimizeNonLocal(tacToCheck: CoreTACProgram) = inCode(tacToCheck) {
             with(CTPOptimizationPass) {
                 listOf(
-                    optimizeAssignments(keepRevertManagement = true, bmcAware = false),
+                    optimizeAssignments(bmcAware = false),
                     infeasiblePaths,
                     intervalsRewriter,
                     bytemapOptimizer(3, bmcAware = false),

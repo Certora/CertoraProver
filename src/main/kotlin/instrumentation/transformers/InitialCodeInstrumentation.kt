@@ -216,6 +216,18 @@ object InitialCodeInstrumentation {
                 }
             }).map(CoreToCoreTransformer(ReportTypes.REVERT_MATERIALIZATION) {
                 Inliner.materializeRevertManagement(it, scene)
+            }).map(CoreToCoreTransformer(ReportTypes.REVERT_MANAGEMENT_CLEANUP) { code ->
+                // Materialization saves every storage and state variable at every call, and restores them all on its
+                // revert paths, whether or not anything reads them afterwards. Erase the dead ones right away: their
+                // readers all exist now (hooks, summaries and CVL code are inlined above), so liveness decides it, and
+                // every later pass then sees the program without them.
+                val filtering = FilteringFunctions.default(code)
+                removeUnusedAssignments(
+                    code,
+                    expensive = true,
+                    isErasable = { TACMeta.REVERT_MANAGEMENT in it.meta && filtering.isErasable(it) },
+                    isTypechecked = true
+                )
             }).map(CoreToCoreTransformer(ReportTypes.GHOST_ANNOTATION) { code ->
                 // apply ghost save/restore, which should line up with solidity reverts and CVL storage management
                 // this is implemented outside of summaries, because it's better to be handled after we applied hooks

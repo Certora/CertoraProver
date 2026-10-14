@@ -356,7 +356,7 @@ object WasmEntryPoint {
                         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.NEGATION_NORMALIZER) { NegationNormalizer(it).rewrite() })
                         .mapIfAllowed(
                             CoreToCoreTransformer(ReportTypes.UNUSED_ASSIGNMENTS) {
-                                val filtering = FilteringFunctions.default(it, keepRevertManagment = true)::isErasable
+                                val filtering = FilteringFunctions.default(it)::isErasable
                                 removeUnusedAssignments(it, expensive = false, filtering, isTypechecked = true)
                                     .let(BlockMerger::mergeBlocks)
                             }
@@ -377,7 +377,7 @@ object WasmEntryPoint {
                         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.BYTEMAP_OPTIMIZER1) {
                             optimizeBytemaps(
                                 it,
-                                FilteringFunctions.default(it, keepRevertManagment = true),
+                                FilteringFunctions.default(it),
                                 cheap = false
                             )
                                 .let(BlockMerger::mergeBlocks)
@@ -392,7 +392,7 @@ object WasmEntryPoint {
                             CoreToCoreTransformer(ReportTypes.OPTIMIZE) { c ->
                                 optimizeAssignments(
                                     c,
-                                    FilteringFunctions.default(c, keepRevertManagment = true)
+                                    FilteringFunctions.default(c)
                                 ).let(BlockMerger::mergeBlocks)
                             }
                         )

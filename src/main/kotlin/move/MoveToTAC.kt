@@ -121,7 +121,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.NEGATION_NORMALIZER) { NegationNormalizer(it).rewrite() })
             .mapIfAllowed(
                 CoreToCoreTransformer(ReportTypes.UNUSED_ASSIGNMENTS) {
-                    val filtering = FilteringFunctions.default(it, keepRevertManagment = true)::isErasable
+                    val filtering = FilteringFunctions.default(it)::isErasable
                     removeUnusedAssignments(it, expensive = false, filtering, isTypechecked = true)
                         .let(BlockMerger::mergeBlocks)
                 }
@@ -138,7 +138,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             .mapIfAllowed(
                 CoreToCoreTransformer(ReportTypes.OPTIMIZE) { c ->
                     optimizeAssignments(c,
-                        FilteringFunctions.default(c, keepRevertManagment = true)
+                        FilteringFunctions.default(c)
                     ).let(BlockMerger::mergeBlocks)
                 }
             )

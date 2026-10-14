@@ -21,7 +21,6 @@ import datastructures.stdcollections.*
 import tac.MetaKey
 import utils.mapNotNullToSet
 import vc.data.*
-import vc.data.TACMeta.REVERT_MANAGEMENT
 
 /**
  * A way to centralize the decision of which variables and assignments we can erase, and which we want
@@ -34,11 +33,6 @@ interface FilteringFunctions {
     object NoFilter : FilteringFunctions {
         override fun isInlineable(v: TACSymbol.Var) = true
         override fun isErasable(cmd: TACCmd.Simple.AssigningCmd) = true
-    }
-
-    object NoFilterExceptRevertManagment : FilteringFunctions {
-        override fun isInlineable(v: TACSymbol.Var) = true
-        override fun isErasable(cmd: TACCmd.Simple.AssigningCmd) = REVERT_MANAGEMENT !in cmd.meta
     }
 
     open class CallTracePreserving(code: CoreTACProgram) : FilteringFunctions {
@@ -68,13 +62,9 @@ interface FilteringFunctions {
 
     companion object {
 
-        fun default(code: CoreTACProgram, keepRevertManagment: Boolean = false, bmcAware: Boolean = false) =
+        fun default(code: CoreTACProgram, bmcAware: Boolean = false) =
             if (code.destructiveOptimizations) {
-                if (keepRevertManagment) {
-                    NoFilterExceptRevertManagment
-                } else {
-                    NoFilter
-                }
+                NoFilter
             } else {
                 if (bmcAware) {
                     BMCPreserving(code)
