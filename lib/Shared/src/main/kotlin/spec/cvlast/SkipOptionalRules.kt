@@ -52,6 +52,10 @@ class SkipOptionalRules(val symbolTable: CVLSymbolTable) {
                     if (acc != null) {
                         return acc
                     }
+                    // The arguments belong to the caller, so they are folded here (by the default [call]) rather than
+                    // by the recursion into the callee's body below.
+                    super.call(acc, exp)?.let { return it }
+
                     val funcInfo = symbolTable.lookUpFunctionLikeSymbol((exp as CVLExp.ApplyExp).callableName, exp.getScope())?.symbolValue as? CVLFunction
                     check(funcInfo != null) {
                         "Expected to find CVL function ${exp.callableName} in the symbol table"

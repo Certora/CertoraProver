@@ -1872,7 +1872,11 @@ class CVLExpressionCompiler(
             }
             is CVLExp.CastExpr -> compileCastExpression(getOutVar(), exp)
             is CVLExp.CondExp -> compileCondExp(getOutVar(), exp)
-            is CVLExp.UnresolvedApplyExp -> error("Should not happen, type checking should resolve applications")
+            is CVLExp.UnresolvedApplyExp -> if (exp.tag.annotation == CVLExp.UnresolvedApplyExp.VirtualFunc) {
+                exp.optionalMethodHasNoImplementation()
+            } else {
+                error("Should not happen, type checking should resolve applications")
+            }
             is CVLExp.Constant.EnumConstant -> compileEnumConstant(getOutVar(), exp)
             is CVLExp.ApplyExp.CVLBuiltIn -> {
                 compileCVLBuiltIn(getOutVar(), exp)
@@ -3004,10 +3008,7 @@ class CVLExpressionCompiler(
                 check(exp.tag.annotation == CVLExp.UnresolvedApplyExp.VirtualFunc) {
                     "The only unresolvedApply expressions that make sense here are of virtual functions"
                 }
-                throw CertoraException(
-                    CertoraErrorType.CVL,
-                    "The function `${exp.methodId}` was marked `optional` in the spec file, yet this rule tried to inline it (perhaps within some function summary?), so this rule cannot run."
-                )
+                exp.optionalMethodHasNoImplementation()
             }
 
             else -> {

@@ -108,6 +108,18 @@ data class ReturnValuePayload(val syms: List<TACSymbol.Var>, val label: CVLRepor
  */
 val RETURN_VALUE = MetaKey<ReturnValuePayload>("cvl.return.value")
 
+/**
+ * A method declared `optional` in the methods block with no implementation in the verified contract stays an
+ * [CVLExp.UnresolvedApplyExp], and there is no code to inline for it. The `SkipOptionalRules` pass marks rules that
+ * mention such a method as [spec.cvlast.SpecType.Single.SkippedMissingOptionalMethod] so they are never compiled; the
+ * compilation sites that still meet such an application report it through this exception.
+ */
+internal fun CVLExp.UnresolvedApplyExp.optionalMethodHasNoImplementation(): Nothing = throw CertoraException(
+    CertoraErrorType.CVL,
+    "The function `$methodId` was marked `optional` in the spec file, yet this rule tried to inline it " +
+        "(perhaps within some function summary?), so this rule cannot run."
+)
+
 class CVLCompiler(
     val scene: IScene,
     val cvl: CVL,
@@ -660,10 +672,7 @@ class CVLCompiler(
                     check(cmd.exp.tag.annotation == CVLExp.UnresolvedApplyExp.VirtualFunc) {
                         "The only unresolvedApply expressions that make sense here are of virtual functions"
                     }
-                    throw CertoraException(
-                        CertoraErrorType.CVL,
-                        "The function `${(cmd.exp as CVLExp.UnresolvedApplyExp).methodId}` was marked `optional` in the spec file, yet this rule tried to inline it (perhaps within some function summary?), so this rule cannot run."
-                    )
+                    (cmd.exp as CVLExp.UnresolvedApplyExp).optionalMethodHasNoImplementation()
                 }
 
                 else -> error("Type checker should not allow expression ${cmd.exp} inside of a CVLCmd.Simple.Apply")
