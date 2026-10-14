@@ -17,6 +17,7 @@
 
 package analysis.opt.overflow
 
+import analysis.CmdPointer
 import analysis.dataflow.OverApproxUseAnalysis
 import analysis.maybeExpr
 import analysis.numeric.MAX_UINT
@@ -25,10 +26,16 @@ import analysis.opt.NegationNormalizer
 import analysis.opt.bytemaps.BytemapInliner
 import analysis.opt.earlyPatternsList
 import analysis.opt.intervals.IntervalsCalculator
+import analysis.opt.overflow.Matcher.Match
+import analysis.opt.overflow.OverflowKey.MATCHED_LCMD
+import analysis.patterns.get
 import analysis.split.BoolOptimizer
 import com.certora.collect.*
+import datastructures.stdcollections.*
 import instrumentation.transformers.AssignmentInliner
+import log.*
 import tac.MetaKey
+import tac.NBId
 import utils.*
 import vc.data.CoreTACProgram
 import vc.data.TACExpr
@@ -36,6 +43,8 @@ import vc.data.asTACExpr
 import vc.data.getOperands
 import verifier.BlockMerger
 import java.math.BigInteger
+
+private val logger = Logger(LoggerTypes.OVERFLOW_PATTERN_REWRITER)
 
 /**
  * Detects and rewrites overflow checks via pattern matching. It assumes normalization of the TAC via
@@ -168,6 +177,53 @@ class OverflowPatternRewriter(code1: CoreTACProgram) {
     private val patcher = code.toPatchingProgram()
     private val intervals = IntervalsCalculator(code, preserve = { false }, calcJumpPostConditions = true)
 
+    /**
+     * Every match is calculated on the original [code], but all the rewrites are registered in one shared [patcher].
+     * Two matches that touch the same command, or the same block, therefore overwrite each other's patches: commands
+     * that one match moved can be dropped, and blocks that one match added can end up with nothing jumping to them.
+     * So each match that we do apply claims what it rewrites, and a later match that collides with a claim is
+     * discarded - these rewrites are an optimization, so giving one up is always fine.
+     */
+    private val claimedPtrs = mutableSetOf<CmdPointer>()
+
+    /** Blocks whose commands, terminator, or existence an applied match changes. */
+    private val rewrittenBlocks = mutableSetOf<NBId>()
+
+    /** Blocks an applied match reads or jumps to, but does not itself rewrite. */
+    private val referencedBlocks = mutableSetOf<NBId>()
+
+    /**
+     * Registers what [match] of the operation at [opPtr] is going to rewrite, and returns whether it may be applied
+     * at all, i.e., whether it is disjoint from what the already applied matches claimed.
+     */
+    private fun <T : OverflowContext> claim(opPtr: CmdPointer, match: Match<T>): Boolean =
+        when (match) {
+            is Match.Assume -> {
+                val ptrs = match.infos.values.mapToSet { it[MATCHED_LCMD]!!.ptr } + opPtr
+                if (ptrs.any { it in claimedPtrs || it.block in rewrittenBlocks }) {
+                    false
+                } else {
+                    claimedPtrs += ptrs
+                    referencedBlocks += ptrs.mapToSet { it.block }
+                    true
+                }
+            }
+
+            is Match.JumpI -> {
+                val mine = match.intermediateBlocks + match.firstBlock + match.lastBlock + opPtr.block
+                if (mine.any { it in rewrittenBlocks || it in referencedBlocks } ||
+                    match.revertBlocks.any { it in rewrittenBlocks }
+                ) {
+                    false
+                } else {
+                    claimedPtrs += opPtr
+                    rewrittenBlocks += mine
+                    referencedBlocks += match.revertBlocks
+                    true
+                }
+            }
+        }
+
     companion object {
         @Suppress("EqualsOrHashCode")
         @KSerializable
@@ -198,6 +254,10 @@ class OverflowPatternRewriter(code1: CoreTACProgram) {
             fun handle(context: OverflowContext): Boolean {
                 val match = Matcher(code, context, useAnalysis).go()
                     ?: return false
+                if (!claim(ptr, match)) {
+                    logger.warn { "Overflow rewrite of $ptr in ${code.name} dropped, it overlaps an earlier rewrite" }
+                    return false
+                }
                 Replacer(code, patcher, context, match).go()
                 return true
             }
