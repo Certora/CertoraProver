@@ -178,12 +178,19 @@ class CVLExpressionCompiler(
             ), outVar
         )
 
+    /**
+     * A user-defined value type is an alias for its base primitive in CVL, and shares the base's
+     * representation and bit width. Bitwise compilation dispatches on the primitive, so operand and
+     * result types are resolved through here first.
+     */
+    private fun CVLType.PureCVLType.underlyingPrimitive(): CVLType.PureCVLType = when (this) {
+        is CVLType.PureCVLType.UserDefinedValueType -> this.base
+        else -> this
+    }
+
     private fun doWrapping(inVar: TACSymbol.Var, t: CVLType.PureCVLType): Pair<TACSymbol.Var, CommandWithRequiredDecls<TACCmd.Spec>> {
         val outVar = inVar.updateTagUnique(Tag.Bit256)
-        val actualType = when(t){
-            is CVLType.PureCVLType.UserDefinedValueType -> t.base
-            else -> t
-        }
+        val actualType = t.underlyingPrimitive()
         return if (actualType is CVLType.PureCVLType.Primitive.IntK ||
             (actualType is CVLType.PureCVLType.Primitive.NumberLiteral && actualType.n < BigInteger.ZERO)) {
             outVar to CommandWithRequiredDecls<TACCmd.Spec>(
@@ -272,9 +279,9 @@ class CVLExpressionCompiler(
 
         val lCompiled = compileExp(exp.l)
         val rCompiled = compileExp(exp.r)
-        val lType = exp.l.getOrInferPureCVLType()
-        val rType = exp.r.getOrInferPureCVLType()
-        val outType = exp.getPureCVLType()
+        val lType = exp.l.getOrInferPureCVLType().underlyingPrimitive()
+        val rType = exp.r.getOrInferPureCVLType().underlyingPrimitive()
+        val outType = exp.getPureCVLType().underlyingPrimitive()
         val (lwrapped, preOpLhsManipulationCommands) = preOpLhsManipulation(lCompiled.out, lType)
         val (rwrapped, preOpRhsManipulationCommands) = preOpRhsManipulation(rCompiled.out, rType)
 
@@ -622,7 +629,7 @@ class CVLExpressionCompiler(
         compileConstantUnary(out, exp)?.also { return it }
 
         val innerCompiled = compileExp(exp.e)
-        val outType = exp.getPureCVLType()
+        val outType = exp.getPureCVLType().underlyingPrimitive()
         val (wrappedInner, preOpManipulation) = doWrapping(innerCompiled.out, exp.e.getOrInferPureCVLType())
         val outBitvector = out.updateTagUnique(Tag.Bit256)
         val bitwisOp = CommandWithRequiredDecls<TACCmd.Spec>(TACCmd.Simple.AssigningCmd.AssignExpCmd(outBitvector, wrappedInner.asSym(), cvlCompiler.exprFact::BWNot).plusMeta(
@@ -728,7 +735,7 @@ class CVLExpressionCompiler(
     ) = compileBinaryBitwiseOp(
         out,
         exp,
-        if (exp.l.getOrInferPureCVLType() is CVLType.PureCVLType.Primitive.IntK) {
+        if (exp.l.getOrInferPureCVLType().underlyingPrimitive() is CVLType.PureCVLType.Primitive.IntK) {
             // only signed integers really do arithmetical rshift, and at the lexpression level we assume arithmetical
             // rshift is being performed on a number encoded as two's-complement, i.e. on a signed integer.
             cvlCompiler.exprFact::ShiftRightArithmetical
