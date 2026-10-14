@@ -140,7 +140,9 @@ class AssignmentInliner(
                 // remove `a := a`
                 if (rhs == lhs && filteringFunctions.isErasable(cmd)) {
                     patcher.delete(ptr)
-                    return
+                    // on to the next command: a plain `return` would leave the rest of the block unprocessed, and
+                    // with it the redefinitions there that invalidate replacements
+                    return@forEach
                 }
 
                 // update the replacement map

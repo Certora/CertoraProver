@@ -155,4 +155,37 @@ class AssignmentInlinerTest : TACBuilderAuxiliaries() {
         runAndCompare(originalProg, expectedProg)
     }
 
+    /**
+     * `f := a` saves the old value of `a` before `a` is redefined in a later block, after a self-assignment there.
+     * Erasing the self-assignment must not stop the processing of its block: uses of `f` after the redefinition,
+     * in its block or in the blocks it leads to, must stay `f`.
+     */
+    @Test
+    fun selfAssignmentDoesNotEndTheBlock() {
+        fun prog(withSelfAssignment: Boolean) = TACProgramBuilder {
+            a assign Add(bS, cS)
+            f assign a
+            jumpCond(x)
+            jump(1) {
+                nop
+                jump(2)
+            }
+            jump(2) {
+                if (withSelfAssignment) {
+                    g assign g
+                }
+                a assign Add(aS, cS)
+                y assign Lt(fS, aS)
+                jumpCond(y)
+                jump(3) {
+                    d assign Sub(fS, aS)
+                }
+                jump(4) {
+                    e assign Sub(aS, fS)
+                }
+            }
+        }
+        runAndCompare(prog(withSelfAssignment = true), prog(withSelfAssignment = false))
+    }
+
 }
