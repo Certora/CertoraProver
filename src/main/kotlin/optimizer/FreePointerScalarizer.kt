@@ -275,7 +275,14 @@ object FreePointerScalarizer {
                         tmpValue.asSym() to null
                     }
                 } else {
-                    TACExpr.Unconstrained(Tag.Bit256) to null
+                    // The copy is not word aligned, so this scalar's word straddles two source words; havoc it.
+                    // [TACExpr.Unconstrained] is only legal inside a [TACExpr.MapDefinition], so the havoc has to be
+                    // an explicit command rather than an expression.
+                    val havocValue = TACKeyword.TMP(Tag.Bit256, "!scalarValue")
+                    this += listOf(
+                        TACCmd.Simple.AssigningCmd.AssignHavocCmd(havocValue)
+                    ).withDecls(havocValue)
+                    havocValue.asSym() to null
                 }
 
                 /*
