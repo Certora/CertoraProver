@@ -176,11 +176,13 @@ class BranchAwareGlobalValueNumbering(code: CoreTACProgram) {
      * the same at every later read.
      */
     fun valueNumberOf(v: TACSymbol.Var, block: NBId): ValueNumber {
-        val defs = defsOf[v].orEmpty()
-        defs.singleOrNull()?.let {
+        val all = defsOf[v].orEmpty()
+        all.find { it.block == block }?.let {
             return vnOfDef[it]!!
         }
-        defs.find { it.block == block }?.let {
+        // a definition in a leaf block, an arm that was cut, reaches nothing outside it (see [DSAChecker])
+        val defs = all.filter { g.succ(it.block).isNotEmpty() }
+        defs.singleOrNull()?.let {
             return vnOfDef[it]!!
         }
         return vnOfJoin.getOrPut(v) {

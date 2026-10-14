@@ -18,6 +18,7 @@
 package analysis.opt
 
 import datastructures.stdcollections.*
+import instrumentation.transformers.DSAChecker
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -408,5 +409,41 @@ class BranchAwareSimplifierTest : TACBuilderAuxiliaries() {
         val rewritten = BranchAwareSimplifier.rewrite(prog.code)
         assertEquals(prog.code.rhsOf(d), rewritten.rhsOf(d))
         assertEquals(prog.code.rhsOf(x), rewritten.rhsOf(x))
+    }
+
+    /**
+     * Arm-local reads at a join with a third, non-defining predecessor fold within their arms, each to its own
+     * arm's value, and the result keeps the shape the checker accepted.
+     */
+    @Test
+    fun armLocalReadsAtAnUncleanJoinFoldInTheirArms() {
+        val prog = TACProgramBuilder {
+            havoc(x)
+            havoc(y)
+            jumpCond(x)
+            jump(1) {
+                c assign 5
+                d assign Add(cS, 1.asTACExpr)
+                jump(4)
+            }
+            jump(2) {
+                jumpCond(y)
+                jump(3) {
+                    c assign 7
+                    e assign Add(cS, 1.asTACExpr)
+                    jump(4)
+                }
+                jump(5) {
+                    jump(4)
+                }
+            }
+            jumpDest(4) {
+                assert(x)
+            }
+        }
+        val result = BranchAwareSimplifier.rewrite(prog.code)
+        assertEquals(6.asTACExpr, result.rhsOf(d))
+        assertEquals(8.asTACExpr, result.rhsOf(e))
+        assertTrue(DSAChecker.nonDsaVars(result).isEmpty)
     }
 }

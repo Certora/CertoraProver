@@ -514,6 +514,74 @@ class BranchAwareGlobalValueNumberingTest : TACBuilderAuxiliaries() {
     }
 
     /**
+     * The same arm-local reads, at a join with a third predecessor that defines nothing: the shape optimizations
+     * past [instrumentation.transformers.DSAToSSA] leave when they drop the definitions nothing read. The program is
+     * accepted, and each read is still its own arm's value - the join, which no read sits below, is never asked
+     * about.
+     */
+    @Test
+    fun anArmLocalReadAtAnUncleanJoinIsTheArmsOwnValue() {
+        val prog = TACProgramBuilder {
+            havoc(a)
+            havoc(b)
+            havoc(x)
+            havoc(y)
+            jumpCond(x)
+            jump(1) {
+                c assign Add(aS, bS)
+                d assign Add(cS, 1.asTACExpr)
+                jump(4)
+            }
+            jump(2) {
+                jumpCond(y)
+                jump(3) {
+                    c assign Mul(aS, bS)
+                    e assign Add(cS, 1.asTACExpr)
+                    jump(4)
+                }
+                jump(5) {
+                    jump(4)
+                }
+            }
+            jumpDest(4) {
+                assert(x)
+            }
+        }
+        val gvn = prog.gvn()
+        assertEquals(gvn.vnOfDef[prog.defsOf(c)[0]], gvn.valueNumberOf(c, prog.block(1)))
+        assertEquals(gvn.vnOfDef[prog.defsOf(c)[1]], gvn.valueNumberOf(c, prog.block(3)))
+        assertNotEquals(gvn.vn(prog, d), gvn.vn(prog, e))
+    }
+
+    /**
+     * An arm was cut into a leaf and still defines `c`: below the other arm, `c` is that arm's value alone, not a
+     * decision tree over both, which would need a join that is not there.
+     */
+    @Test
+    fun aLeafArmsDefinitionIsNotPartOfTheValueBelowTheOtherArm() {
+        val prog = TACProgramBuilder {
+            havoc(a)
+            havoc(b)
+            havoc(x)
+            jumpCond(x)
+            jump {
+                c assign Add(aS, bS)
+                d assign Add(cS, 1.asTACExpr)
+            }
+            jump {
+                c assign Mul(aS, bS)
+                jump(1) {
+                    e assign Add(cS, 1.asTACExpr)
+                    assert(x)
+                }
+            }
+        }
+        val gvn = prog.gvn()
+        val onwards = prog.defsOf(c).single { prog.code.analysisCache.graph.succ(it.block).isNotEmpty() }
+        assertEquals(gvn.vnOfDef[onwards], gvn.valueNumberOf(c, prog.block(1)))
+    }
+
+    /**
      * A bound variable has no definition, so it is numbered as itself - which is sound only because
      * [instrumentation.transformers.UniqueifyBoundVars] has made bound names unique. Two formulas binding the same
      * name over the same body therefore agree, and two binding different names do not, even when they say the same

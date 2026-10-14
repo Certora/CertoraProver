@@ -243,4 +243,76 @@ class DsaDefAnalysisTest : TACBuilderAuxiliaries() {
             }
         }
     }
+
+    /**
+     * Two arms define `a` and read it themselves, and the join has a third predecessor that does not define it -
+     * the shape optimizations past [instrumentation.transformers.DSAToSSA] leave behind. With no read below the
+     * join, the join's other predecessors do not matter: every read is one its own arm's definition answers.
+     */
+    @Test
+    fun armLocalReadsAtAnUncleanJoin() {
+        val prog = TACProgramBuilder {
+            havoc(x)
+            havoc(y)
+            jumpCond(x)
+            jump(1) {
+                label("def1")
+                a assign 1
+                label("use1")
+                b assign Add(aS, 1.asTACExpr)
+                jump(4)
+            }
+            jump(2) {
+                jumpCond(y)
+                jump(3) {
+                    label("def2")
+                    a assign 2
+                    label("use2")
+                    c assign Add(aS, 1.asTACExpr)
+                    jump(4)
+                }
+                jump(5) {
+                    jump(4)
+                }
+            }
+            jumpDest(4) {
+                assert(x)
+            }
+        }
+        DSAChecker.checkDSA(prog.code)
+        prog.assertDef(a, "use1", "def1")
+        prog.assertDef(a, "use2", "def2")
+        val strict = prog.code.analysisCache.strictDef
+        assertEquals(setOf(prog.ptr("def1")), strict.defSitesOf(a, prog.ptr("use1")))
+        assertEquals(setOf(prog.ptr("def2")), strict.defSitesOf(a, prog.ptr("use2")))
+    }
+
+    /**
+     * An arm was cut into a leaf and still defines `a`: its definition answers the reads in it, and below the other
+     * arm only that arm's definition does.
+     */
+    @Test
+    fun armCutIntoALeaf() {
+        val prog = TACProgramBuilder {
+            havoc(x)
+            jumpCond(x)
+            jump {
+                label("def1")
+                a assign 1
+                label("use1")
+                assumeExp(Eq(aS, 2.asTACExpr))
+            }
+            jump {
+                label("def2")
+                a assign 2
+                jump(1) {
+                    label("use2")
+                    assumeExp(Eq(aS, 2.asTACExpr))
+                }
+            }
+        }
+        DSAChecker.checkDSA(prog.code)
+        prog.assertDef(a, "use1", "def1")
+        prog.assertDef(a, "use2", "def2")
+    }
 }

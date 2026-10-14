@@ -23,14 +23,17 @@ import datastructures.memoized
 import datastructures.stdcollections.*
 import instrumentation.transformers.DSAChecker
 import tac.NBId
+import utils.filterToSet
 import vc.data.AnalysisCache
 import vc.data.TACSymbol
 
 /**
  * Def analysis for a program in diamond-DSA form, where a variable is assigned either once, at a site dominating all
- * its uses, or once per arm of a clean diamond and then read below the join, or inside one of the arms. That makes
- * reaching definitions structural: the single definition reaches every use; of several, a read below the join is
- * reached by all of them, and a read inside an arm only by that arm's. So unlike [StrictDefAnalysis], which answers
+ * its uses, or once per arm of a clean diamond and then read below the join, or inside one of the arms. A join with
+ * other predecessors too is allowed when every read is inside the arms, which never asks what the join sees, and an
+ * arm cut into a leaf block counts only for the reads after it in that block. That
+ * makes reaching definitions structural: the single definition reaches every use; of several, a read below the join
+ * is reached by all of them, and a read inside an arm only by that arm's. So unlike [StrictDefAnalysis], which answers
  * the same question for an arbitrary program with a forward block dataflow, this is one pass over the commands into
  * two maps - the single-def variables, which are nearly all of them, to their definition, and the multi-def ones to
  * their arm definitions - and no dataflow and no dominance, only a look at the block the read is in.
@@ -42,7 +45,7 @@ import vc.data.TACSymbol
  * Note that currently, such a pure DSA form exists only after the [instrumentation.transformers.TACDSA.simplify] call
  * in [verifier.AbstractTACChecker].
  */
-class DsaDefAnalysis private constructor(graph: TACCommandGraph) : IDefAnalysis {
+class DsaDefAnalysis private constructor(private val graph: TACCommandGraph) : IDefAnalysis {
     companion object : AnalysisCache.Key<TACCommandGraph, DsaDefAnalysis> {
         override fun createCached(graph: TACCommandGraph) = DsaDefAnalysis(graph)
     }
@@ -71,6 +74,14 @@ class DsaDefAnalysis private constructor(graph: TACCommandGraph) : IDefAnalysis 
     }
 
     /**
+     * The arm definitions of a multi-def variable that reach beyond their block, built once: a definition in a leaf
+     * block - an arm that was cut - reaches no read outside it (see [DSAChecker]).
+     */
+    private val onwardSites = memoized { v: TACSymbol.Var ->
+        armSites(v).filterToSet { graph.succ(it.block).isNotEmpty() }
+    }
+
+    /**
      * Every definition of [v]: its single one, or one per arm. Empty when [v] is never assigned. These are also
      * the definitions reaching a read below the join, the arms all reaching it.
      */
@@ -81,11 +92,13 @@ class DsaDefAnalysis private constructor(graph: TACCommandGraph) : IDefAnalysis 
 
     /**
      * The definitions of [v] reaching [pointer]: all of them, except at a read inside one of the arms, which only
-     * that arm's definition reaches. DSA leaves no other place for the read to be, so no dominance query is needed
-     * to tell the two apart - the reading block either holds a definition or is below the join.
+     * that arm's definition reaches, and those in leaf blocks, which reach only reads in their block. DSA leaves no
+     * other place for the read to be, so no dominance query is needed to tell the two apart - the reading block
+     * either holds a definition or is below the join (or below the one definition going on).
      */
     override fun defSitesOf(v: TACSymbol.Var, pointer: CmdPointer): Set<CmdPointer> =
-        multi[v]
-            ?.get(pointer.block)?.let(::setOf)
-            ?: defSitesOf(v)
+        single[v]
+            ?.let(::setOf)
+            ?: multi[v]?.get(pointer.block)?.let(::setOf)
+            ?: onwardSites(v)
 }

@@ -28,9 +28,8 @@ class DSACheckerTest : TACBuilderAuxiliaries() {
 
     /**
      * Two sibling def blocks of `a` flow into a join that has a third, non-defining predecessor, and each arm reads
-     * `a` after defining it. The join is not clean, and a use inside a defining block is not dominated by it either,
-     * so `a` is `badDefForm`. An earlier, weaker definition accepted this shape as long as no use escaped the def
-     * blocks; the pipeline produces it only past `DSAToSSA`, never where the DSA-dependent analyses run.
+     * `a` after defining it. The join is not clean, but no use escapes the arms, so `a` is DSA-good. The pipeline
+     * produces this past `DSAToSSA` (CERT-10112), and the pre-solver `checkFinalDSA` must accept it.
      */
     @Test
     fun testSiblingDefsWithExtraJoinPredecessorAndAllUsesLocal() {
@@ -59,7 +58,9 @@ class DSACheckerTest : TACBuilderAuxiliaries() {
                 nop
             }
         }
-        assertEquals(setOf(a), DSAChecker.nonDsaVars(prog.code).badDefForm)
+        assert(DSAChecker.nonDsaVars(prog.code).isEmpty) {
+            "expected DSA-good; got ${DSAChecker.nonDsaVars(prog.code)}"
+        }
     }
 
     /**
@@ -92,6 +93,129 @@ class DSACheckerTest : TACBuilderAuxiliaries() {
             }
         }
         assertEquals(setOf(a), DSAChecker.nonDsaVars(prog.code).badDefForm)
+    }
+
+    /**
+     * The unclean join again, with every use inside the arms, but one of them before its arm's definition. With no
+     * clean join to fall back on, that is a shape violation.
+     */
+    @Test
+    fun testSiblingDefsWithExtraJoinPredecessorAndArmLocalUseBeforeDef() {
+        val prog = TACProgramBuilder {
+            havoc(x)
+            havoc(y)
+            jumpCond(x)
+            jump {
+                assumeExp(Eq(aS, 1.asTACExpr))
+                a assign 1
+                jump(1)
+            }
+            jump {
+                jumpCond(y)
+                jump {
+                    a assign 2
+                    assumeExp(Eq(aS, 2.asTACExpr))
+                    jump(1)
+                }
+                jump {
+                    jump(1)
+                }
+            }
+            jumpDest(1) {
+                nop
+            }
+        }
+        assertEquals(setOf(a), DSAChecker.nonDsaVars(prog.code).badDefForm)
+    }
+
+    /**
+     * One arm was cut into a leaf - after an `assume false` - and still defines `a`, which it reads after defining
+     * it. Its definition reaches nothing outside it, so the other arm's is the only one going on, read below it like
+     * a single definition.
+     */
+    @Test
+    fun testArmCutIntoALeafIsSetAside() {
+        val prog = TACProgramBuilder {
+            havoc(x)
+            jumpCond(x)
+            jump {
+                a assign 1
+                assumeExp(Eq(aS, 2.asTACExpr))
+            }
+            jump {
+                a assign 2
+                jump(1) {
+                    assumeExp(Eq(aS, 2.asTACExpr))
+                }
+            }
+        }
+        assert(DSAChecker.nonDsaVars(prog.code).isEmpty) {
+            "expected DSA-good; got ${DSAChecker.nonDsaVars(prog.code)}"
+        }
+    }
+
+    /** A leaf defining `a` below another definition of it: `a` is assigned twice on that path. */
+    @Test
+    fun testLeafDefinitionBelowAnotherDefinition() {
+        val prog = TACProgramBuilder {
+            a assign 1
+            jump(1) {
+                a assign 2
+                assumeExp(Eq(aS, 2.asTACExpr))
+            }
+        }
+        assertEquals(setOf(a), DSAChecker.nonDsaVars(prog.code).badDefForm)
+    }
+
+    /**
+     * A leaf defining `a` below the join of two arms defining it: on the way through either arm, `a` is assigned
+     * twice. The leaf is not dominated by either arm's definition, only reached from both through the join.
+     */
+    @Test
+    fun testLeafDefinitionBelowAJoin() {
+        val prog = TACProgramBuilder {
+            havoc(x)
+            havoc(y)
+            jumpCond(x)
+            jump {
+                a assign 1
+                jump(1) {
+                    jumpCond(y)
+                    jump {
+                        a assign 3
+                        assumeExp(Eq(aS, 3.asTACExpr))
+                    }
+                    jump {
+                        assumeExp(Eq(aS, 2.asTACExpr))
+                    }
+                }
+            }
+            jump {
+                a assign 2
+                jump(1)
+            }
+        }
+        assertEquals(setOf(a), DSAChecker.nonDsaVars(prog.code).badDefForm)
+    }
+
+    /** The cut arm reads `a` before its own definition, which no other definition reaches: undefined there. */
+    @Test
+    fun testLeafReadBeforeItsDefinition() {
+        val prog = TACProgramBuilder {
+            havoc(x)
+            jumpCond(x)
+            jump {
+                assumeExp(Eq(aS, 1.asTACExpr))
+                a assign 1
+            }
+            jump {
+                a assign 2
+                jump(1) {
+                    assumeExp(Eq(aS, 2.asTACExpr))
+                }
+            }
+        }
+        assertEquals(setOf(a), DSAChecker.nonDsaVars(prog.code).useBeforeDef)
     }
 
     /** A clean diamond, read below the join: the shape every DSA-dependent analysis relies on. */
