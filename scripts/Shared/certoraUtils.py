@@ -99,7 +99,7 @@ EMV_JAR = Path("emv.jar")
 CERTORA_SOURCES = Path(".certora_sources")
 SOLANA_INLINING = "solana_inlining"
 SOLANA_SUMMARIES = "solana_summaries"
-CARGO_TOML_FILE = "cargo.toml"
+CARGO_TOML_FILE = "Cargo.toml"
 
 ALPHA_PACKAGE_NAME = 'certora-cli-alpha'
 ALPHA_PACKAGE_MASTER_NAME = ALPHA_PACKAGE_NAME + '-master'
