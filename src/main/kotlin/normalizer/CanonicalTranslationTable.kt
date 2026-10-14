@@ -218,7 +218,7 @@ class CanonicalTranslationTable private constructor(
 
     fun <T : TACCmd.Spec, TAC> build(ctp: TAC)
         where TAC : TACProgram<T>, TAC : InstrumentedTAC {
-        ctp.dfs { nbid, commands ->
+        fun visit(nbid: NBId, commands: List<T>) {
             mapNBId(nbid).also { logger.trace { "Visiting block-id $nbid -> $it" } }
             for (cmd in commands) {
                 varNameMapper.unorderedVarAccess(cmd)
@@ -226,6 +226,16 @@ class CanonicalTranslationTable private constructor(
                 mapSpec(cmd)
             }
         }
+
+        ctp.dfs { nbid, commands -> visit(nbid, commands) }
+
+        // The DFS reaches only the blocks reachable from the entry. Blocks unreachable from the entry are
+        // still part of the code map and get mapped in CanonicalTACProgram, so they must be in the table
+        // before freezing. Visit them here in a deterministic order.
+        ctp.code.entries
+            .filter { (nbid, _) -> nbid !in nbidsMapper.table }
+            .sortedBy { (nbid, _) -> nbid.toString() }
+            .forEach { (nbid, commands) -> visit(nbid, commands) }
 
         ctp.symbolTable.uninterpretedFunctions()
             .sortedBy { it.copy(name = "").toString() }
