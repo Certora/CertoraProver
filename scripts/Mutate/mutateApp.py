@@ -388,20 +388,24 @@ def print_separator(txt: str) -> None:
 def wait_for_job(report_url: str) -> bool:
     attempts = 50
     sleep_time_in_sec = 10
-    job_status_url = report_url.replace('/output/', '/jobData/')
+    try:
+        job_status_url = WebFetcher.build_job_url(report_url)
+    except Util.CertoraUserInputError as e:
+        mutation_logger.debug(f"Could not derive a job id from {report_url}: {e}")
+        return False
 
     for _ in range(attempts):
         try:
-            resp = requests.get(job_status_url)
+            resp = requests.get(job_status_url, headers=auth_headers)
         except requests.exceptions.MissingSchema:
             return False
         except requests.RequestException:
             return False
 
         if resp.status_code == 200:
-            if resp.json()['jobStatus'] == 'SUCCEEDED':
+            if resp.json()[MConstants.JOB_STATUS_FIELD] == 'SUCCEEDED':
                 return True
-            if resp.json()['jobStatus'] == 'FAILED':
+            if resp.json()[MConstants.JOB_STATUS_FIELD] == 'FAILED':
                 return False
         else:
             return False
@@ -490,18 +494,13 @@ class WebUtils:
         self.request_timeout = args.request_timeout
         if args.server == MConstants.STAGING:
             domain = MConstants.STAGING_DOTCOM
-            mutation_test_domain = MConstants.MUTATION_TEST_REPORT_STAGING
         elif args.server == MConstants.PRODUCTION:
             domain = MConstants.PROVER_DOTCOM
-            mutation_test_domain = MConstants.MUTATION_TEST_REPORT_PRODUCTION
         elif args.server == MConstants.DEV:
             domain = MConstants.DEV_DOTCOM
-            mutation_test_domain = MConstants.MUTATION_TEST_REPORT_DEV
         else:
             raise Util.CertoraUserInputError(f"Invalid server name {args.server}")
-        self.mutation_test_id_url = f"https://{domain}/v1/domain/mutation-tests/initiate/"
-        self.mutation_test_submit_final_result_url = f"https://{domain}/mutationTesting/getUploadInfo/"
-        self.mutation_test_final_result_url = f"https://{mutation_test_domain}"
+        self.mutation_test_id_url = f"{Util.get_api_domain(f'https://{domain}')}/v1/domain/mutation-tests/initiate/"
         mutation_logger.debug(f"Using server {args.server} with mutation_test_id_url {self.mutation_test_id_url}")
 
     def put_response_with_timeout(self, url: str, data: Any, headers: UserDict) -> Optional[requests.Response]:
@@ -549,16 +548,17 @@ class WebUtils:
                 mutation_logger.debug(f"attempt {i} failed to put url {url}. {e}")
         return None
 
-    def get_response_with_timeout(self, url: str,
-                                  cookies: Dict[str, str] = {}, stream: bool = False) -> Optional[requests.Response]:
+    def get_response_with_timeout(self, url: str, stream: bool = False,
+                                  headers: Optional[UserDict] = None) -> Optional[requests.Response]:
         """
         Executes a get request and returns the response, uses a timeout mechanism
 
         Args
         ----
             url (str): the URL to send a GET request to
-            cookies (dict[str, str]): an optional set of cookies/request data
             stream (bool): use a lazy way to download large files
+            headers (Optional[UserDict]): an optional set of request headers, for example the
+                `Authorization` header a `/v1/domain/jobs/*` read needs
 
         Returns
         -------
@@ -566,7 +566,7 @@ class WebUtils:
         """
         for i in range(self.max_timeout_attempts_count):
             try:
-                resp = requests.get(url, timeout=self.request_timeout, cookies=cookies, stream=stream)
+                resp = requests.get(url, timeout=self.request_timeout, stream=stream, headers=headers)
                 return resp
             except Exception:
                 mutation_logger.info(f"attempt {i} failed to get url {url}.")
@@ -577,8 +577,7 @@ class WebUtils:
 
 
 def check_key_exists() -> None:
-    if KEY_ENV_VAR not in os.environ:
-        raise Util.CertoraUserInputError("Cannot run mutation testing without a Certora key.")
+    Cv.validate_certora_key()
 
 
 class TreeViewStatus(StrEnum):
@@ -643,10 +642,22 @@ def mutant_object_from_path(manual_mutant: Path, orig_file: Path) -> Mutant:
 
 
 class WebFetcher:
+    """
+    Reads job data, status, and tree view from `/v1/domain/jobs/{id}`. All reads carry the
+    CERTORAKEY as an `Authorization: Bearer` header, since these routes do not accept a
+    query-parameter credential.
+    """
+
+    # Matches a job id embedded in one of the three URL shapes a caller can pass in:
+    # a legacy `/output/{user_id}/{job_id}` report link, a legacy `/jobStatus/{user_id}/{job_id}`
+    # status link, or a current `/v1/domain/jobs/{job_id}` read link. The legacy shapes must keep
+    # parsing, because `--orig_run` accepts a URL a user pasted from a run that predates this change.
+    JOB_ID_PATTERN = re.compile(
+        r"^/(?:output|jobStatus)/\d+/([0-9a-fA-F]+)/?$|^/v1/domain/jobs/([0-9a-fA-F-]+)/?$"
+    )
+
     def __init__(self, _web_utils: WebUtils, debug: bool = False):
         self.web_utils = _web_utils
-        self.verification_report_path_pattern = re.compile(r"^\/output\/\d+\/[0-9a-fA-F]*(\/)?$")
-        self.job_status_path_pattern = re.compile(r"^\/jobStatus\/\d+\/[0-9a-fA-F]*(\/)?$")
         self.debug = debug
 
     @staticmethod
@@ -654,38 +665,35 @@ class WebFetcher:
         parsed_url = urllib3.util.parse_url(url)
         return parsed_url.path
 
-    def get_resource_url(self, url: str, keyword: str) -> str:
-        url_path = self.get_url_path(url)
+    @classmethod
+    def extract_job_id(cls, url: str) -> str:
+        """Extracts the job id from a report URL, in whichever of the three known shapes it has."""
+        url_path = cls.get_url_path(url)
         if not url_path:
             raise Util.CertoraUserInputError(f"Invalid URL was provided: {url}")
-
-        # we check both the status page and the verification report for
-        # backward compatibility
-        if re.match(self.verification_report_path_pattern, url_path):
-            resource_url = url.replace(MConstants.OUTPUT, keyword)
-        elif re.match(self.job_status_path_pattern, url_path):
-            resource_url = url.replace(MConstants.JOB_STATUS, keyword)
-        else:
+        match = cls.JOB_ID_PATTERN.match(url_path)
+        if not match:
             raise Util.CertoraUserInputError(f"Unknown URL was provided: {url}")
-        return resource_url
+        return match.group(1) or match.group(2)
 
-    def get_output_json(self, url: str) -> Optional[Dict[str, Any]]:
-        output_url = self.get_resource_url(url, MConstants.OUTPUT)
-        return self.parse_response(
-            get_file_url_from_orig_url(output_url, MConstants.OUTPUTJSON),
-            MConstants.OUTPUTJSON
-        )
+    @classmethod
+    def build_job_url(cls, url: str, suffix: str = "") -> str:
+        """Callers hold a report URL and not a job id, so this takes the URL and uses the API host for its host."""
+        job_id = cls.extract_job_id(url)
+        parsed_url = urllib3.util.parse_url(url)
+        api_domain = Util.get_api_domain(f"{parsed_url.scheme}://{parsed_url.netloc}")
+        return f"{api_domain}/v1/domain/jobs/{job_id}{suffix}"
 
     def get_treeview_json(self, url: str) -> Optional[Dict[str, Any]]:
-        progress_url = self.get_resource_url(url, MConstants.PROGRESS)
-        return self.parse_response(progress_url, "treeview.json")
+        treeview_url = self.build_job_url(url, "/tree-view")
+        return self.parse_response(treeview_url, "tree view")
 
     def get_job_data(self, url: str) -> Optional[Dict[str, Any]]:
-        job_data_url = self.get_resource_url(url, MConstants.JOB_DATA)
+        job_data_url = self.build_job_url(url)
         return self.parse_response(job_data_url, "job data")
 
     def parse_response(self, url: str, resource: str) -> Optional[Dict[str, Any]]:
-        response = self.web_utils.get_response_with_timeout(url)
+        response = self.web_utils.get_response_with_timeout(url, headers=auth_headers)
         if response is None or response.status_code != 200:
             mutation_logger.debug(f"Got bad response code when fetching {resource} "
                                   f"{response.status_code if response else ''}")
@@ -723,6 +731,8 @@ class MutateApp:
 
     def __init__(self, args_list: List[str]) -> None:
         self.mutation_test_id = ''
+        # The app link to the mutation test that the server sends for API keys. It stays empty for legacy keys.
+        self.mutation_url = ''
         self.numb_of_jobs: int = 0
         self.backup_path: Optional[Path] = None
         self.sources_dir: Optional[Path] = None
@@ -806,8 +816,8 @@ class MutateApp:
         if not self.orig_run:
             raise Util.ImplementationError("URL for original run is null")
         web_utils = WebUtils(SimpleNamespace(**vars(self)))
-        zip_output_url = self.orig_run.replace(MConstants.OUTPUT, MConstants.ZIPOUTPUT)
-        response = web_utils.get_response_with_timeout(zip_output_url, stream=True, cookies=default_cookies)
+        zip_output_url = WebFetcher.build_job_url(self.orig_run, "/f/outputs")
+        response = web_utils.get_response_with_timeout(zip_output_url, stream=True, headers=auth_headers)
         if not response:
             raise RuntimeError("Could not fetch zip output from previous run. "
                                "Try running certoraMutate with a conf file.")
@@ -833,6 +843,8 @@ class MutateApp:
             dashboard = MConstants.MUTATION_DASHBOARD_DEV
         else:
             dashboard = MConstants.MUTATION_DASHBOARD_PRODUCTION
+        if self.mutation_url:
+            dashboard = self.mutation_url
         print(
             f"You will receive an email notification when this mutation test is completed. It may take several hours.\n"
             f"You can follow the test's progress at {dashboard}"
@@ -1554,12 +1566,20 @@ class MutateApp:
             original_filename="",
             name=MConstants.ORIGINAL
         )
+        # `test_results.original` can be a legacy `/jobStatus/{user}/{id}` link, which this rewrites
+        # to the matching `/output/{user}/{id}` report link, or a `/v1/domain/jobs/{id}` link, which
+        # has no browsable report counterpart. Leave the latter unchanged rather than emit a broken
+        # link: `--orig_run` accepts both shapes, and this field is shown to a human.
+        if f"/{MConstants.JOB_STATUS}/" in test_results.original:
+            rule_report_link = test_results.original.replace(MConstants.JOB_STATUS, MConstants.OUTPUT)
+        else:
+            rule_report_link = test_results.original
         mutant_job = MutantJob(
             gambit_mutant=orig_mutant,
             link=test_results.original,
             success=True,
             run_directory="",
-            rule_report_link=test_results.original.replace(MConstants.JOB_STATUS, MConstants.OUTPUT)
+            rule_report_link=rule_report_link
         )
         original_run_results = MutantJobWithResults(
             mutant_job=mutant_job,
@@ -1708,20 +1728,9 @@ class MutateApp:
         if MConstants.ID not in resp_obj or MConstants.COLLECT_SIGNED_URL not in resp_obj:
             raise RuntimeError(f"invalid server response, mutation test failed: {resp_obj}")
 
+        mutation_url = resp_obj.get("mutationUrl")
+        self.mutation_url = mutation_url if isinstance(mutation_url, str) else ''
         return resp_obj[MConstants.ID], resp_obj[MConstants.COLLECT_SIGNED_URL]
-
-    def get_mutation_test_final_report_url(self, web_utils: WebUtils) -> Tuple[str, str, str]:
-        mutation_logger.debug("Getting mutation test final report URL")
-        url = web_utils.mutation_test_submit_final_result_url
-        resp = web_utils.get_response_with_timeout(url, cookies=default_cookies)
-        if not resp:
-            raise Util.CertoraUserInputError("Failed to get the mutation test report URL")
-        mutation_logger.debug(f"Got response: {resp.status_code}")
-        resp_obj = resp.json()
-        if MConstants.ID in resp_obj and MConstants.PRE_SIGNED_URL in resp_obj and MConstants.ANONYMOUS_KEY in resp_obj:
-            return resp_obj[MConstants.ID], resp_obj[MConstants.ANONYMOUS_KEY], resp_obj[MConstants.COLLECT_SIGNED_URL]
-        else:
-            raise RuntimeError(f"Couldn't generate the report URL: {resp_obj}")
 
     @staticmethod
     def upload_file_to_cloud_storage(web_utils: WebUtils, presigned_url: str, data: Any) -> None:
@@ -1749,7 +1758,7 @@ class MutateApp:
         if job_data is None:
             raise Util.ImplementationError(f"failed to get job data for {link}")
 
-        job_status = job_data.get(MConstants.JOB_STATUS, "")
+        job_status = job_data.get(MConstants.JOB_STATUS_FIELD, "")
         if job_status == FinalJobStatus.HALTED:
             raise RunTimedout()
         if job_status not in FinalJobStatus.get_statuses():
@@ -1758,10 +1767,10 @@ class MutateApp:
 
         # now we no longer use output_json
 
-        progress_json = fetcher.get_treeview_json(link)
-        if progress_json is None:
-            raise Util.ImplementationError("Could not get progress object")
-        top_level_rules = get_top_level_rules(progress_json)
+        tree_view_json = fetcher.get_treeview_json(link)
+        if tree_view_json is None:
+            raise Util.ImplementationError("Could not get tree view object")
+        top_level_rules = get_top_level_rules(tree_view_json)
         if top_level_rules is None:
             raise Util.BadMutationError("Could not get tree view object")
         rule_results = []
@@ -1795,14 +1804,6 @@ class MutateApp:
                 rule_results.append(RuleResult(name, MutationTestRuleStatus.SUCCESS.value))
 
         return rule_results
-
-    def print_final_report_url_msg(self, url: str, mutation_id: str, anonymous_key: str) -> None:
-        final_url = f"{url}?id={mutation_id}&{MConstants.ANONYMOUS_KEY}={anonymous_key}"
-        Console().print(f"\n\n[bold orange4]Final mutation report is available at {Util.print_rich_link(final_url)}\n")
-
-        if self.dump_link:
-            with open(self.dump_link, "w") as file:
-                file.write(final_url)
 
     def read_ui_file(self) -> Any:
         if not self.ui_out:
@@ -1951,22 +1952,13 @@ def rec_collect_statuses_children(rule: Dict[str, Any], statuses: List[str]) -> 
         rec_collect_statuses_children(child, statuses)
 
 
-def get_file_url_from_orig_url(url: str, file: str) -> str:
-    parsed_url = urllib3.util.parse_url(url)
-    file_url = f"{parsed_url.scheme}://{parsed_url.hostname}{parsed_url.path}"
-    # ensure there is a single slash
-    if not file_url.endswith("/"):
-        file_url += "/"
-    file_url += f"{file}?{parsed_url.query}"
-    return file_url
-
-
-def get_top_level_rules(progress_json: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
-    if MConstants.VERIFICATION_PROGRESS not in progress_json:
-        mutation_logger.debug(f"Could not find {MConstants.VERIFICATION_PROGRESS} in progress {progress_json}")
-        return None
-    # verification progress holds a string which is a json encoding of the latest tree view file
-    tree_view_json = json.loads(progress_json[MConstants.VERIFICATION_PROGRESS])
+def get_top_level_rules(tree_view_json: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+    """
+    Extracts the top-level rule list from a `/v1/domain/jobs/{id}/tree-view` body.
+    That endpoint serves the tree view file directly, so `rules` sits at the top level. This
+    differs from the retired `/progress/` route, which wrapped the same file as a JSON-encoded
+    string under a `verificationProgress` key.
+    """
     if MConstants.RULES not in tree_view_json:
         mutation_logger.debug(f"Could not find rules in tree view file {tree_view_json}")
         return None
@@ -1974,21 +1966,22 @@ def get_top_level_rules(progress_json: Dict[str, Any]) -> Optional[List[Dict[str
 
 
 certora_key = os.getenv(KEY_ENV_VAR, '')
-auth_headers = UserDict({"Authorization": f"Bearer {certora_key}", "Content-Type": "application/json"})
-default_cookies = {str(MConstants.CERTORA_KEY): certora_key}
+auth_headers = UserDict({**Util.api_headers(certora_key), "Content-Type": "application/json"})
 
 
 def download_report_file(report_url: str, filename: str) -> bool:
     """
-    Copy a file from the "Reports" folder to the current working dir with the same file name
-    url to specific report file is of the form https://<server>/output/NNN/MMM/<filename>?anonymousKey=PPPPP
-    (i.e. in the report url add the filename before ?anonymousKey)
-    False is returned if the file was not found or if the download did not succeed
+    Copies a file from a job's file store to the current working directory, under the same name.
+    Returns False if the file does not exist yet, or if the download did not succeed.
     """
     time.sleep(5)  # make sure the file was written
-    url = report_url.replace('?', f'/{filename}?')
     try:
-        response = requests.get(url)
+        url = WebFetcher.build_job_url(report_url, f"/f/{filename}")
+    except Util.CertoraUserInputError as e:
+        mutation_logger.debug(f"Could not derive a job id from {report_url}: {e}")
+        return False
+    try:
+        response = requests.get(url, headers=auth_headers)
     except requests.exceptions.RequestException as e:
         logging.debug(f"request for {url} failed: {e}")
         return False

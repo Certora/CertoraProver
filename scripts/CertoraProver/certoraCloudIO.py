@@ -299,11 +299,24 @@ def output_error_response(response: Response) -> None:
         print(response.text)
 
 
-def is_success_response(json_response: Dict[str, Any], status_url: str = "") -> bool:
+def get_response_detail(response: Response) -> Optional[str]:
     """
-    @param json_response:
-    @param status_url:
-    @return: False when the server response missing the success field or success value False
+    Both server error shapes the CLI can see on /v3/cli/verify (an RFC 7807 problem body and a
+    plain exception body) carry a top-level string "detail", so one read path covers both.
+    """
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    detail = body.get("detail") if isinstance(body, dict) else None
+    return detail if isinstance(detail, str) else None
+
+
+def is_success_response(json_response: Dict[str, Any], report_url: str = "") -> bool:
+    """
+    @param json_response: the body of a /v1/domain/jobs/{id}/logs page
+    @param report_url: appended to the server's message, so the user can open the job report
+    @return: False when the server response is missing the success field, or success is False
     """
     if "success" not in json_response:
         cloud_logger.error(f"{GENERAL_ERR_PREFIX}"  "The server returned an unexpected response:")
@@ -311,8 +324,8 @@ def is_success_response(json_response: Dict[str, Any], status_url: str = "") -> 
         print(CONTACT_CERTORA_MSG)
         return False
     if not json_response["success"]:
-        if "errorString" in json_response:
-            cloud_logger.error(f'{json_response["errorString"]} {status_url}')
+        if "error_string" in json_response:
+            cloud_logger.error(f'{json_response["error_string"]} {report_url}')
         else:
             cloud_logger.error(f"{GENERAL_ERR_PREFIX}"  "The server returned an error with no message:")
             print(json_response)
@@ -326,9 +339,9 @@ def print_conn_error() -> None:
     print(f"For further information, {CONTACT_CERTORA_MSG}", flush=True)
 
 
-def look_for_path(path: str) -> Optional[Response]:
+def look_for_path(path: str, headers: Optional[Dict[str, str]] = None) -> Optional[Response]:
     try:
-        r = requests.get(path, timeout=10)
+        r = requests.get(path, timeout=10, headers=headers)
         if r.status_code == requests.codes.ok:
             return r
     except (requests.exceptions.Timeout, requests.exceptions.RequestException, ConnectionError):
@@ -336,13 +349,14 @@ def look_for_path(path: str) -> Optional[Response]:
     return None
 
 
-def fetch_results_from_web(output_url: str, max_attempts: int, delay_between_attempts_seconds: int) -> \
+def fetch_results_from_web(output_url: str, max_attempts: int, delay_between_attempts_seconds: int,
+                           headers: Optional[Dict[str, str]] = None) -> \
         Optional[Union[Dict[str, Any], List[Dict[str, Any]]]]:
     attempts = 0
     actual = None
     while actual is None and attempts < max_attempts:
         attempts += 1
-        response = look_for_path(output_url)
+        response = look_for_path(output_url, headers)
         try:  # read as json
             if response is not None:
                 actual = response.json()
@@ -358,7 +372,8 @@ def check_results_from_web(output_url: str,
                            max_attempts: int,
                            delay_between_attempts_seconds: int,
                            expected_filename: str,
-                           report_url: str) -> bool:
+                           report_url: str,
+                           headers: Optional[Dict[str, str]] = None) -> bool:
     """
     Returns true if the actual results match the expected results.
     @param output_url - URL of output.json
@@ -367,8 +382,9 @@ def check_results_from_web(output_url: str,
     @param expected_filename - name of the expected file to compare output.json to. If the expected file
                                 does not exist, will require all rules to succeed
     @param report_url - a full report URL to refer the user to in case output.json does not exist
+    @param headers - request headers, used to carry the CERTORAKEY as an Authorization bearer token
     """
-    actual = fetch_results_from_web(output_url, max_attempts, delay_between_attempts_seconds)
+    actual = fetch_results_from_web(output_url, max_attempts, delay_between_attempts_seconds, headers)
     if actual is None:
         # Could not find actual results file output.json... print report URL for more details
         cloud_logger.error(f"{GENERAL_ERR_PREFIX}"  f"Could not find job results, please refer to {report_url} for"
@@ -377,8 +393,9 @@ def check_results_from_web(output_url: str,
     return Util.check_results(cast(dict, actual), expected_filename)
 
 
-def save_features_json_from_web(output_url: str, max_attempts: int, delay_between_attempts_seconds: int) -> None:
-    features_json_content = fetch_results_from_web(output_url, max_attempts, delay_between_attempts_seconds)
+def save_features_json_from_web(output_url: str, max_attempts: int, delay_between_attempts_seconds: int,
+                                headers: Optional[Dict[str, str]] = None) -> None:
+    features_json_content = fetch_results_from_web(output_url, max_attempts, delay_between_attempts_seconds, headers)
     if features_json_content is None:
         cloud_logger.error(f"{GENERAL_ERR_PREFIX}"  f"Could not download features report file ({FEATURES_REPORT_FILE})")
         return
@@ -448,6 +465,9 @@ class CloudVerification:
         self.logUrl = ""
         self.statusUrl = ""
         self.reportUrl = ""
+        # App links that the server sends for API keys. They stay empty for legacy keys.
+        self.app_report_url = ""
+        self.app_jobs_url = ""
         self.zipOutputUrl = ""
         self.jobDataUrl = ""
         self.featuresResults = ""
@@ -485,6 +505,26 @@ class CloudVerification:
             resource_req = f"{'/' + requested_resource if requested_resource is not None else ''}"
             url = f"{self.get_domain()}/{index}/{user_id}/{self.runName}{resource_req}?anonymousKey={anonymousKey}"
             setattr(self, url_attr, url)
+
+    def __set_api_url(self, url_attr: str, suffix: str = "") -> None:
+        """
+        DO NOT USE THIS, use set_status_url() etc. instead.
+        Builds a `/v1/domain/jobs/{id}` URL. Unlike `__set_url()`, this URL carries no user segment and no
+        `anonymousKey` query credential. The caller sends the CERTORAKEY as an `Authorization: Bearer`
+        header instead.
+        @param url_attr: name of the attribute we want to set in self. For example, if url_attr ==
+                         "statusUrl", then self.statusUrl will be set.
+        @param suffix: appended after the job id, for example "/f/output.json".
+        """
+        if self.runName == "":
+            cloud_logger.debug(f"setting {url_attr}: runName is not defined.")
+        else:
+            url = f"{Util.get_api_domain(self.get_domain())}/v1/domain/jobs/{self.runName}{suffix}"
+            setattr(self, url_attr, url)
+
+    def auth_headers(self) -> Dict[str, str]:
+        """Returns the headers that /v1/domain/jobs/* reads carry. See Util.api_headers()."""
+        return Util.api_headers(self.context.key)
 
     def set_protocol_name_and_author(self, context: CertoraContext) -> None:
         """
@@ -524,13 +564,13 @@ class CloudVerification:
         self.protocol_name = self.protocol_name.strip() if self.protocol_name else None
         self.protocol_author = self.protocol_author.strip() if self.protocol_author else None
 
-    def print_error_and_status_url(self, err_msg: str, status_url: Union[str, None] = None) -> None:
-        if status_url is None:
-            status_url = self.statusUrl
+    def print_error_and_status_url(self, err_msg: str, report_url: Union[str, None] = None) -> None:
+        if report_url is None:
+            report_url = self.printed_report_url()
         self.stop_animation()
         cloud_logger.error(f"{GENERAL_ERR_PREFIX} {err_msg}")
-        if status_url:
-            print("For further details visit", status_url)
+        if report_url:
+            print("For further details visit", report_url)
         print("Closing connection...", flush=True)
 
     def check_polling_timeout(self, start: float, max_duration_in_minutes: int, error_msg: str) -> None:
@@ -539,36 +579,38 @@ class CloudVerification:
             self.print_error_and_status_url(error_msg, '')
             raise TimeError()
 
-    # jar output (logs) url
+    # jar output (logs) url. poll_log() adds tail=true, which pages the live log instead of
+    # returning it whole.
     def set_output_url(self, user_id: int, anonymous_key: str) -> None:
-        self.__set_url("logUrl", "job", user_id, anonymous_key)
+        self.__set_api_url("logUrl", "/logs")
 
-    # index report url
+    # index report url. Stays on the legacy route: a browser opens this page with cookies, not the
+    # CLI's Authorization header.
     def set_report_url(self, user_id: int, anonymous_key: str) -> None:
         self.__set_url("reportUrl", "output", user_id, anonymous_key)
 
-    # index report url
     def set_requested_resource_url(self, user_id: int, resource_name: str, resource_file: str, anonymous_key: str) \
             -> None:
-        self.__set_url(resource_name, "output", user_id, anonymous_key, requested_resource=resource_file)
+        self.__set_api_url(resource_name, f"/f/{resource_file}")
 
-    # status page url
+    # status page url. No longer user-openable. See print_error_and_status_url(), which now points
+    # its human-facing message at reportUrl instead.
     def set_status_url(self, user_id: int, anonymous_key: str) -> None:
-        self.__set_url("statusUrl", "jobStatus", user_id, anonymous_key)
+        self.__set_api_url("statusUrl")
 
     # compressed output folder url
     def set_zip_output_url(self, user_id: int, anonymous_key: str) -> None:
-        self.__set_url("zipOutputUrl", "zipOutput", user_id, anonymous_key)
+        self.__set_api_url("zipOutputUrl", "/f/outputs")
 
     # json output url
     def set_json_output_url(self, user_id: int, anonymous_key: str) -> None:
-        self.__set_url("jsonOutputUrl", "jsonOutput", user_id, anonymous_key)
+        self.__set_api_url("jsonOutputUrl", "/f/output.json")
 
     def set_check_file_url(self, user_id: int, anonymous_key: str) -> None:
-        self.__set_url("checkUrl", "exists", user_id, anonymous_key)
+        self.__set_api_url("checkUrl", "/f")
 
     def set_job_data_url(self, user_id: int, anonymous_key: str) -> None:
-        self.__set_url("jobDataUrl", "jobData", user_id, anonymous_key)
+        self.__set_api_url("jobDataUrl")
 
     def prepare_auth_data(self, cl_args: str) -> Optional[Dict[str, Any]]:
         """
@@ -680,13 +722,13 @@ class CloudVerification:
         print(f"See all jobs generated from splitting the rules at {group_id_url}", flush=True)
 
     def print_output_links(self) -> None:
-        print(f"Manage your jobs at {self.get_domain()}")
-        print(f"Follow your job and see verification results at {self.url_print_format()}", flush=True)
+        print(f"Manage your jobs at {self.app_jobs_url or self.get_domain()}")
+        print(f"Follow your job and see verification results at {self.printed_report_url()}", flush=True)
 
     def print_verification_summary(self) -> None:
-        report_exists = self.check_file_exists(params={"filename": "index.html", "certoraKey": self.context.key})
+        report_exists = self.check_file_exists("index.html")
         if report_exists:
-            print(f"Job is completed! View the results at {self.url_print_format()}")
+            print(f"Job is completed! View the results at {self.printed_report_url()}")
         print("Finished verification request", flush=True)
 
     def __send_verification_request(self, cl_args: str) -> bool:
@@ -711,14 +753,20 @@ class CloudVerification:
         if not json_response:
             return False
 
-        if not is_success_response(json_response):
-            return False
-
+        # /v3/cli/verify sends no "success" field. A non-200 already returned None above, so a
+        # 200 response that parses as JSON is success. The try/except below guards a malformed body.
         try:
             self.anonymousKey = json_response["anonymousKey"]
             self.presigned_url = json_response["presigned_url"]
             self.userId = json_response["userId"]
             self.msg = auth_data.get("msg", "")
+            app_report_url = json_response.get("reportUrl")
+            app_jobs_url = json_response.get("jobsUrl")
+            self.app_report_url = app_report_url if isinstance(app_report_url, str) else ""
+            self.app_jobs_url = app_jobs_url if isinstance(app_jobs_url, str) else ""
+            start_message = json_response.get("message")
+            if start_message:
+                Util.print_completion_message(start_message)
             return True
         except Exception as e:  # (Json) ValueError
             cloud_logger.error(f"{GENERAL_ERR_PREFIX}"  f"Unexpected response {e}")
@@ -927,20 +975,21 @@ class CloudVerification:
                                                           self.max_attempts_to_fetch_output,
                                                           self.delay_fetch_output_seconds,
                                                           self.expected_filename,
-                                                          self.reportUrl)
+                                                          self.printed_report_url(),
+                                                          self.auth_headers())
             if self.context.coinbase_mode:
                 save_features_json_from_web(self.featuresResults, self.max_attempts_to_fetch_output,
-                                            self.delay_fetch_output_seconds)
+                                            self.delay_fetch_output_seconds, self.auth_headers())
 
             return result_check_success
 
     def verification_request(self, auth_data: Dict[str, Any]) -> Optional[Response]:
-        verify_url = self.get_domain() + "/v2/cli/verify"
+        verify_url = Util.get_api_domain(self.get_domain()) + "/v3/cli/verify"
         response = None
         print("\nConnecting to server...")
         cloud_logger.debug(f"requesting verification from {verify_url}")
         headers: MutableMapping[str, str | bytes] = UserDict({
-            'Authorization': f'Bearer {self.context.key}',
+            **Util.api_headers(self.context.key),
             "Content-Type": "application/json"
         })
 
@@ -957,13 +1006,15 @@ class CloudVerification:
                 if status == requests.codes.ok:  # 200
                     break
                 if status == 403:
-                    print("You have no permission. Please, make sure you entered a valid key.")
+                    detail = get_response_detail(response)
+                    print(detail or "You have no permission. Please, make sure you entered a valid key.")
                     if self.context.server and (self.context.server.upper() != Util.SupportedServers.PRODUCTION.name):
                         print("Please note - failure may be related to using the server"
                               f" <{self.context.server.lower()}> which is not a standard server")
                     return None
                 elif status == 401:
-                    print("Invalid key or key is missing. Please, make sure you entered a valid key.")
+                    detail = get_response_detail(response)
+                    print(detail or "Invalid key or key is missing. Please, make sure you entered a valid key.")
                     return None
                 elif status == 426:
                     output_error_response(response)
@@ -996,17 +1047,18 @@ class CloudVerification:
 
     def poll_log(self) -> None:
         has_output = True
-        params = {}
+        params = {"tail": "true"}  # without tail the route returns the whole log and no token
         next_token = ""
         start_poll_t = time.perf_counter()
 
         self.start_animation()
         s = requests.Session()
+        s.headers.update(self.auth_headers())
 
         while True:
             try:
                 if next_token:  # used for retrieving the logs in chunks
-                    params = {"nextToken": next_token}
+                    params = {"tail": "true", "nextToken": next_token}
 
                 json_response = send_get_request(s, self.logUrl, params)
                 if json_response is None:  # currently, it's set to None when response status code is 502
@@ -1016,21 +1068,21 @@ class CloudVerification:
                 elif not json_response:  # Error parsing json
                     self.print_error_and_status_url("Failed to parse response. For more information visit")
                     break
-                elif not is_success_response(json_response, self.statusUrl):  # look for execution exceptions
+                elif not is_success_response(json_response, self.printed_report_url()):  # look for execution exceptions
                     break
                 else:
                     status = json_response.get("status")  # type: ignore[assignment]
-                    if status is None or "nextToken" not in json_response:
+                    if status is None or "next_token" not in json_response:
                         self.print_error_and_status_url(
                             f"got an unexpected response: status-{status}; token-{new_token}")
                         break
 
-                    new_token = json_response["nextToken"]  # type: ignore[assignment]
+                    new_token = json_response["next_token"]  # type: ignore[assignment]
 
-                    if "logEventsList" not in json_response:  # response does not include `logEventsList`
+                    if "log_events_list" not in json_response:  # response does not include `log_events_list`
                         self.print_error_and_status_url("No output is available.")
                         break
-                    all_output = json_response["logEventsList"]
+                    all_output = json_response["log_events_list"]
 
                 if all_output:
                     has_output = True
@@ -1059,15 +1111,15 @@ class CloudVerification:
 
     def poll_job_status(self) -> None:
         has_output = True
-        job_status = "jobStatus"
-        attribute = {"attr": job_status}
+        job_status = "job_status"  # field name on the body GET /v1/domain/jobs/{id} returns
         status = None
         start_poll_t = time.perf_counter()
         s = requests.Session()
+        s.headers.update(self.auth_headers())
 
         while True:
             try:
-                json_response = send_get_request(s, self.jobDataUrl, attribute)
+                json_response = send_get_request(s, self.jobDataUrl, {})
                 if json_response is None:  # e.g., when response.status_code is 502
                     status = None  # make sure we remove the previous status
                 elif not json_response:  # Error parsing json - empty json object is returned
@@ -1127,9 +1179,14 @@ class CloudVerification:
 
         return None
 
-    def check_file_exists(self, params: Dict[str, Any]) -> bool:
+    def check_file_exists(self, filename: str) -> bool:
+        """
+        self.checkUrl holds the base `/v1/domain/jobs/{id}/f` URL. The server answers `exists=true`
+        with 200 and an empty body when the file exists, and with 404 when it does not.
+        """
+        url = f"{self.checkUrl}/{filename}"
         try:
-            r = requests.get(self.checkUrl, params=params, timeout=10)
+            r = requests.get(url, params={"exists": "true"}, headers=self.auth_headers(), timeout=10)
             if r.status_code == requests.codes.ok:
                 return True
         except (requests.exceptions.Timeout, requests.exceptions.RequestException, ConnectionError) as e:
@@ -1166,6 +1223,13 @@ class CloudVerification:
             return self.privatize_url()
         else:
             return self.reportUrl
+
+    def printed_report_url(self) -> str:
+        """
+        @return: the report link to print to the user. This is the app link from the server if there is one,
+                 else the legacy report URL.
+        """
+        return self.app_report_url or self.url_print_format()
 
     @lru_cache(maxsize=1, typed=False)
     def get_domain(self) -> str:

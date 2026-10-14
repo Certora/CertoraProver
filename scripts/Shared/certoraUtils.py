@@ -76,6 +76,7 @@ DEFAULT_VYPER_COMPILER = 'vyper'
 
 ENVVAR_CERTORA = "CERTORA"
 KEY_SIGNUP_URL = "https://www.certora.com/signup"
+KEY_MANAGEMENT_URL = "https://app.certora.com"
 CERTORA_INTERNAL_ROOT = Path(".certora_internal")
 CERTORA_BUILD_CACHE_DIR_NAME = "build_cache"
 PRODUCTION_PACKAGE_NAME = "certora-cli"
@@ -149,6 +150,28 @@ class SupportedServers(Enum):
     """
     STAGING = 'https://vaas-stg.certora.com'
     PRODUCTION = 'https://prover.certora.com'
+
+
+# The API host for each site host. The CLI sends its API calls (job submission and job reads) to the API
+# host directly. Links that a user opens in a browser stay on the site host.
+API_HOSTS = {
+    "prover.certora.com": "data-api.certora.com",
+    "vaas-stg.certora.com": "data-api-stg.certora.com",
+    "vaas-dev.certora.com": "data-api-dev.certora.com",
+}
+
+
+def get_api_domain(site_domain: str) -> str:
+    """
+    @param site_domain: a site base URL, for example "https://prover.certora.com"
+    @return: the matching API base URL, for example "https://data-api.certora.com". A site host that is not in
+    API_HOSTS is returned unchanged, because each site host also serves the API routes.
+    """
+    parsed_url = urllib3.util.parse_url(site_domain)
+    api_host = API_HOSTS.get(parsed_url.host or "")
+    if api_host is None:
+        return site_domain
+    return f"{parsed_url.scheme}://{api_host}"
 
 
 def get_build_dir() -> Path:
@@ -412,6 +435,26 @@ def get_package_and_version() -> Tuple[bool, str, str]:
                 raise Exception(f"Invalid format for {version_metadata_file}, got {version_metadata}")
     except OSError as e:  # json errors - better to just propagate up
         raise Exception(f"Failed to open {version_metadata_file}: {e.strerror}")
+
+
+def get_user_agent() -> str:
+    """
+    @return: the User-Agent the CLI sends, in the form "<package name>/<version>". A run from a
+    source checkout has no package metadata, so it reports "certora-cli/local".
+    """
+    is_package, package_name, version = get_package_and_version()
+    if is_package:
+        return f"{package_name}/{version}"
+    return f"{PRODUCTION_PACKAGE_NAME}/local"
+
+
+def api_headers(key: str) -> Dict[str, str]:
+    """
+    @param key: the value of the CERTORAKEY environment variable
+    @return: the headers every Certora API call carries. The key is the credential. The User-Agent
+    tells the server which certora-cli package and version made the call.
+    """
+    return {"Authorization": f"Bearer {key}", "User-Agent": get_user_agent()}
 
 
 def check_results_from_file(output_path: str, expected_filename: str) -> bool:

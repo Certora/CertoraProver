@@ -19,7 +19,6 @@ scripts_dir_path = Path(__file__).parent.resolve()
 sys.path.insert(0, str(scripts_dir_path))
 from Shared import certoraUtils as Util
 
-VERIFICATION_PROGRESS = "verificationProgress"
 TIMEOUT = "TIMEOUT"
 UNKNOWN = "UNKNOWN"
 SANITY_FAIL = "SANITY_FAIL"
@@ -27,9 +26,9 @@ CAUGHT = "CAUGHT"
 UNCAUGHT = "UNCAUGHT"
 RULES = "rules"
 JOB_STATUS = "jobStatus"
-JOB_DATA = "jobData"
-PROGRESS = "progress"
-ZIPOUTPUT = "zipOutput"
+# Field name on a `/v1/domain/jobs/{id}` response body. Unlike the legacy `jobStatus` route
+# above, this API does not rename fields to camelCase, so the key stays snake_case.
+JOB_STATUS_FIELD = "job_status"
 GENERALSTATE = "generalState"
 PARAMS = "params"
 OUTPUT = "output"
@@ -49,9 +48,6 @@ FILENAME = "filename"
 FILES = "files"
 LINK = "link"
 RULE_REPORT_LINK = "rule_report_link"
-CERTORA_KEY = "certoraKey"
-ANONYMOUS_KEY = "anonymousKey"
-PRE_SIGNED_URL = "preSignedUrl"
 STATUS = "status"
 CHILDREN = "children"
 NUM_MUTANTS = "num_mutants"
@@ -78,10 +74,6 @@ DEV_DOTCOM = "vaas-dev.certora.com"
 MUTATION_DASHBOARD_PRODUCTION = "https://prover.certora.com/mutations"
 MUTATION_DASHBOARD_STAGING = "https://vaas-stg.certora.com/mutations"
 MUTATION_DASHBOARD_DEV = "https://vaas-dev.certora.com/mutations"
-MUTATION_TEST_REPORT_PRODUCTION = "mutation-testing.certora.com"
-MUTATION_TEST_REPORT_STAGING = "mutation-testing-beta.certora.com"
-MUTATION_TEST_REPORT_DEV = "mutation-testing-dev.certora.com"
-OUTPUTJSON = "output.json"
 REPORTS = "Reports"
 DEFAULT_DUMP_FAILED_COLLECTS = Path("collection_failures.txt")
 DEFAULT_COLLECT_FILE = Path("collect.json")
