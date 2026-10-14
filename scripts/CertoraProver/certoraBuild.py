@@ -1469,29 +1469,47 @@ class CertoraBuildGenerator:
         if optimizer and isinstance(optimizer, dict) and optimizer.get('enabled'):
             # if we are not disabling finder friendly optimizer specifically, enable it whenever viaIR is also enabled
             if not self.context.strict_solc_optimizer and self.get_solc_via_ir_value(contract_file_path):
-                # The default optimizer steps (taken from libsolidity/interface/OptimiserSettings.h) but with the
-                # full inliner step removed
-                solc0_8_34_to_0_8_36 = ("dfDvulfnTUtnIfxa[r]EscLMVcul[j]Trpeulxa[r]cLvifMCTUca[r]LSsTFOtfDnca[r]"
-                                        "IulcscCTUtvifMx[scCTUt]TOntnfDIulvifMjmul[jul]VcTOculjmul")
-                solc0_8_26_to_0_8_33 = ("dhfoDgvulfnTUtnIfxa[r]EscLMVcul[j]Trpeulxa[r]cLCTUca[r]LSsTFOtfDnca[r]" +
-                                        "IulcscCTUtx[scCTUt]TOntnfDIuljmul[jul]VcTOculjmul")
-                solc0_8_13_to_0_8_25 = "dhfoDgvulfnTUtnIf[xa[r]EscLMcCTUtTOntnfDIulLculVcul[j]T" + \
-                                       "peulxa[rul]xa[r]cLgvifCTUca[r]LSsTFOtfDnca[r]Iulc]jmul[jul]VcTOculjmul"
-                solc0_8_12 = "dhfoDgvulfnTUtnIf[xa[r]EscLMcCTUtTOntnfDIulLculVcul[j]T" + \
-                             "peulxa[rul]xa[r]cLgvifCTUca[r]LsTFOtfDnca[r]Iulc]jmul[jul]VcTOculjmul"
-                solc0_8_10_to_0_8_11 = "dhfoDgvulfnTUtnIf[xa[r]scLMcCTUtTOntnfDIulLculVcul[j]T" + \
-                                       "peulxa[rul]xa[r]cLgvifCTUca[r]LsTFOtfDnca[r]Iulc]jmul[jul]VcTOculjmul"
-                solc0_8_1_to_0_8_9 = "dhfoDgvulfnTUtnIf[xarrscLMcCTUtTOntnfDIulLculVculjjT" + \
-                                     "peulxarulrulxarrcLgvifCTUcarrLsTFOtfDncarrIulc]jmuljuljulVcTOculjmul"
-                solc0_7_6_to_0_8_0 = "dhfoDgvulfnTUtnIf[xarrscLMcCTUtTOntnfDIulLculVculjjT" + \
-                                     "peulxarulrulxarrcLgvifCTUcarrLsTFOtfDncarrIulc]jmuljuljulVcTOculjmul"
-                solc0_7_2_to_0_7_5 = "NdhfoDgvulfnTUtnIf[xarrscLMcCTUtTOntnfDIulLculVculjjT" + \
-                                     "peulxarulrulxarrcLgvifCTUcarrLsTFOtfDncarrIulc]jmuljuljulVcTOculjmulN"
-                solc0_6_7_to_0_7_1 = "dhfoDgvulfnTUtnIf[xarrscLMcCTUtTOntnfDIulLculVculjj" + \
-                                     "eulxarulrulxarrcLgvifCTUcarrLsTFOtfDncarrIulc]jmuljuljulVcTOculjmul"
+                # The default Yul optimizer steps, copied verbatim from
+                # libsolidity/interface/OptimiserSettings.h at each release that changed them. Keeping them
+                # verbatim is what makes the full inliner the only difference between what we send and what
+                # solc would have run by itself.
+                solc0_8_34_to_0_8_36 = ("dfDvulfnTUtnIfxa[r]EscLMVcul[j]Trpeulxa[r]cLvifMCTUca[r]LSsTFOtfDnca[r]Iulcsc"
+                                        "CTUtvifMx[scCTUt]TOntnfDIulvifMjmul[jul]VcTOculjmul")
+                solc0_8_26_to_0_8_33 = ("dhfoDgvulfnTUtnIfxa[r]EscLMVcul[j]Trpeulxa[r]cLgvifMCTUca[r]LSsTFOtfDnca[r]Iu"
+                                        "lcscCTUtgvifMx[scCTUt]TOntnfDIulgvifMjmul[jul]VcTOculjmul")
+                solc0_8_13_to_0_8_25 = ("dhfoDgvulfnTUtnIf[xa[r]EscLMcCTUtTOntnfDIulLculVcul[j]Tpeulxa[rul]xa[r]cLgvif"
+                                        "CTUca[r]LSsTFOtfDnca[r]Iulc]jmul[jul]VcTOculjmul")
+                solc0_8_12 = ("dhfoDgvulfnTUtnIf[xa[r]EscLMcCTUtTOntnfDIulLculVcul[j]Tpeulxa[rul]xa[r]cLgvifCTUca[r]Ls"
+                              "TFOtfDnca[r]Iulc]jmul[jul]VcTOculjmul")
+                solc0_8_10_to_0_8_11 = ("dhfoDgvulfnTUtnIf[xa[r]scLMcCTUtTOntnfDIulLculVcul[j]Tpeulxa[rul]xa[r]cLgvifC"
+                                        "TUca[r]LsTFOtfDnca[r]Iulc]jmul[jul]VcTOculjmul")
+                solc0_8_4_to_0_8_9 = ("dhfoDgvulfnTUtnIf[xarrscLMcCTUtTOntnfDIulLculVculjjTpeulxarulrulxarrcLgvifCTUca"
+                                      "rrLsTFOtfDncarrIulc]jmuljuljulVcTOculjmul")
+                solc0_7_6_to_0_8_3 = ("dhfoDgvulfnTUtnIf[xarrscLMcCTUtTOntnfDIulLculVculjjTpeulxarulrulxarrcLgvifCTUca"
+                                      "rrLsTOtfDncarrIulc]jmuljuljulVcTOculjmul")
+                solc0_7_2_to_0_7_5 = ("NdhfoDgvulfnTUtnIf[xarrscLMcCTUtTOntnfDIulLculVculjjTpeulxarulrulxarrcLgvifCTUc"
+                                      "arrLsTOtfDncarrIulc]jmuljuljulVcTOculjmulN")
+                solc0_6_7_to_0_7_1 = ("dhfoDgvulfnTUtnIf[xarrscLMcCTUtTOntnfDIulLculVculjjeulxarulrulxarrcLgvifCTUcarr"
+                                      "LsTOtfDncarrIulc]jmuljuljulVcTOculjmul")
 
-                def standard_replacement(optimizer_steps: str) -> str:
-                    return optimizer_steps.replace("gvif", "gvf")  # replace gvif with gvf
+                def without_full_inliner(optimizer_steps: str) -> str:
+                    """Take the full inliner out of a Yul optimizer step sequence.
+
+                    The full inliner pulls internal functions into their callers, which erases the autofinders
+                    that internal-function summaries are matched against. It is the letter `i`, and in every
+                    sequence solc ships it appears only inside the trigram `vif`: EquivalentFunctionCombiner,
+                    FullInliner, BlockFlattener, the flattener being there to tidy up after the inliner. Dropping
+                    the middle letter of that trigram removes the inliner and leaves every other pass in place
+                    and in order.
+
+                    Upstream writes the trigram plus its surrounding steps as one line in
+                    OptimiserSettings.h and comments the whole line "Run full inliner", so it is tempting to
+                    drop all of it. On every rung here, taking out `i` alone keeps just as many internal
+                    functions as taking out the whole group, so this is the smaller deviation from what solc
+                    would have run for the same result. Public/CITests/testYulOptimizerStepsInlining.py is
+                    what checks the rewrite still does its job on each compiler.
+                    """
+                    return optimizer_steps.replace("vif", "vf")
 
                 compiler_version = compiler_collector.compiler_version
                 major, minor, patch = compiler_version
@@ -1512,10 +1530,10 @@ class CertoraBuildGenerator:
                     yul_optimizer_steps = solc0_6_7_to_0_7_1
                 elif minor == 7 and 2 <= patch <= 5:
                     yul_optimizer_steps = solc0_7_2_to_0_7_5
-                elif (minor == 7 and 6 <= patch) or (minor == 8 and patch == 0):
-                    yul_optimizer_steps = solc0_7_6_to_0_8_0
-                elif minor == 8 and 1 <= patch <= 9:
-                    yul_optimizer_steps = solc0_8_1_to_0_8_9
+                elif (minor == 7 and 6 <= patch) or (minor == 8 and patch <= 3):
+                    yul_optimizer_steps = solc0_7_6_to_0_8_3
+                elif minor == 8 and 4 <= patch <= 9:
+                    yul_optimizer_steps = solc0_8_4_to_0_8_9
                 elif minor == 8 and 10 <= patch <= 11:
                     yul_optimizer_steps = solc0_8_10_to_0_8_11
                 elif minor == 8 and patch == 12:
@@ -1529,7 +1547,9 @@ class CertoraBuildGenerator:
                 assert yul_optimizer_steps is not None, \
                     'Yul Optimizer steps missing for requested Solidity version. Please contact Certora team.'
 
-                yul_optimizer_steps = standard_replacement(yul_optimizer_steps)
+                yul_optimizer_steps = without_full_inliner(yul_optimizer_steps)
+                assert self.context.yul_optimizer_steps or "i" not in yul_optimizer_steps, \
+                    'Full inliner still present in the Yul optimizer steps. Please contact Certora team.'
 
                 # The Yul steps carry the inlining decision for the via-IR pipeline on every
                 # supported version; `inliner` speaks to the legacy-codegen inliner and exists only

@@ -43,6 +43,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -139,14 +140,14 @@ def finders_of(build_json: Path) -> Optional[Tuple[List[str], int, int]]:
     return None
 
 
-def run_one(solc: str, mode: str, keep_logs: Optional[Path]) -> Tuple[List[str], str]:
+def run_one(solc: str, mode: str, certora_run: List[str], keep_logs: Optional[Path]) -> Tuple[List[str], str]:
     """Compile the fixture with *solc* under *mode*; return (finder names, note)."""
     with tempfile.TemporaryDirectory(prefix=f"finders-{solc}-{mode}-") as tmp:
         work = Path(tmp)
         (work / f"{CONTRACT}.sol").write_text(FIXTURE)
         (work / "sanity.spec").write_text(SPEC)
         cmd = [
-            "certoraRun", f"{CONTRACT}.sol:{CONTRACT}",
+            *certora_run, f"{CONTRACT}.sol:{CONTRACT}",
             "--verify", f"{CONTRACT}:sanity.spec",
             "--compilation_steps_only",
             "--solc", solc,
@@ -181,6 +182,9 @@ def main() -> int:
     ap.add_argument("--mode", choices=sorted(MODES), action="append",
                     help="repeatable; default is every mode")
     ap.add_argument("--keep-logs", type=Path, help="write each certoraRun log here")
+    ap.add_argument("--certora-run", default="certoraRun",
+                    help="the certoraRun to test; pass a command line to run a working tree's copy, "
+                         "e.g. \"python3 scripts/certoraRun.py\"")
     args = ap.parse_args()
 
     solcs = [f"solc{v.strip()}" for v in args.versions.split(",")] if args.versions else available_solcs()
@@ -188,6 +192,8 @@ def main() -> int:
         print("no solc8.x binaries on PATH", file=sys.stderr)
         return 2
     modes = args.mode or sorted(MODES)
+    certora_run = shlex.split(args.certora_run)
+    certora_run[1:] = [str(Path(a).resolve()) if Path(a).exists() else a for a in certora_run[1:]]
 
     print(f"{len(solcs)} compiler(s) x {len(modes)} mode(s); expecting finders for "
           f"{', '.join(EXPECTED)}\n")
@@ -195,7 +201,7 @@ def main() -> int:
     for solc in solcs:
         row = []
         for mode in modes:
-            names, note = run_one(solc, mode, args.keep_logs)
+            names, note = run_one(solc, mode, certora_run, args.keep_logs)
             missing = [f for f in EXPECTED if f not in names]
             if note:
                 row.append(f"{mode}: ERROR {note}")
