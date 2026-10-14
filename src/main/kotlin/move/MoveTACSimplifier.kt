@@ -551,6 +551,8 @@ class MoveTACSimplifier(
             }
         }
 
+        val setupCmds = mutableListOf<SimpleCmdsWithDecls>()
+
         fun hashExprs(loc: MemoryLocation, type: MoveType.Value): List<TACExpr> {
             return when (type) {
                 is MoveType.Simple -> when (type) {
@@ -584,10 +586,34 @@ class MoveTACSimplifier(
                     }
                 }
                 is MoveType.Enum -> {
-                    // To hash an enum, we would need to generate a different list of expressions for each variant.
-                    // That doesn't fit into our current hashing scheme, so for now let's just havoc the hash.
-                    loggerSetupHelpers.warn { "Havocing hash of enum type in $origCmd" }
-                    listOf(TACExpr.Unconstrained(Tag.Bit256))
+                    // Each variant has its own set of fields, so we hash each variant's fields separately, and select
+                    // the hash of the variant that is actually present.
+                    fun variantHash(variant: MoveType.Enum.Variant): TACExpr {
+                        val fields = variant.fields ?: run {
+                            loggerSetupHelpers.warn {
+                                "Havocing hash of native enum variant ${variant.name} of $type in $origCmd"
+                            }
+                            return TACExpr.Unconstrained(Tag.Bit256)
+                        }
+                        val args = listOf(variant.index.asTACExpr) + fields.flatMapIndexed { fieldIndex, field ->
+                            hashExprs(loc.fieldLoc(variant, fieldIndex), field.type)
+                        }
+                        return TACExpr.SimpleHash(
+                            length = args.size.asTACExpr,
+                            args = args,
+                            hashFamily = HashFamily.MoveEnumVariantHash
+                        )
+                    }
+
+                    val actualVariant = TACKeyword.TMP(Tag.Int, "actualVariant")
+                    setupCmds += assign(actualVariant, meta) { loc.enumVariant(type) }
+
+                    // The variant index is always in range, so the last variant needs no condition.
+                    listOf(
+                        type.variants.map { variantHash(it) }.reduceRightIndexed { variantIndex, hash, otherwise ->
+                            TXF { ite(actualVariant eq variantIndex.asTACExpr, hash, otherwise) }
+                        }
+                    )
                 }
                 is MoveType.GhostArray -> {
                     loggerSetupHelpers.warn { "Havocing hash of ghost array type in $origCmd" }
@@ -598,13 +624,15 @@ class MoveTACSimplifier(
 
         val exprs = hashExprs(loc.location(), loc.getType<MoveType.Value>())
 
-        return assign(dst, meta) {
-            SimpleHash(
-                length = exprs.size.asTACExpr,
-                args = exprs,
-                hashFamily = hashFamily
-            )
-        }
+        return mergeMany(
+            setupCmds + assign(dst, meta) {
+                SimpleHash(
+                    length = exprs.size.asTACExpr,
+                    args = exprs,
+                    hashFamily = hashFamily
+                )
+            }
+        )
     }
 
     /**

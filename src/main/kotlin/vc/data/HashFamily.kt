@@ -95,6 +95,14 @@ sealed class HashFamily: Serializable, HasKSerializable {
     }
 
     @KSerializable
+    object MoveEnumVariantHash : HashFamily() {
+        override fun hashCode(): Int = hashObject(this)
+        override fun toString(): String = "mvEnumVariant"
+        private fun readResolve(): Any = MoveEnumVariantHash
+        override val isContractCreation: Boolean get() = false
+    }
+
+    @KSerializable
     object MoveTypeId : HashFamily() {
         override fun hashCode(): Int = hashObject(this)
         override fun toString(): String = "mvTypeId"
