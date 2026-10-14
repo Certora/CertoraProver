@@ -262,7 +262,6 @@ abstract class AbstractTACChecker {
                     CoreToCoreTransformer(ReportTypes.DIVISION_UNDERAPPROXIMATION, DivisionUnderapproximation::doWork)
                 )
             }
-            linear.map(CoreToCoreTransformer(ReportTypes.DROP_BW_NOPS, DropBwNops::annotate))
             return linear.ref
         }
 
