@@ -430,6 +430,7 @@ open class CompiledRule<R: SingleRule> protected constructor(val rule: R, val ta
                     noUnderOverflowUnderApprox,
                     ternarySimplifier,
                     intervalsRewriter,
+                    definitionalEqualitySubstitution,
                     patternRewriter(PatternRewriter::postIntervalsRewriterPatternList),
                     bytemapOptimizer(2, bmcAware = bmcMode),
                     // we run it again after the bytemap optimizer because bytemaps may contain both signed and unsigned

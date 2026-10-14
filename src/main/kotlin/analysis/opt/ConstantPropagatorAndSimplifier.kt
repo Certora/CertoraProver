@@ -55,20 +55,7 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
 
     private val g = code.analysisCache.graph
     private val dom = code.analysisCache.domination
-    private val singleDefSites = buildMap {
-        val badVars = mutableSetOf<TACSymbol.Var>()
-        g.commands
-            .mapNotNull { (ptr, cmd) -> ptr `to?` cmd.getLhs() }
-            .filter { (_, lhs) -> lhs !in badVars }
-            .forEach { (ptr, lhs) ->
-                if (lhs in this) {
-                    this -= lhs
-                    badVars += lhs
-                } else {
-                    this[lhs] = ptr.block
-                }
-            }
-    }
+    private val singleDefSites = g.soleDefs.mapValues { (_, ptr) -> ptr.block }
 
     private val blockConstants = mutableMapOf<NBId, Map<TACSymbol.Var, BigInteger>>()
 

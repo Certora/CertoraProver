@@ -1014,6 +1014,27 @@ class TACCommandGraph(
         )
     }
 
+    /**
+     * The definition site of every variable that has exactly one. Counts ASSIGNMENTS, as
+     * [analysis.dataflow.LooseDefAnalysis] does -- a `WordStore` or `ByteLongCopy` modifies the map
+     * it writes without being one, so such a map can appear here. It IS counted as a use by
+     * [soleUses], which is what makes a use-dominance check see it.
+     */
+    val soleDefs: Map<TACSymbol.Var, CmdPointer> by lazy {
+        commands
+            .mapNotNull { (ptr, cmd) -> cmd.getLhs()?.to(ptr) }
+            .onlyUniqueBy { it.first }
+            .toMap()
+    }
+
+    /** The use site of every variable that has exactly one. */
+    val soleUses: Map<TACSymbol.Var, CmdPointer> by lazy {
+        commands
+            .flatMap { (ptr, cmd) -> cmd.getFreeVarsOfRhs().map { it to ptr } }
+            .onlyUniqueBy { it.first }
+            .toMap()
+    }
+
     // block to vars
     val blockToVars: Map<NBId, Set<TACSymbol.Var>>
         get() = run {

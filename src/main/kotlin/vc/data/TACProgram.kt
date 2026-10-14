@@ -1080,6 +1080,7 @@ class CoreTACProgram private constructor(
                     ReportTypes.BYTEMAP_OPTIMIZER1,
                     ReportTypes.BYTEMAP_OPTIMIZER2,
                     ReportTypes.BYTEMAP_OPTIMIZER3,
+                    ReportTypes.DEFINITIONAL_EQUALITY,
                 ))
             }
 

@@ -141,6 +141,9 @@ interface CTPOptimizationPass {
         val intervalsRewriter =
             make(INTERVALS_OPTIMIZE) { ctp -> IntervalsRewriter.rewrite(ctp, handleLeinoVars = false) }
 
+        val definitionalEqualitySubstitution =
+            make(DEFINITIONAL_EQUALITY) { ctp -> DefinitionalEqualitySubstitution.go(ctp) }
+
         val blockMerger = make(OPTIMIZE_MERGE_BLOCKS, BlockMerger::mergeBlocks)
 
         val quantifierAnnotator = make(QUANTIFIER_POLARITY) { ctp -> QuantifierAnnotator(ctp).annotate() }

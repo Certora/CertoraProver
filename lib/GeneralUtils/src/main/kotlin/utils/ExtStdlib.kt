@@ -327,6 +327,29 @@ fun <T> Iterable<T>.uniqueOrNull() : T? {
     }
 }
 
+/**
+ * The elements that no other element shares a [key] with. Unlike `distinctBy`, which keeps the
+ * first of each group, one repeat takes the whole group out.
+ *
+ * A key is written off the moment it repeats, so further repeats of it cost one set lookup. The
+ * repeat is detected by what [MutableMap.put] gives back, which is why the elements cannot be null.
+ */
+fun <T : Any, K> Iterable<T>.onlyUniqueBy(key: (T) -> K): Set<T> {
+    val unique = mutableMapOf<K, T>()
+    val repeated = mutableSetOf<K>()
+    for (element in this) {
+        val k = key(element)
+        if (k !in repeated && unique.put(k, element) != null) {
+            unique.remove(k)
+            repeated.add(k)
+        }
+    }
+    return unique.values.toSet()
+}
+
+fun <T : Any, K> Sequence<T>.onlyUniqueBy(key: (T) -> K): Set<T> =
+    Iterable { this.iterator() }.onlyUniqueBy(key)
+
 @Suppress("DANGEROUS_CHARACTERS", "FunctionName")
 infix fun <T, R> T.`to?`(v: R?) : Pair<T, R>? = if(v == null) { null } else { this to v }
 

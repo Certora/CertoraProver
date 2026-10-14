@@ -97,11 +97,19 @@ class IntervalsCalculator(
          *
          * This can be removed once disjunction is supported (though it's probably more efficient to leave this in).
          */
-        fun calcOneVarExpression(cond: TACExpr): Pair<TACSymbol.Var, S>? {
-            if (cond !is TACExpr.BinBoolOp.LOr) {
-                return null
+        fun calcOneVarExpression(cond: TACExpr): Pair<TACSymbol.Var, S>? =
+            if (cond is TACExpr.BinBoolOp.LOr) {
+                oneVarSolutions(cond)
+            } else {
+                null
             }
 
+        /**
+         * The values of the one variable in [cond] that make it true, or null if [cond] is not
+         * built from comparisons between one variable and constants. Nothing here abstracts, so a
+         * non-null answer holds BOTH ways: empty means [cond] cannot hold, non-empty that it can.
+         */
+        fun oneVarSolutions(cond: TACExpr): Pair<TACSymbol.Var, S>? {
             var variable: TACSymbol.Var? = null
 
             /**
