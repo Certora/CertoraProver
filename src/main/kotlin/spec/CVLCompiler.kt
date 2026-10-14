@@ -159,6 +159,9 @@ class CVLCompiler(
 
     private val allGhosts = this.cvl.ghosts.toMutableList()
 
+    /** the ghosts of [cvl], together with the `_old` copies that compiling a `havoc ... assuming ...` adds */
+    internal val ghostDeclarations: List<CVLGhostDeclaration> get() = allGhosts
+
 
     init {
         globalScope.forEach { name, sym ->
@@ -1247,7 +1250,7 @@ class CVLCompiler(
                 havocdVar.id to "${havocdVar.id}_old"
             }
 
-        oldVersionNames.forEach { (original, old) ->
+        fun allocateOldVersion(original: String, old: String) {
             if (allocatedTACSymbols.isAllocated(original)) {
                 // currently we do not allocate for non-nullary functions so checking if the original name is already
                 // allocated is the easiest way to see if we should also be allocating a variable for the old version
@@ -1270,13 +1273,36 @@ class CVLCompiler(
             }
         }
 
+        oldVersionNames.forEach { (original, old) -> allocateOldVersion(original, old) }
+
         val ghostsWithOldSuffix = havocdGhosts
-            .map { havocdVar ->
+            .associate { havocdVar ->
                 val ghostToCopy = this.cvl.ghosts.first { it.id == havocdVar.id }
                 check(ghostToCopy is CVLGhostWithAxiomsAndOldCopy) { "didn't expect a non-duplicateable ghost here" }
-                ghostToCopy.duplicate(ghostToCopy.id, oldVersionNames).withOldCopy(oldCopy = true) as CVLGhostDeclaration
+                havocdVar.id to
+                    ghostToCopy.duplicate(ghostToCopy.id, oldVersionNames).withOldCopy(oldCopy = true) as CVLGhostDeclaration
             }
-        allGhosts.addAll(ghostsWithOldSuffix)
+        allGhosts.addAll(ghostsWithOldSuffix.values)
+
+        /**
+         * The sum of a havoc'd ghost is itself a ghost, which [instrumentation.transformers.GhostSumInstrumenter]
+         * havocs together with the ghost it sums. So that the assuming clause can still talk about the sum of the
+         * pre-havoc state, each such sum gets an `_old` copy too, holding the sum as it was before the havoc.
+         */
+        val sumsWithOldSuffix = this.cvl.ghosts
+            .filterIsInstance<CVLGhostDeclaration.Sum>()
+            .mapNotNull { sum ->
+                (ghostsWithOldSuffix[sum.origGhost.id] as? CVLGhostDeclaration.Variable)?.let { oldGhost ->
+                    sum to sum.overOldCopy(oldGhost)
+                }
+            }
+        sumsWithOldSuffix.forEach { (sum, oldSum) -> allocateOldVersion(sum.id, oldSum.id) }
+        allGhosts.addAll(sumsWithOldSuffix.map { (_, oldSum) -> oldSum })
+
+        /** for each havoc'd ghost, the (`_old` copy, original) pairs of TAC symbols of the sums over it */
+        val sumSnapshots = sumsWithOldSuffix.groupBy({ (sum, _) -> sum.origGhost.id }) { (sum, oldSum) ->
+            allocatedTACSymbols.get(oldSum.id) to allocatedTACSymbols.get(sum.id)
+        }
 
         // TODO: see if we can avoid modifying [this.symbolTable] and instead keep this typescope local to this branch of compilation
         tacSymbolTable = buildTACSymbolTable(
@@ -1340,21 +1366,28 @@ class CVLCompiler(
              * We generate
              * x_old := x;
              * x := havoc
+             *
+             * The sums over x are snapshotted the same way, before the havoc of x reaches
+             * [instrumentation.transformers.GhostSumInstrumenter], which havocs them.
              */
+            val snapshotsOfSums = sumSnapshots[havocdVar.id].orEmpty()
             val havocCmds = ParametricInstantiation.getSimple(
                 codeFromCommandVarWithDecls(
                     env.newBlockId(),
                     CommandWithRequiredDecls<TACCmd.Spec>(
-                        listOf(
+                        listOf<TACCmd.Spec>(
                             TACCmd.Simple.AssigningCmd.AssignExpCmd(
                                 havocdOldVar, havocdNewVar
-                            ),
+                            )
+                        ) + snapshotsOfSums.map { (oldSumVar, sumVar) ->
+                            TACCmd.Simple.AssigningCmd.AssignExpCmd(oldSumVar, sumVar)
+                        } + listOf(
                             TACCmd.Simple.AssigningCmd.AssignHavocCmd(
                                 havocdNewVar
                             ),
                             SnippetCmd.CVLSnippetCmd.GhostHavocSnippet(havocdVar.id, ghostSort).toAnnotation()
                         ),
-                        setOf(havocdNewVar, havocdOldVar)
+                        setOf(havocdNewVar, havocdOldVar) + snapshotsOfSums.flatMap { it.toList() }
                     ).merge(postHavocNormalizationCmds),
                     name
                 )

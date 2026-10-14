@@ -991,7 +991,8 @@ class CVLExpressionCompiler(
         out: CVLParam,
         exp: CVLExp.SumExp,
     ): ParametricInstantiation<CVLTACProgram> {
-        val thisGhost = cvlCompiler.cvl.ghosts.find { it.id == exp.sumGhostName } ?: error("should have found the ghost")
+        val thisGhost = cvlCompiler.ghostDeclarations.find { it.id == exp.sumGhostName }
+            ?: error("should have found the ghost ${exp.sumGhostName}")
         check(thisGhost is CVLGhostDeclaration.Sum) { "the sum ghost is supposed to be a variable and not a function" }
 
         fun generateSumAccessExp(
@@ -1020,7 +1021,10 @@ class CVLExpressionCompiler(
 
         val sumGhostAccessExp = generateSumAccessExp(exp.body.indices.filterIndexed { i, _ -> i in exp.nonSummedIndices }, CVLType.PureCVLType.Primitive.Mathint)
         return compileExp(out, sumGhostAccessExp).transformCode { code ->
-            val ghostReadSnippetAnnot = code.ltacStream().asSequence().single { it.maybeAnnotation(TACMeta.SNIPPET) is SnippetCmd.CVLSnippetCmd.GhostRead }
+            // the `_old` copies of sum ghosts live only in the compiler, so a read of one is not annotated as a
+            // ghost read and there is nothing to turn into a sum-ghost read for the call trace
+            val ghostReadSnippetAnnot = code.ltacStream().asSequence().singleOrNull { it.maybeAnnotation(TACMeta.SNIPPET) is SnippetCmd.CVLSnippetCmd.GhostRead }
+                ?: return@transformCode code
             val snippet = ghostReadSnippetAnnot.maybeAnnotation(TACMeta.SNIPPET) as SnippetCmd.CVLSnippetCmd.GhostRead
             code.patching { it.replaceCommand(ghostReadSnippetAnnot.ptr, listOf(SnippetCmd.CVLSnippetCmd.SumGhostRead(
                 allocatedTACSymbols.get(out.id).withMeta(CVL_TYPE, CVLType.PureCVLType.Primitive.Mathint),

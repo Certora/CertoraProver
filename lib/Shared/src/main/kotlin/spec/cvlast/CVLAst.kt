@@ -1822,6 +1822,10 @@ sealed class CVLGhostDeclaration : AmbiSerializable {
             get() =
                 origGhost.paramTypes.filterIndexed { i, _ -> i in nonSummedIndices }
 
+        /** The indices of [origGhost] that this sum sums over, i.e. the complement of [nonSummedIndices] */
+        val summedIndices: List<Int>
+            get() = origGhost.paramTypes.indices.filterNot { it in nonSummedIndices }
+
         override val resultType: CVLType.PureCVLType
             get() =
                 CVLType.PureCVLType.Primitive.Mathint
@@ -1854,6 +1858,21 @@ sealed class CVLGhostDeclaration : AmbiSerializable {
             return nonSummedIndices.zip(items).toMap().let { idxToItem ->
                 (0 until origGhost.paramTypes.size).map { idxToItem[it] }
             }
+        }
+
+        /**
+         * The same sum, but over [oldGhost] - the `_old` copy of [origGhost] that a `havoc origGhost assuming ...`
+         * introduces for the pre-havoc state. Its [id] is the one a `sum ... origGhost@old[...]` expression asks for
+         * once the reference to `origGhost@old` has been rewritten to [oldGhost].
+         */
+        fun overOldCopy(oldGhost: Variable) = copy(origGhost = oldGhost, id = sumGhostId(oldGhost.id, summedIndices))
+
+        companion object {
+            /** The name of the ghost implementing the sum of the ghost [baseId] over [summedIndices] */
+            fun sumGhostId(baseId: String, summedIndices: List<Int>) =
+                "g_sum_of_ghost_${baseId}_on_${if (summedIndices.size == 1) { "index" } else { "indices" } }_${
+                    summedIndices.joinToString("_")
+                }"
         }
     }
 }
@@ -3458,8 +3477,7 @@ sealed class CVLExp : HasCVLExpTag, AmbiSerializable {
         val nonSummedIndices = (0 until body.indices.size).filterNot { it in summedIndices }
 
         /** A unique name for the ghost that implements this sum */
-        val sumGhostName: String get() =
-            "g_sum_of_ghost_${baseVar.id}_on_${if (summedIndices.size == 1) { "index" } else { "indices" } }_${summedIndices.joinToString("_")}"
+        val sumGhostName: String get() = CVLGhostDeclaration.Sum.sumGhostId(baseVar.id, summedIndices)
     }
 
     /** Field access, e.g., `s.x` where s is a struct/object
