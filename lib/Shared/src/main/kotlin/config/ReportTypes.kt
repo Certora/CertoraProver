@@ -305,6 +305,7 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     MOD_MATH_NORMALIZE(LoggerTypes.MOD_MATH),
     MOD_MATH_FIND_MORE_POINTERS(LoggerTypes.MOD_MATH),
     MOD_MATH_REMOVE_NO_OVERFLOW(LoggerTypes.MOD_MATH),
+    MOD_MATH_MUL128_OVERFLOW(LoggerTypes.MOD_MATH),
     MOD_MATH_SIMPLIFY(LoggerTypes.MOD_MATH),
     MOD_MATH_INTERVALS_SIMPLIFY(LoggerTypes.MOD_MATH),
     ;
