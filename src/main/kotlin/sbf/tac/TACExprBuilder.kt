@@ -41,7 +41,7 @@ abstract class TACExprBase(private val regVars: ArrayList<TACSymbol.Var>) {
     val ZERO     = TACSymbol.Const(0.toBigInteger(), Tag.Bit256).asSym()
     val c64      = TACSymbol.Const(64.toBigInteger(), Tag.Bit256).asSym()
     val c128     = TACSymbol.Const(128.toBigInteger(), Tag.Bit256).asSym()
-    val c196     = TACSymbol.Const(196.toBigInteger(), Tag.Bit256).asSym()
+    val c192     = TACSymbol.Const(192.toBigInteger(), Tag.Bit256).asSym()
     val U64_MAX  = TACSymbol.Const(BigInteger.TWO.pow(64) - BigInteger.ONE, Tag.Bit256).asSym()
     val U128_MAX = TACSymbol.Const(BigInteger.TWO.pow(128) - BigInteger.ONE, Tag.Bit256).asSym()
     val U256_MAX = TACSymbol.Const(BigInteger.TWO.pow(256) - BigInteger.ONE, Tag.Bit256).asSym()
@@ -263,7 +263,7 @@ abstract class SbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : TACExprBase(re
         mayMaskLowBits: Boolean
     ): TACExpr
 
-    /** Return expression `(w4 << 196) + (w3 << 128) + (w2 << 64) + w1` */
+    /** Return expression `(w4 << 192) + (w3 << 128) + (w2 << 64) + w1` */
     abstract fun mergeU256(
         w1: TACExpr.Sym,
         w2: TACExpr.Sym,
@@ -620,7 +620,7 @@ class LazyMaskSbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : SbfTACBuilder(r
         val o2 = if (mayMaskLowBits) { mask(w2, 64) } else { w2 }
         val o1 = if (mayMaskLowBits) { mask(w1, 64) } else { w1 }
         return TACExpr.Vec.Add(listOf(
-            TACExpr.BinOp.ShiftLeft(w4, c196),
+            TACExpr.BinOp.ShiftLeft(w4, c192),
             TACExpr.BinOp.ShiftLeft(o3, c128),
             TACExpr.BinOp.ShiftLeft(o2, c64),
             o1)
@@ -733,7 +733,7 @@ class EagerMaskSbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : SbfTACBuilder(
         mayMaskLowBits: Boolean // Ignored; we always assume inputs are correctly sized
     ) = TACExpr.Vec.Add(TACExpr.BinOp.ShiftLeft(high, c64), low)
 
-    /** Return expression `(w4 << 196) + (w3 << 128) + (w2 << 64) + w1` */
+    /** Return expression `(w4 << 192) + (w3 << 128) + (w2 << 64) + w1` */
     override fun mergeU256(
         w1: TACExpr.Sym,
         w2: TACExpr.Sym,
@@ -741,7 +741,7 @@ class EagerMaskSbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : SbfTACBuilder(
         w4: TACExpr.Sym,
         mayMaskLowBits: Boolean // Ignored; we always assume inputs are correctly sized
     ) = TACExpr.Vec.Add(listOf(
-        TACExpr.BinOp.ShiftLeft(w4, c196),
+        TACExpr.BinOp.ShiftLeft(w4, c192),
         TACExpr.BinOp.ShiftLeft(w3, c128),
         TACExpr.BinOp.ShiftLeft(w2, c64),
         w1
