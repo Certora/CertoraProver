@@ -395,6 +395,17 @@ object OptimizeBasedOnPointsToAnalysis {
         abstract protected fun referenceCase(nodes: IPointsToSet, map: () -> Map<PartitionField, T>) : T
 
         /**
+         * The pointer analysis cannot always tell a statically empty array apart from a struct with a single
+         * word sized field: both are a one word block whose only word is written once. Such a block is given the
+         * struct type, so a traversal of its fields yields a [PartitionField.StructField] at offset 0 and no
+         * [PartitionField.ArrayLength], while [IPointsToInformation.lengthFieldAt] does answer for it (with that
+         * very same word). Subclasses whose consumers may read such a block as an array set this flag, which makes
+         * [unifyAndAnnotate] record the length field alongside the struct field.
+         */
+        protected open val recordAmbiguousArrayLength: Boolean
+            get() = false
+
+        /**
          * Q: Have you lost your goddamn mind John? What is this type signature?
          *
          * A: READER. Please.
@@ -516,6 +527,19 @@ object OptimizeBasedOnPointsToAnalysis {
                 }
             })
             /**
+             * Give the length field of a block which may be an empty array (see [recordAmbiguousArrayLength]) the
+             * same treatment the traversal above gives to the fields it does find: unify the equivalence classes,
+             * and remember the suspended computation which names the partition holding the length.
+             */
+            if(error == null && recordAmbiguousArrayLength && PartitionField.ArrayLength !in generated) {
+                pta.lengthFieldAt(where, retPta)?.let { lengthField ->
+                    partitions.mergeFields(lengthField)
+                    generated[PartitionField.ArrayLength] = {
+                        primitiveCase(lengthField)
+                    }
+                }
+            }
+            /**
              * If the traversal ended with an Error, return that back, otherwise return a function that
              * forces all of the values in generated, i.e., transforming a `Map<F, () -> V>`
              * into a `() -> Map<F, V>`.
@@ -628,6 +652,13 @@ object OptimizeBasedOnPointsToAnalysis {
          * It is expected, but not checked, that all nodes in in this are in the same equivalence class.
          */
         fun Collection<PTANode>.toPartitionVar() = TACKeyword.MEMORY.toVar().withMeta(UNINDEXED_PARTITION, partitions.getPartition(this))
+
+        /**
+         * An internal function argument or return typed `bytes`/`T[]` in the source is read as an array by the
+         * summarization code, whatever shape the pointer analysis inferred for the block it points to.
+         */
+        override val recordAmbiguousArrayLength: Boolean
+            get() = true
 
 
         override fun primitiveCase(nodes: IPointsToSet): InternalFuncValueLocation.PointerLayoutInfo {
