@@ -1439,6 +1439,17 @@ object Inliner {
             ), setOfNotNull(it, readTracker))
         }.let(CommandWithRequiredDecls.Companion::mergeMany)
 
+    /**
+     * `msg.sig` as seen by the callee: the top four bytes of the first word of [calldata].
+     *
+     * Built with a type-checking factory so that every node of the expression carries its [Tag]: a [CoreTACProgram]
+     * only re-runs [analysis.TACTypeChecker] while its `check` flag is set, and by the time the inliner runs it no
+     * longer is, so untagged nodes inserted here would stay untagged for the rest of the pipeline.
+     */
+    internal fun sighashFromCalldata(calldata: TACSymbol.Var): TACExpr = TACExprFactTypeCheckedOnlyPrimitives {
+        select(calldata.asSym(), BigInteger.ZERO.asTACExpr()) shiftRLog (((EVM_WORD_SIZE - DEFAULT_SIGHASH_SIZE) * EVM_BYTE_SIZE).asTACExpr())
+    }
+
     private fun addEnvironment(
         callee: ITACMethod,
         callerVar: TACSymbol.Var,
@@ -1494,9 +1505,10 @@ object Inliner {
                         // Otherwise, read it from the first 4 bytes of the calldata
                         // Note - if the calldatalength is < 4 bytes, this will assign garbage to msg.sig, but accessing
                         // that property in this case is undefined behavior also in Solidity.
-                        TACCmd.Simple.AssigningCmd.AssignExpCmd(sighashVar, TACExprFactUntyped {
-                            select(calldata.atSync(calldata.callIndex).asSym(), BigInteger.ZERO.asTACExpr()) shiftRLog (((EVM_WORD_SIZE - DEFAULT_SIGHASH_SIZE) * EVM_BYTE_SIZE).asTACExpr())
-                        })
+                        TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                            sighashVar,
+                            sighashFromCalldata(calldata.atSync(calldata.callIndex))
+                        )
                     }
                 ), setOfNotNull(
                     callerVar,
