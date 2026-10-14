@@ -19,6 +19,7 @@ package analysis.split
 
 import datastructures.stdcollections.*
 import evm.MAX_EVM_UINT256
+import utils.ModZm.Companion.lowOnes
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import vc.data.*
@@ -85,5 +86,29 @@ class TernaryCalculatorTest : TACBuilderAuxiliaries() {
         }
         // this means all bits are unknown, but we do know it is sign extended from bit 16.
         prog.assertT("query", Ternary(BigInteger.ZERO, BigInteger.ZERO, 16), highPrecision = true)
+    }
+
+    /**
+     * Shifting by 256 or more is legal EVM, and unrolled loops over packed storage arrays do generate such shifts.
+     */
+    @Test
+    fun shiftingOutTheWholeWord() {
+        val topBit = MAX_EVM_UINT256 - lowOnes(255)
+        val prog = TACProgramBuilder {
+            a assign BWAnd(cS, 0xf.asTACExpr) // unknown lower bits, and a zero top bit
+            b assign BWOr(cS, topBit.asTACExpr) // unknown lower bits, and a one top bit
+            label("shl")
+            d assign ShiftLeft(aS, 384.asTACExpr)
+            label("shr")
+            e assign ShiftRightLogical(aS, 384.asTACExpr)
+            label("sarOfNonNegative")
+            f assign ShiftRightArithmetical(aS, 384.asTACExpr)
+            label("sarOfNegative")
+            g assign ShiftRightArithmetical(bS, 384.asTACExpr)
+        }
+        prog.assertT("shl", Ternary(BigInteger.ZERO))
+        prog.assertT("shr", Ternary(BigInteger.ZERO))
+        prog.assertT("sarOfNonNegative", Ternary(BigInteger.ZERO))
+        prog.assertT("sarOfNegative", Ternary(MAX_EVM_UINT256))
     }
 }

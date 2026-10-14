@@ -354,27 +354,40 @@ sealed class Ternary {
         )
 
 
-    infix fun shiftLeft(by: Int) =
-        when (this) {
-            is Bottom -> allXs
-            is Constant -> Ternary((value shl by) and allOnes)
-            is NonConstant -> Ternary(
-                ((zeros shl by) and allOnes) or lowOnes(by),
-                (ones shl by) and allOnes,
-                signExtendBit + by
-            )
+    /**
+     * [by] is non-negative, and may well be [EVM_BITWIDTH256] or more, in which case nothing of the vector remains,
+     * as in the EVM's `shl`. [Bottom] is not a 256-bit vector, so it stays unknown.
+     */
+    infix fun shiftLeft(by: Int): Ternary =
+        if (by >= EVM_BITWIDTH256) {
+            if (this is Bottom) { allXs } else { zero }
+        } else {
+            when (this) {
+                is Bottom -> allXs
+                is Constant -> Ternary((value shl by) and allOnes)
+                is NonConstant -> Ternary(
+                    ((zeros shl by) and allOnes) or lowOnes(by),
+                    (ones shl by) and allOnes,
+                    signExtendBit + by
+                )
+            }
         }
 
 
-    infix fun shiftRight(by: Int) =
-        when (this) {
-            is Bottom -> allXs
-            is Constant -> Ternary(value shr by)
-            is NonConstant ->
-                Ternary(
-                    (zeros shr by) or (lowOnes(by) shl (EVM_BITWIDTH256 - by)),
-                    ones shr by
-                )
+    /** As in [shiftLeft], a shift of [EVM_BITWIDTH256] or more leaves nothing of the vector. */
+    infix fun shiftRight(by: Int): Ternary =
+        if (by >= EVM_BITWIDTH256) {
+            if (this is Bottom) { allXs } else { zero }
+        } else {
+            when (this) {
+                is Bottom -> allXs
+                is Constant -> Ternary(value shr by)
+                is NonConstant ->
+                    Ternary(
+                        (zeros shr by) or (lowOnes(by) shl (EVM_BITWIDTH256 - by)),
+                        ones shr by
+                    )
+            }
         }
 
     /**
