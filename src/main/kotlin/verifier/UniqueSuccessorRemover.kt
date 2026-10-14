@@ -17,7 +17,6 @@
 
 package verifier
 
-import analysis.PathCondition
 import config.ReportTypes
 import datastructures.stdcollections.*
 import log.*
@@ -63,69 +62,90 @@ object UniqueSuccessorRemover {
     }
 
     /**
-     * Prepares the commands of the predecessor block `a` for merging by removing trailing jumps to `b`.
+     * Eliminates every unique-successor block of [core]: a block `b` whose only predecessor `a` has `b` as its
+     * only successor. Such `a -> b` edges form disjoint chains, and each chain is contracted into its head
+     * block: the code of the chain's blocks is concatenated (dropping the jumps between them) and the head
+     * takes over the tail's successors. The reachability variables of the eliminated blocks are renamed to
+     * their chain head's, and the returned [SinglePostprocessor]s restore them when reading a model.
+     *
+     * Returns null if there is nothing to merge.
      */
-    private fun cleanCommands(bid: NBId, ac: List<TACCmd.Simple>): List<TACCmd.Simple> {
-        if (ac.isEmpty()) {
-            return ac
-        }
-        val l = ac.last()
-        if (l is TACCmd.Simple.JumpCmd && l.dst == bid) {
-            return ac.dropLast(1)
-        }
-        if (l is TACCmd.Simple.JumpiCmd && l.dst == bid) {
-            return ac.dropLast(1) + listOf(TACCmd.Simple.AssumeCmd(l.cond, "cleanCommands"))
-        }
-        return ac
-    }
+    private fun eliminateAll(core: CoreTACProgram): Pair<CoreTACProgram, List<SinglePostprocessor>>? {
+        val g = core.analysisCache.graph
 
-    /**
-     * Eliminate a single block [bid] from [core]. First identifies the predecessor block `aid` and checks whether all
-     * necessary conditions apply. Then merges the two blocks by
-     * - setting `succ(aid) := succ(bid)`
-     * - merging the commands of the two blocks into `aid`
-     * - making sure that the reachability variable of `aid` is properly defined
-     * - eliminating the reachability variable of [bid] using the one of `aid`
-     * - build a new [CoreTACProgram] from these updated data
-     */
-    private fun eliminate(
-        core: CoreTACProgram,
-        bid: NBId
-    ): Pair<CoreTACProgram, SinglePostprocessor>? {
-        val graph = core.analysisCache.graph
-
-        val aid = graph.pred(bid).singleOrNull() ?: return null
-        if (graph.succ(aid).singleOrNull() != bid) {
-            return null
+        // an eliminated block -> its unique predecessor, i.e., the edge to contract
+        val chainPrev = mutableMapOf<NBId, NBId>()
+        // and the reverse map
+        val chainSucc = mutableMapOf<NBId, NBId>()
+        for (b in g.blockIds) {
+            val pred = g.pred(b).singleOrNull()
+                ?: continue
+            if (pred == b || g.succ(pred).singleOrNull() != b) {
+                continue
+            }
+            chainPrev[b] = pred
+            chainSucc[pred] = b
         }
-        if (graph.pathConditionsOf(aid)[bid] != PathCondition.TRUE) {
+        if (chainPrev.isEmpty()) {
             return null
         }
 
-        logger.info { "Merging ${bid} into ${aid} with PC ${graph.pathConditionsOf(aid)[bid]}" }
+        fun forwardSeq(b : NBId) = sequence {
+            var n : NBId? = b
+            while (n != null) {
+                yield(n)
+                n = chainSucc[n]
+            }
+        }
+
+        // chain head of an eliminated block.
+        val headOf = buildMap {
+            for (b in chainSucc.keys) {
+                if (b !in chainPrev.keys) {
+                    // b is head of a chain.
+                    for (n in forwardSeq(b)) {
+                        this[n] = b
+                    }
+                }
+            }
+        }
 
         val bg = MutableBlockGraph(core.blockgraph)
-        bg[aid] = bg[bid]!!
-        bg.remove(bid)
-
         val code = core.code.toMutableMap()
-        code[bid]?.let {
-            code[aid] = (cleanCommands(bid, code[aid] ?: listOf())) + it
+        for (chainHead in headOf.values.toSet()) {
+            val chain = forwardSeq(chainHead).toList()
+            val tail = chain.last()
+            val size = chain.sumOf { code[it]!!.size }
+            val cmds = ArrayList<TACCmd.Simple>(size)
+            for ((ptr, cmd) in g.lcmdSequence(chain)) {
+                // add all cmds except jumps of intermediate blocks.
+                if (ptr.block == tail || cmd !is TACCmd.Simple.JumpCmd) {
+                    cmds += cmd
+                }
+            }
+            code[chainHead] = cmds
+            bg[chainHead] = bg[tail]!!
         }
-        code.remove(bid)
+        chainPrev.keys.forEach {
+            code -= it
+            bg -= it
+        }
+        val sigma = chainPrev.keys.associate {
+            LeinoWP.genReachabilityVar(it) to LeinoWP.genReachabilityVar(headOf[it]!!)
+        }
+        val subst = TACVariableSubstitutor(sigma)
+        code.forEachEntry { (k, cmds) -> code[k] = cmds.map { subst.map(it) } }
 
-        var ts = core.symbolTable
-        ts = ts.mergeDecls(setOf(LeinoWP.genReachabilityVar(aid)))
+        val ts = core.symbolTable.mergeDecls(
+            chainPrev.keys.map { LeinoWP.genReachabilityVar(headOf[it]!!) }.toSet()
+        )
 
-        val subst =
-            TACVariableSubstitutor(mapOf(LeinoWP.genReachabilityVar(bid) to LeinoWP.genReachabilityVar(aid)))
-        code.forEachEntry { (bid, cmds) -> code[bid] = cmds.map { subst.map(it) } }
-
+        logger.info { "Merged ${chainPrev.size} unique-successor block(s) in one pass" }
         return core.copy(
             code = code,
             blockgraph = bg,
             symbolTable = ts,
-        ) to SinglePostprocessor(bid, aid)
+        ) to chainPrev.keys.map { SinglePostprocessor(it, headOf[it]!!) }
     }
 
     /**
@@ -141,28 +161,14 @@ object UniqueSuccessorRemover {
     }
 
     /**
-     * Eliminate unique successor blocks in a fixed-point loop.
+     * Eliminates all unique successor blocks. One pass suffices: contracting `a -> b` hands `b`'s only
+     * successor edge to `a` unchanged, so no edge becomes mergeable that wasn't already.
      */
     fun removeUniqueSuccessors(core: CoreTACProgram): Pair<CoreTACProgram, ModelPostprocessor> {
         dump(core, ReportTypes.UNIQUE_SUCCESSOR_REMOVER, DumpTime.PRE_TRANSFORM)
-
-        val pps: MutableList<SinglePostprocessor> = mutableListOf()
-        var curCore = core
-        var changed = true
-        while (changed) {
-            changed = false
-            for (b in curCore.analysisCache.graph.blocks) {
-                eliminate(curCore, b.id)?.let {
-                    curCore = it.first
-                    pps.add(it.second)
-                    changed = true
-                }
-                if (changed) break
-            }
-        }
-
-        dump(curCore, ReportTypes.UNIQUE_SUCCESSOR_REMOVER, DumpTime.POST_TRANSFORM)
-        return curCore to ModelPostprocessor(pps)
+        val (newCore, pps) = eliminateAll(core) ?: (core to listOf())
+        dump(newCore, ReportTypes.UNIQUE_SUCCESSOR_REMOVER, DumpTime.POST_TRANSFORM)
+        return newCore to ModelPostprocessor(pps)
     }
 
 }
