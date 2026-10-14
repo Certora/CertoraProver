@@ -133,7 +133,9 @@ open class ExpressionSimplifier(
         val (o1c, o2c) = o1.getAsConst() to o2.getAsConst()
 
         return if (o1c != null && o2c != null) {
-            (e as TACExpr).defaultEvalAsExpr(o1c, o2c)!!
+            // A partially-defined operator (IntDiv/IntMod by zero) has no concrete value, so
+            // defaultEvalAsExpr returns null; keep the expression symbolic instead of crashing.
+            (e as TACExpr).defaultEvalAsExpr(o1c, o2c) ?: (e as TACExpr).rebuild(o1, o2)
         } else {
             (e as TACExpr).rebuild(o1, o2)
         }
