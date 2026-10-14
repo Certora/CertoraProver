@@ -20,6 +20,8 @@ package analysis.opt
 import analysis.numeric.MAX_UINT
 import analysis.opt.PatternRewriter.PatternHandler
 import analysis.opt.intervals.IntervalsRewriter
+import config.Config
+import config.ConfigScope
 import instrumentation.transformers.FilteringFunctions
 import instrumentation.transformers.optimizeAssignments
 import org.junit.jupiter.api.Assertions
@@ -429,6 +431,104 @@ class PatternRewriterTest : TACBuilderAuxiliaries() {
                 setOf(TACSymbol.Const(negated, Tag.Bit256)),
                 rewrittenConstsOf(prog, x, PatternRewriter::earlyPatternsList)
             )
+        }
+    }
+
+    /**
+     * `unwrap(wrap(x))` ~~> `x` and `wrap(unwrap(y))` ~~> `y`.
+     *
+     * The two halves live in SEPARATE assignments, which is the shape CVL actually emits (an `int`
+     * parameter wrapped into a bv for a storage key or a comparison, unwrapped again where the
+     * spec does integer arithmetic on it). A local expression simplifier cannot see that; the
+     * pattern matcher resolves the inner symbol through its def.
+     */
+    @Test
+    fun testTwosComplementRoundTrip() {
+        val wrap = TACBuiltInFunction.TwosComplement.Wrap(Tag.Bit256).toTACFunctionSym()
+        val unwrap = TACBuiltInFunction.TwosComplement.Unwrap(Tag.Bit256).toTACFunctionSym()
+
+        // i : Int  --wrap-->  a : Bit256  --unwrap-->  j : Int
+        checkStat(TACProgramBuilder {
+            a assign TACExpr.Apply(wrap, listOf(iS), Tag.Bit256)
+            j assign TACExpr.Apply(unwrap, listOf(aS), Tag.Int)
+        }, "unwrapOfWrap", patterns = PatternRewriter::earlyPatternsList)
+
+        // a : Bit256  --unwrap-->  i : Int  --wrap-->  b : Bit256
+        checkStat(TACProgramBuilder {
+            i assign TACExpr.Apply(unwrap, listOf(aS), Tag.Int)
+            b assign TACExpr.Apply(wrap, listOf(iS), Tag.Bit256)
+        }, "wrapOfUnwrap", patterns = PatternRewriter::earlyPatternsList)
+
+        // a lone conversion, with no matching partner, must be left alone
+        checkStat(TACProgramBuilder {
+            a assign TACExpr.Apply(wrap, listOf(iS), Tag.Bit256)
+            x assign Eq(aS, bS)
+        }, "unwrapOfWrap", count = 0, patterns = PatternRewriter::earlyPatternsList)
+
+        // The same two patterns must also run post-intervals: in real programs a `SignExtend` sits
+        // between the two halves until `IntervalsRewriter` removes it, so the early list never sees
+        // the pair. Measured on the `pool1` benchmark: 0 matches early, 20 matches post-intervals.
+        checkStat(TACProgramBuilder {
+            a assign TACExpr.Apply(wrap, listOf(iS), Tag.Bit256)
+            j assign TACExpr.Apply(unwrap, listOf(aS), Tag.Int)
+        }, "unwrapOfWrap", patterns = PatternRewriter::postIntervalsRewriterPatternList)
+
+        checkStat(TACProgramBuilder {
+            i assign TACExpr.Apply(unwrap, listOf(aS), Tag.Int)
+            b assign TACExpr.Apply(wrap, listOf(iS), Tag.Bit256)
+        }, "wrapOfUnwrap", patterns = PatternRewriter::postIntervalsRewriterPatternList)
+    }
+
+    /** `Sle(wrap(A), wrap(B))` ~~> `Le(A, B)`, and the `Slt` counterpart. */
+    @Test
+    fun testSignedOrderTransfer() {
+        val wrap = TACBuiltInFunction.TwosComplement.Wrap(Tag.Bit256).toTACFunctionSym()
+
+        for (patterns in listOf(
+            PatternRewriter::earlyPatternsList,
+            PatternRewriter::postIntervalsRewriterPatternList
+        )) {
+            checkStat(TACProgramBuilder {
+                a assign TACExpr.Apply(wrap, listOf(iS), Tag.Bit256)
+                b assign TACExpr.Apply(wrap, listOf(jS), Tag.Bit256)
+                x assign Sle(aS, bS)
+            }, "sleOfWraps", patterns = patterns)
+
+            checkStat(TACProgramBuilder {
+                a assign TACExpr.Apply(wrap, listOf(iS), Tag.Bit256)
+                b assign TACExpr.Apply(wrap, listOf(jS), Tag.Bit256)
+                x assign Slt(aS, bS)
+            }, "sltOfWraps", patterns = patterns)
+        }
+
+        // One-sided is UNSOUND and must not fire: `d` is an arbitrary bitvector, not an encoding.
+        checkStat(TACProgramBuilder {
+            a assign TACExpr.Apply(wrap, listOf(iS), Tag.Bit256)
+            x assign Sle(aS, dS)
+        }, "sleOfWraps", count = 0, patterns = PatternRewriter::postIntervalsRewriterPatternList)
+
+        checkStat(TACProgramBuilder {
+            b assign TACExpr.Apply(wrap, listOf(jS), Tag.Bit256)
+            x assign Sle(dS, bS)
+        }, "sleOfWraps", count = 0, patterns = PatternRewriter::postIntervalsRewriterPatternList)
+    }
+
+    /** Under BV `Le` is unsigned and `wrap` the identity, so the order transfer would flip `Sle` to `BvULe`. */
+    @Test
+    fun testSignedOrderTransferOffUnderBV() {
+        val wrap = TACBuiltInFunction.TwosComplement.Wrap(Tag.Bit256).toTACFunctionSym()
+        ConfigScope(Config.Smt.UseBV, true).use {
+            checkStat(TACProgramBuilder {
+                a assign TACExpr.Apply(wrap, listOf(iS), Tag.Bit256)
+                b assign TACExpr.Apply(wrap, listOf(jS), Tag.Bit256)
+                x assign Sle(aS, bS)
+            }, "sleOfWraps", count = 0, patterns = PatternRewriter::postIntervalsRewriterPatternList)
+
+            checkStat(TACProgramBuilder {
+                a assign TACExpr.Apply(wrap, listOf(iS), Tag.Bit256)
+                b assign TACExpr.Apply(wrap, listOf(jS), Tag.Bit256)
+                x assign Slt(aS, bS)
+            }, "sltOfWraps", count = 0, patterns = PatternRewriter::earlyPatternsList)
         }
     }
 

@@ -19,6 +19,7 @@ package analysis.opt
 
 import analysis.opt.PatternRewriter.Key.*
 import analysis.split.Ternary.Companion.isPowOf2Minus1
+import config.Config
 import datastructures.stdcollections.*
 import tac.Tag
 import utils.*
@@ -206,4 +207,66 @@ fun PatternRewriter.earlyPatternsList() = listOf(
         handle = { Slt(sym(B), sym(A)) },
         TACExpr.UnaryExp.LNot::class.java
     ),
-    )
+) + twosComplementPatterns()
+
+/**
+ * Undoing two's-complement encoding noise. All of these rest on the precondition
+ * [vc.data.TACBuiltInFunction.TwosComplement.Wrap] documents and the converter verifies -- a wrapped
+ * value fits the two's complement range of its tag -- under which `wrap` is a bijection at a fixed
+ * width, and an order isomorphism for the signed relations.
+ *
+ * In their own list because they must run in BOTH [earlyPatternsList] and
+ * [postIntervalsRewriterPatternList]: they need no interval information, but in real programs a
+ * `SignExtend` separates the operands from their `wrap` until
+ * [analysis.opt.intervals.IntervalsRewriter] removes it, so early alone matches nothing.
+ *
+ * The order transfers are off under [Config.Smt.UseBV]: there `Int` is a 256 bit bitvector, `wrap` is the
+ * identity, and `Le`/`Lt` become UNSIGNED comparisons, so the rewrite would turn `BvSLe(A, B)` into
+ * `BvULe(A, B)`. The round trips stay -- both builtins are identities there, so they are no-ops.
+ */
+fun PatternRewriter.twosComplementPatterns() = listOfNotNull(
+    /**
+     * `unwrap(wrap(x))`  ~~>  `x`
+     *
+     * [ConstantPropagatorAndSimplifier] has this but needs the halves syntactically nested; here
+     * they sit in separate assignments, which the pattern matcher follows through `def.source`.
+     * `IntervalsRewriter.twosUnwrap` is sign-case based and gives up on values straddling zero.
+     */
+    PatternHandler(
+        name = "unwrapOfWrap",
+        pattern = { twosUnwrap(twosWrap(lSym(A))) },
+        handle = { sym(A) },
+        TACExpr.Apply.Unary::class.java
+    ),
+
+    /** `wrap(unwrap(x))`  ~~>  `x` */
+    PatternHandler(
+        name = "wrapOfUnwrap",
+        pattern = { twosWrap(twosUnwrap(lSym(A))) },
+        handle = { sym(A) },
+        TACExpr.Apply.Unary::class.java
+    ),
+
+    /**
+     * `Sle(wrap(A), wrap(B))`  ~~>  `Le(A, B)`
+     *
+     * BOTH operands must be wrapped -- a one-sided version says nothing about the encoded integer.
+     * `Sgt`/`Sge` need no handler: [earlyPatternsList] normalizes them into `Slt`/`Sle` first.
+     */
+    patternOnlyIf(
+        cond = !Config.Smt.UseBV.get(),
+        name = "sleOfWraps",
+        pattern = { twosWrap(lSym(A)) sLe twosWrap(lSym(B)) },
+        handle = { Le(sym(A), sym(B)) },
+        TACExpr.BinRel.Sle::class.java
+    ),
+
+    /** `Slt(wrap(A), wrap(B))`  ~~>  `Lt(A, B)` */
+    patternOnlyIf(
+        cond = !Config.Smt.UseBV.get(),
+        name = "sltOfWraps",
+        pattern = { twosWrap(lSym(A)) sLt twosWrap(lSym(B)) },
+        handle = { Lt(sym(A), sym(B)) },
+        TACExpr.BinRel.Slt::class.java
+    ),
+)

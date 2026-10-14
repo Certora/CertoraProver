@@ -25,6 +25,7 @@ import analysis.opt.intervals.IntervalsRewriter.Companion.isSurelyPos
 import analysis.patterns.Info
 import analysis.patterns.get
 import config.Config
+import datastructures.stdcollections.*
 import utils.*
 import vc.data.TACExpr
 import vc.data.TACSymbol
@@ -77,6 +78,9 @@ private fun Info.hasNonNegativeDividend(key: PatternRewriter.Key<LTACSymbol>): B
  * and truncating `IntDiv`, while a constant divisor turns the resulting multiplication into the linear `const·C`.
  * For a variable divisor the rewrite merely trades one nonlinear form (`Div`) for another (`var·var`), and
  * empirically it seems to not help.
+ *
+ * [twosComplementPatterns] is appended here as well as in [earlyPatternsList] -- see its KDoc for
+ * why both.
  */
 fun PatternRewriter.postIntervalsRewriterPatternList() = listOfNotNull(
 
@@ -177,4 +181,4 @@ fun PatternRewriter.postIntervalsRewriterPatternList() = listOfNotNull(
         TACExpr.BinRel.Eq::class.java
     ),
 
-)
+) + twosComplementPatterns()
