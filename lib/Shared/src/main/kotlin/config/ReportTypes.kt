@@ -147,6 +147,7 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     DSA_TO_SSA(LoggerTypes.DSA),
     UNIQUEIFY_BOUND_VARIABLES(LoggerTypes.NORMALIZER),
     BYTEMAP_SCALARIZER(LoggerTypes.OPTIMIZE),
+    SPILL_LOAD_FORWARDING(LoggerTypes.STORAGE_ANALYSIS),
     STORAGE_ANALYSIS(LoggerTypes.STORAGE_ANALYSIS),
     STORAGE_ANALYSIS_PATH_PRUNING(LoggerTypes.STORAGE_ANALYSIS),
     ABI(LoggerTypes.ABI),

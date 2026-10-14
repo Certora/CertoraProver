@@ -39,6 +39,7 @@ import instrumentation.StoragePathAnnotation
 import instrumentation.StorageReadInstrumenter
 import instrumentation.calls.materializeReturnSymbol
 import instrumentation.calls.returnSymbol
+import instrumentation.transformers.SpillLoadForwarder
 import instrumentation.transformers.ABIOptimizations
 import instrumentation.transformers.BranchSnippetInstrumenter
 import instrumentation.transformers.InternalFunctionRerouter
@@ -425,6 +426,10 @@ object IntegrativeChecker {
                         method = method as TACMethod,
                         transformers = ChainedMethodTransformers(
                             listOfNotNull(
+                                MethodToCoreTACTransformer(
+                                    ReportTypes.SPILL_LOAD_FORWARDING,
+                                ) { SpillLoadForwarder.rewrite(it.code as CoreTACProgram) },
+
                                 MethodToCoreTACTransformer(
                                     ReportTypes.STORAGE_COPY_LOOP_SUMMARIZATION,
                                 ) { StorageLoopSummarizer.annotateLoops(it.code as CoreTACProgram) },
