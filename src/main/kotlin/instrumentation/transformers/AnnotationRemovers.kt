@@ -22,6 +22,7 @@ import analysis.icfg.Inliner
 import analysis.icfg.SummaryStack
 import analysis.ip.*
 import analysis.pta.ITERATION_VARIABLE_BOUND
+import analysis.pta.InitAnnotation
 import analysis.pta.abi.ABIAnnotator
 import analysis.pta.abi.ABIDecodeComplete
 import analysis.pta.abi.ABIEncodeComplete
@@ -87,6 +88,7 @@ object AnnotationRemovers {
         BufferTraceInstrumentation.CallEvent.META_KEY,
         ConstantReturnBufferAllocComplete.META_KEY,
         ITERATION_VARIABLE_BOUND,
+        InitAnnotation.ExpectBoundedWrite.META_KEY,
         SBF_INLINED_FUNCTION_START,
         SBF_INLINED_FUNCTION_END,
         SummaryStack.END_EXTERNAL_SUMMARY,
