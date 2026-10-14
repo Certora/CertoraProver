@@ -152,6 +152,21 @@ abstract class ConverterTests {
                 CVLType.PureCVLType.DynamicArray.WordAligned(CVLType.PureCVLType.Primitive.AccountIdentifier),
                 EVMTypeDescriptor.DynamicArrayDescriptor(EVMLocationSpecifier.calldata, EVMTypeDescriptor.address),
                 ToVMContext.ArgumentPassing
+            ),
+            Tuple.of(
+                // a number literal that fits in an address is a subtype of address, so wherever an address may be
+                // passed to a parameter whose solidity type is a contract or an interface, the literal may be too
+                CVLType.PureCVLType.Primitive.NumberLiteral(BigInteger.valueOf(0xce4604a0L)),
+                CVLType.PureCVLType.Primitive.AccountIdentifier,
+                EVMTypeDescriptor.EVMContractTypeDescriptor("Contract1"),
+                ToVMContext.ArgumentPassing
+            ),
+            Tuple.of(
+                // and the same in the context of a summary's return value
+                CVLType.PureCVLType.Primitive.NumberLiteral(BigInteger.valueOf(0xce4604a0L)),
+                CVLType.PureCVLType.Primitive.AccountIdentifier,
+                EVMTypeDescriptor.EVMContractTypeDescriptor("Contract1"),
+                ToVMContext.InternalSummaryReturn
             )
         )
 

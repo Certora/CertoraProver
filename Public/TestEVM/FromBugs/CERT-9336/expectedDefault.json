@@ -1,0 +1,7 @@
+{
+	"rules": {
+		"literalReachesThePinnedContract": "SUCCESS",
+		"definitionReachesThePinnedContract": "SUCCESS",
+		"variableReachesThePinnedContract": "SUCCESS"
+	}
+}
