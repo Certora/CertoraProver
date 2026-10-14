@@ -397,7 +397,9 @@ object ContractUtils {
             }
             .plus(EVMExternalMethodInfo.getFallback(code.source) to code.fallback)
             .mapValues {
-                SighashScalarizer.rewrite(ContractClass.transformCommon(it.value)).apply {
+                CoreToCoreTransformer(ReportTypes.SIGHASH_SCALARIZER, SighashScalarizer::rewrite).applyTransformer(
+                    ContractClass.transformCommon(it.value)
+                ).apply {
                     ArtifactManagerFactory().dumpCodeArtifacts(this, ReportTypes.CFG, StaticArtifactLocation.Outputs, DumpTime.AGNOSTIC)
                 }
             }.mapValues { (_,v) ->
