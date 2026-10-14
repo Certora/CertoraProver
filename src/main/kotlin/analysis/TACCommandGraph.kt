@@ -18,7 +18,6 @@
 package analysis
 
 import algorithms.SimpleDominanceAnalysis
-import algorithms.findRoots
 import annotations.PerformanceCriticalUsesOnly
 import com.certora.collect.*
 import datastructures.LinkedArrayHashMap
@@ -510,7 +509,14 @@ abstract class GenericTACCommandGraph<T: TACCmd, U: LTACCmdGen<T>, V: TACBlockGe
     val sinkBlockIds by lazy { blockSucc.filterValues { it.isEmpty() }.keys }
     val sinkBlocks by lazy { sinkBlockIds.map(::elab) }
 
-    val roots by lazy { findRoots(blockGraph).map { b -> CmdPointer(b, 0) }.map(::elab) }
+    /**
+     * The blocks with no predecessor but themselves: for a well-formed program, the entry block alone. That is what a
+     * root strongly-connected component amounts to once every block is reachable from the entry, which
+     * `checkCodeStructure` guarantees; the decomposition this once ran cost as much as an analysis.
+     */
+    val entryBlockIds: Set<NBId> by lazy { blockPred.filter { (b, preds) -> preds.all { it == b } }.keys }
+
+    val roots by lazy { entryBlockIds.map { elab(CmdPointer(it, 0)) } }
     val sinks by lazy { blockSucc.filterValues { it.isEmpty() }.keys.map { elab(CmdPointer(it, code[it]!!.size - 1)) } }
 
 

@@ -30,9 +30,14 @@ import vc.data.AnalysisCache
 // See "A Simple, Fast Dominance Algorithm," Cooper, Harvey, Kennedy (2001):
 //     http://www.hipersoft.rice.edu/grads/publications/dom14.pdf
 //
-class SimpleDominanceAnalysis<@Treapable T : Any>(g: Map<T, Set<T>>) {
+/**
+ * [rootsOrNull] are the roots of [g], when the caller knows them; otherwise they are found with a strongly-connected-
+ * component decomposition (a cycle nobody enters is a root too, which matters for reversed graphs).
+ */
+class SimpleDominanceAnalysis<@Treapable T : Any>(g: Map<T, Set<T>>, rootsOrNull: Set<T>? = null) {
      companion object : AnalysisCache.Key<GenericTACCommandGraph<*,*,*>, SimpleDominanceAnalysis<NBId>> {
-         override fun createCached(graph: GenericTACCommandGraph<*,*,*>) = SimpleDominanceAnalysis(graph.toBlockGraph())
+         override fun createCached(graph: GenericTACCommandGraph<*,*,*>) =
+             SimpleDominanceAnalysis(graph.toBlockGraph(), graph.entryBlockIds)
     }
 
 
@@ -46,7 +51,7 @@ class SimpleDominanceAnalysis<@Treapable T : Any>(g: Map<T, Set<T>>) {
         //
         // Postorder number nodes
         //
-        val roots = findRoots(g)
+        val roots = rootsOrNull ?: findRoots(g)
         val queue = ArrayDeque<T>()
         val preordered = LinkedArrayHashSet<T>()
         queue.addAll(roots)

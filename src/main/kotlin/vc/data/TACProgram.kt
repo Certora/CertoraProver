@@ -19,6 +19,7 @@ package vc.data
 
 import algorithms.SimpleDominanceAnalysis
 import algorithms.findRoots
+import algorithms.getReachable1
 import algorithms.topologicalOrder
 import allocator.Allocator
 import allocator.SuppressRemapWarning
@@ -1195,8 +1196,14 @@ class CoreTACProgram private constructor(
             }"
         }
 
-        // check there's exactly one root
-        tacStructureInvariant(findRoots(blockgraph).size <= 1) {
+        // check there's exactly one root, i.e. at most one root strongly-connected component, and it is a single block
+        // (a cycle nobody enters would be a root component of several blocks). Equivalently, and in linear time: at
+        // most one block has no predecessor but itself, and every block is reachable from it.
+        val entries = blockgraph.keys - blockgraph.entries.flatMapToSet { (src, dsts) -> dsts.filter { it != src } }
+        tacStructureInvariant(
+            blockgraph.isEmpty() ||
+                (entries.size == 1 && getReachable1(entries.single()) { blockgraph[it] }.size == blockgraph.size)
+        ) {
             "Cannot create a TAC program with multiple roots: ${analysisCache.graph.roots.map { it.ptr }} in ${analysisCache.graph.blockSucc}"
         }
 
