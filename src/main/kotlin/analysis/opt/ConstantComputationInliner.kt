@@ -128,8 +128,9 @@ object ConstantComputationInliner : ArrayLengthHeuristicMixin {
                         if(exp.operandsAreSyms()) {
                             val o1 = exp.o1AsTACSymbol().interp()
                             val o2 = exp.o2AsTACSymbol().interp()
-                            if(o1 != null && o2 != null && exp.evaluatable(o1, o2)) {
-                                return@flatMap Stream.of(it.lhs to exp.eval(o1, o2))
+                            val folded = if (o1 != null && o2 != null) { exp.eval(o1, o2) } else { null }
+                            if (folded != null) {
+                                return@flatMap Stream.of(it.lhs to folded)
                             }
                         }
                     }

@@ -18,13 +18,16 @@
 package analysis.opt
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import tac.Tag
 import vc.data.TACBuilderAuxiliaries
+import vc.data.TACExpr
 import vc.data.TACProgramBuilder
 import vc.data.TACProgramBuilder.Companion.testProgString
 import vc.data.asTACExpr
+import java.math.BigInteger
 
 class ConstantPropagatorAndSimplifierTest : TACBuilderAuxiliaries() {
 
@@ -84,6 +87,54 @@ class ConstantPropagatorAndSimplifierTest : TACBuilderAuxiliaries() {
             testProgString(prog.code),
             testProgString(ConstantPropagatorAndSimplifier(prog.code).rewrite())
         )
+    }
+
+    /**
+     * The constant folder in [ConstantPropagatorAndSimplifier.Companion.simplifyTopOrNull] runs before the
+     * algebraic identities, so it has to decline a literally-zero divisor on its own: [vc.data.TACExpr.BinOp.IntMod]
+     * has no value there at all, and folding [vc.data.TACExpr.BinOp.IntDiv] to zero would pick one of the values the
+     * smt encoding leaves open.
+     */
+    @Test
+    fun intDivModByConstantZeroAreNotFolded() {
+        val prog = TACProgramBuilder {
+            j assign IntDiv(7.asTACExpr(Tag.Int), 0.asTACExpr(Tag.Int))
+            k assign IntMod(7.asTACExpr(Tag.Int), 0.asTACExpr(Tag.Int))
+            assert(x)
+        }
+        assertEquals(
+            testProgString(prog.code),
+            testProgString(ConstantPropagatorAndSimplifier(prog.code).rewrite())
+        )
+    }
+
+    /** The same divisor, reached by propagating a constant rather than written as a literal. */
+    @Test
+    fun intModByPropagatedZeroIsNotFolded() {
+        val prog = TACProgramBuilder {
+            i assign IntMod(10.toBigInteger().pow(13).asTACExpr(Tag.Int), 10.toBigInteger().pow(6).asTACExpr(Tag.Int))
+            k assign IntMod(7.asTACExpr(Tag.Int), iS)
+            assert(x)
+        }
+        // `10^13 % 10^6` folds to 0 and propagates into the divisor below, where the fold must stop.
+        val expected = TACProgramBuilder {
+            i assign 0.asTACExpr(Tag.Int)
+            k assign IntMod(7.asTACExpr(Tag.Int), 0.asTACExpr(Tag.Int))
+            assert(x)
+        }
+        assertEquals(
+            testProgString(expected.code),
+            testProgString(ConstantPropagatorAndSimplifier(prog.code).rewrite())
+        )
+    }
+
+    /** [vc.data.TACExpr.evalAsConst] shares the throw site, and has to report "no value" rather than raise. */
+    @Test
+    fun intModByZeroHasNoConstantValue() {
+        val zero = 0.asTACExpr(Tag.Int)
+        assertNull(TACExpr.BinOp.IntMod(7.asTACExpr(Tag.Int), zero, Tag.Int).evalAsConst())
+        assertNull(TACExpr.BinOp.IntDiv(7.asTACExpr(Tag.Int), zero, Tag.Int).evalAsConst())
+        assertEquals(BigInteger.ONE, TACExpr.BinOp.IntMod(7.asTACExpr(Tag.Int), 2.asTACExpr(Tag.Int), Tag.Int).evalAsConst())
     }
 
     /**

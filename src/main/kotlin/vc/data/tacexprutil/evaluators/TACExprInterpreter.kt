@@ -181,7 +181,8 @@ object TACExprInterpreter : AccumulatingTACExprTransFormerWithDefaultRes<TACExpr
 
 
     override fun transformBinOp(acc: Acc, e: TACExpr.BinOp): TACValue.PrimitiveValue.Integer =
-        e.eval(transform(acc, e.o1).asPrimitiveInt.value, transform(acc, e.o2).asPrimitiveInt.value).asTacValue
+        e.eval(transform(acc, e.o1).asPrimitiveInt.value, transform(acc, e.o2).asPrimitiveInt.value)?.asTacValue
+            ?: throw UnsupportedOperationException("\"$e\" has no concrete value for these operands")
 
     override fun transformTernary(acc: Acc, e: TACExpr.TernaryExp): TACValue =
         e.eval(

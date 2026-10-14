@@ -1,0 +1,11 @@
+{
+	"rules": {
+		"modByConstantZero": "FAIL",
+		"modByConstantNonZero": "SUCCESS",
+		"envfreeFuncsStaticCheck": {
+			"SUCCESS": [
+				"calc(uint256,Contract IPriceOracle)"
+			]
+		}
+	}
+}

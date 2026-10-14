@@ -363,7 +363,7 @@ object ConditionalConstantPropagation {
                     val v2 = absInterpExp(state, exp.o2)
                     when {
                         v1 is ConstValue && v2 is ConstValue ->
-                            ConstValue(exp.eval(v1.value, v2.value))
+                            exp.eval(v1.value, v2.value)?.let(::ConstValue) ?: OVERDEFINED
                         v1 is OVERDEFINED || v2 is OVERDEFINED -> OVERDEFINED
                         v1 is UNDERDEFINED || v2 is UNDERDEFINED -> UNDERDEFINED
                         else -> `impossible!`
