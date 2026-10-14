@@ -129,3 +129,24 @@ rule doesRevert(method f) {
 rule functionInTernaryExp {
     assert boolean() ? false : true;
 }
+
+// a `method` parameter may also be bound by a signature literal, in which case it denotes exactly one method
+function methodSelector(method f) returns uint32 {
+    assert f.contract == currentContract;
+    return f.selector;
+}
+
+rule sigLiteralAsMethodArg {
+    assert methodSelector(sig:giveMeThree()) == sig:giveMeThree().selector;
+}
+
+rule sigLiteralAsMethodArgInvocation {
+    assert !call_method_return_reverted(sig:giveMeThree());
+    assert call_method_return_reverted(sig:revertsForSure());
+}
+
+// the `contract` field of a signature literal is the address of the declaring contract, just as it is for a `method`
+// parameter - and not the contract's instance id, which is not an address at all
+rule sigLiteralContract {
+    assert sig:giveMeThree().contract == currentContract;
+}

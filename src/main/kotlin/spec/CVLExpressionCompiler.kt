@@ -1829,7 +1829,7 @@ class CVLExpressionCompiler(
             is CVLExp.Constant.NumberLit -> getSimple(compileNumberLit(getOutVar(), exp, out.type))
             is CVLExp.Constant.StringLit -> compileStringLit(getOutVar(), exp)
             is CVLExp.Constant.StructLit -> compileStructLiteralExpr(getOutVar(), exp)
-            is CVLExp.Constant.SignatureLiteralExp -> compileSignatureliteralExp(out, exp)
+            is CVLExp.Constant.SignatureLiteralExp -> compileSignatureliteralExp(getOutVar(), exp)
             is CVLExp.BinaryExp.AddExp -> compileAddExp(getOutVar(), exp)
             is CVLExp.BinaryExp.DivExp -> compileDivExp(getOutVar(), exp)
             is CVLExp.BinaryExp.ModExp -> compileModExp(getOutVar(), exp)
@@ -2775,13 +2775,19 @@ class CVLExpressionCompiler(
         // note: no out of bounds checking - will just havoc
     }
 
+    /**
+     * Note that this deliberately does *not* compile the [CVLExp.Constant.StructLit] the type checker attached to
+     * [exp]: that struct holds the declaring contract's instance id as a constant, whereas compiled code expects an
+     * address. [CVLCompiler.signatureLiteralStruct] substitutes the contract's address symbol, which makes a signature
+     * literal and a `method` parameter denote the very same value, so that e.g.
+     * `sig:foo().contract == currentContract` holds.
+     */
     private fun compileSignatureliteralExp(
-            out: CVLParam,
+            out: TACSymbol.Var,
             exp: CVLExp.Constant.SignatureLiteralExp
-    ): ParametricInstantiation<CVLTACProgram> {
-        val structLit = exp.tag.annotation as CVLExp.Constant.StructLit
-        return compileExp(out, structLit)
-    }
+    ): ParametricInstantiation<CVLTACProgram> = getSimple(
+        codeFromCommandWithVarDecls(cvlCompiler.signatureLiteralStruct(out, exp), compilationEnvironment)
+    )
 
     private fun compileGhostMappingExp(
         out: TACSymbol.Var,

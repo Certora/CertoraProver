@@ -150,10 +150,15 @@ class CVLCompiler(
     /**
      * @property baseCallId The default call ID to use for all block IDs generated during compilation
      * @property methodInstantiations A map from a tac variable name to its corresponding set of instantiations
+     * @property concreteMethodParams A map from the tac variable of a `method`-typed CVL function parameter which was
+     * bound to a signature literal (as in `takesMethod(sig:foo(uint))`) to the single method that literal denotes.
+     * Unlike [methodInstantiations] these bindings are *not* parametric: applying such a parameter compiles to a
+     * direct call of that method, so the enclosing rule stays non-parametric.
      */
     data class CompilationEnvironment(
         override val baseCallId: CallId = CallIdContext.defaultBaseCallId,
-        val methodInstantiations: Map<TACSymbol.Var, Set<ITACMethod>> = mapOf()
+        val methodInstantiations: Map<TACSymbol.Var, Set<ITACMethod>> = mapOf(),
+        val concreteMethodParams: Map<TACSymbol.Var, ITACMethod> = mapOf()
     ) : CallIdContext
 
     private fun ContractReference.toName() = when (this) {
@@ -771,6 +776,11 @@ class CVLCompiler(
 
                     is ParametricMethod -> {
                         val which = allocatedTACSymbols.get(res.methodId)
+                        // if this parameter was bound to a signature literal we know exactly which method is being
+                        // applied, so compile it as a direct call instead of a (singleton) parametric instantiation.
+                        compilationEnvironment.concreteMethodParams[which]?.let { concrete ->
+                            return compiler.generateCode(concrete)
+                        }
                         val cands = compilationEnvironment.methodInstantiations[which]
                             ?: this.scene.getContract(res.host.toName()).getStandardMethods()
 
@@ -865,6 +875,25 @@ class CVLCompiler(
     }
 
     /**
+     * @return the single method denoted by the signature literal [exp]. The annotation attached to the literal by the
+     * type checker records both the selector and the instance id of the contract declaring the method, which is
+     * exactly what's needed to find it in the [scene].
+     */
+    private fun resolveSignatureLiteral(exp: CVLExp.Constant.SignatureLiteralExp): ITACMethod {
+        fun field(name: String) = ((exp.tag.annotation as? CVLExp.Constant.StructLit)
+            ?.fieldNameToEntry?.get(name) as? CVLExp.Constant.NumberLit)?.n
+
+        val selector = field(EVMExternalMethodInfo.selectorField)
+        val host = field(EVMExternalMethodInfo.contractField)
+        return host?.let { scene.getContractOrNull(it) }?.let { contract ->
+            selector?.let(contract::getMethodBySigHash)
+        }?.takeIf { it.evmExternalMethodInfo != null } ?: throw CertoraException(
+            CertoraErrorType.CVL,
+            "Could not resolve the method `${exp.function}` referenced at ${exp.getRangeOrEmpty()}"
+        )
+    }
+
+    /**
      * @param allocatedTACSymbols is imperatively extended with additional symbols
      */
     fun compileCVLFunctionApplication(
@@ -881,23 +910,45 @@ class CVLCompiler(
         }
         val sub = subInfo.symbolValue as CVLFunction
         val newAllocatedTACSymbols: TACSymbolAllocation = allocatedTACSymbols.calleeScope()
-        mutableMapOf<String, Pair<String, Set<ITACMethod>>>()
+
+        /** bindings of `method`-typed parameters to the single method denoted by a signature literal argument */
+        val concreteMethodParams = mutableMapOf<TACSymbol.Var, ITACMethod>()
+        /** the same bindings, keyed by the index of the parameter within [sub] */
+        val concreteMethodArgs = mutableMapOf<Int, ITACMethod>()
 
         sub.params.forEachIndexed { i, param ->
             val name = param.id
             when (val type = param.type) {
                 is CVLType.PureCVLType.Struct -> {
                     if (type == EVMBuiltinTypes.method) { // TODO(jtoman): function literals perhaps? this is fine for now probably
-                        val arg = exp.args[i]
-                        if (arg is CVLExp.VariableExp) {
-                            // method variables should be the same everywhere to ensure instantiation works correctly
-                            newAllocatedTACSymbols.extend(name,
-                                allocatedTACSymbols
-                                    .get(arg.id, type.toTag())
-                                    // replace the old display name with the new one
-                                    .withMeta(CVL_DISPLAY_NAME, param.originalId))
-                        } else {
-                            throw IllegalStateException("Found an non-trivial argument $arg of method type")
+                        when (val arg = exp.args[i]) {
+                            is CVLExp.VariableExp -> {
+                                // method variables should be the same everywhere to ensure instantiation works correctly
+                                newAllocatedTACSymbols.extend(name,
+                                    allocatedTACSymbols
+                                        .get(arg.id, type.toTag())
+                                        // replace the old display name with the new one
+                                        .withMeta(CVL_DISPLAY_NAME, param.originalId))
+                            }
+                            is CVLExp.Constant.SignatureLiteralExp -> {
+                                // a signature literal denotes exactly one method, so give the parameter a variable
+                                // of its own (initialized by the argument compilation below) and record the method it
+                                // stands for, so that applying the parameter within the body resolves directly to
+                                // that method.
+                                val paramVar = newAllocatedTACSymbols.extend(
+                                    name,
+                                    getAsCVLVariable(
+                                        TACSymbol.Var(name, type.toTag()).toUnique(),
+                                        CVLDefinitionSite.Function(param.range),
+                                        param.originalId,
+                                        type,
+                                    )
+                                )
+                                val concrete = resolveSignatureLiteral(arg)
+                                concreteMethodParams[paramVar] = concrete
+                                concreteMethodArgs[i] = concrete
+                            }
+                            else -> throw IllegalStateException("Found an non-trivial argument $arg of method type")
                         }
                     } else {
                         newAllocatedTACSymbols.extendWithCVLVariable(name, type, CVLDefinitionSite.Function(param.range))
@@ -930,6 +981,23 @@ class CVLCompiler(
 
         val compiledArguments = exp.args.mapIndexed { index, cvlExp ->
             val param = sub.params[index]
+            concreteMethodArgs[index]?.let { concrete ->
+                /**
+                 * Rather than compiling the signature literal as an ordinary struct value, populate the parameter with
+                 * exactly the struct a parametric instantiation with this method would produce (see
+                 * [compileMethodParamInstantiations]). Notably this keeps the `contract` field an address symbol, so a
+                 * body written against a `method` parameter behaves the same however the parameter was bound.
+                 */
+                val inVar = newAllocatedTACSymbols.get(param.id, param.type.toTag())
+                val info = concrete.evmExternalMethodInfo!!
+                val binding = methodStruct(inVar, info).merge(
+                    CommandWithRequiredDecls(
+                        listOf(SnippetCmd.CVLSnippetCmd.CVLArg.AnyArg(callId, index, inVar, param).toAnnotation()),
+                        setOf(inVar)
+                    )
+                )
+                return@mapIndexed binding.toProg("write arg $index", compilationEnvironment).toSimple()
+            }
             val (transient, tgt) = allocatedTACSymbols.generateTransientUniqueCVLParam(cvl.symbolTable, param)
             val inVar = newAllocatedTACSymbols.get(param.id, param.type.toTag())
             val wildcardAssumptions = if (cvlExp is CVLExp.VariableExp && cvlExp.id.isWildcard()) {
@@ -972,6 +1040,14 @@ class CVLCompiler(
         } else {
             sub.block
         }
+        // the bindings established above are only visible within the callee (and, transitively, in anything it calls)
+        val bodyEnvironment = if (concreteMethodParams.isEmpty()) {
+            compilationEnvironment
+        } else {
+            compilationEnvironment.copy(
+                concreteMethodParams = compilationEnvironment.concreteMethodParams + concreteMethodParams
+            )
+        }
         val compiledBody = if (body.isEmpty()) {
             CommandWithRequiredDecls(TACCmd.Simple.NopCmd).toProg("empty block", compilationEnvironment).toSimple()
         } else {
@@ -983,7 +1059,7 @@ class CVLCompiler(
             val asCompositeBlock = CVLCmd.Composite.Block(sub.range, body, sub.scope)
             wrapCmdWithLabels(asCompositeBlock).map {
                 val commandToCompile = assertModifier.cmd(it).safeForce()
-                compileCommand(commandToCompile, newAllocatedTACSymbols, compilationEnvironment)
+                compileCommand(commandToCompile, newAllocatedTACSymbols, bodyEnvironment)
             }.let {
                 ParametricMethodInstantiatedCode.merge(it, "compiled body")
             }
@@ -2469,6 +2545,64 @@ class CVLCompiler(
         }
     }
 
+    /**
+     * @return a [CommandWithRequiredDecls] assigning to [lhs] the [EVMBuiltinTypes.method] struct value denoting
+     * [info]. The `contract` field is bound to the *address symbol* of the declaring contract, which is what
+     * `currentContract` and the aliases introduced by `using` compile to. Note that this differs from the constant
+     * instance id that [EVMExternalMethodInfo.buildStruct] records in the AST for static evaluation of method param
+     * filters: an instance id is not an address, so it must not leak into compiled code.
+     */
+    internal fun methodStruct(lhs: TACSymbol.Var, info: EVMExternalMethodInfo): CommandWithRequiredDecls<TACCmd.Simple> =
+        info.toTACStruct(lhs, myInstanceId, scene.getContract(info.contractInstanceId).addressSym as TACSymbol.Var)
+
+    private fun CVLExp.constantAsTACSymbol(): TACSymbol = when (this) {
+        is CVLExp.Constant.NumberLit -> n.asTACSymbol()
+        // note [CVLExp.Constant.BoolLit.b] is a BigInteger, so this must not be handed to the numeric `lift`
+        is CVLExp.Constant.BoolLit -> TACSymbol.lift(b == BigInteger.ONE)
+        else -> throw CertoraInternalException(
+            CertoraInternalErrorType.CVL_COMPILER,
+            "expected the struct of a signature literal to hold only constants, got $this"
+        )
+    }
+
+    /**
+     * @return commands assigning to [lhs] the struct denoted by the signature literal [exp], which is the same value a
+     * `method` parameter bound to that method holds (see [methodStruct]).
+     *
+     * The [CVLExp.Constant.StructLit] the type checker attached to [exp] holds the declaring contract's *instance id*
+     * in its `contract` field, since that is what static evaluation of method param filters compares against (see
+     * [spec.CalculateMethodParamFilters]). An instance id is not an address, so compiled code must see the contract's
+     * address symbol there instead - the value `currentContract` and the aliases introduced by `using` compile to.
+     *
+     * Note that the method itself need not be in the [scene]: `sig:` of a method declared `optional` with no
+     * implementation is legal, and gets an [EVMBuiltinTypes.virtualMethod] struct with no `contract` field at all.
+     * Hence only the contract is looked up, and it too is allowed to be missing.
+     */
+    internal fun signatureLiteralStruct(
+        lhs: TACSymbol.Var,
+        exp: CVLExp.Constant.SignatureLiteralExp
+    ): CommandWithRequiredDecls<TACCmd.Simple> {
+        val structLit = exp.tag.annotation as CVLExp.Constant.StructLit
+        val fields = structLit.fieldNameToEntry.mapValues { (fieldName, entry) ->
+            (entry as? CVLExp.Constant.NumberLit)
+                ?.takeIf { fieldName == EVMExternalMethodInfo.contractField }
+                ?.let { scene.getContractOrNull(it.n)?.addressSym as? TACSymbol.Var }
+                ?: entry.constantAsTACSymbol()
+        }
+        return CommandWithRequiredDecls(
+            listOf(
+                TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                    lhs,
+                    TACExpr.StructConstant(
+                        fields.mapValues { (_, sym) -> sym.asSym() },
+                        tag = structLit.getPureCVLType().toTag()
+                    )
+                )
+            ),
+            fields.values.filterIsInstance<TACSymbol.Var>().toSet() + lhs
+        )
+    }
+
     private fun isAlreadyWrapped(block: List<CVLCmd>, idx: Int): Boolean {
         val prev = block.getOrNull(idx - 1)
         val next = block.getOrNull(idx + 1)
@@ -2803,11 +2937,7 @@ class CVLCompiler(
             codeFromCommandVarWithDecls(
                 // we don't have a compilation environment yet, so let's use the base one
                 RootCallIdContext.newBlockId(),
-                methodInfo.toTACStruct(
-                    tacVarOfParam,
-                    myInstanceId,
-                    scene.getContract(methodInfo.contractInstanceId).addressSym as TACSymbol.Var
-                ),
+                methodStruct(tacVarOfParam, methodInfo),
                 methodParamId
             ).toInstantiation(tacVarOfParam, methodInfo)
         }.commute()
