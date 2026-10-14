@@ -71,11 +71,17 @@ open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset
                         summarizer.summarizeMulti3(args)
                     }
                     IntegerU128CompilerRtFunction.MULOTI4 -> {
-                        throw UnsupportedCall(
-                            locInst,
-                            msg = "${inst.name} is not currently supported",
-                            function = inst.name
-                        )
+                        // Modeling a call that `lowerMuloti4Calls` left alone would silently drop
+                        // the overflow flag
+                        if (inst.metaData.getVal(SbfMeta.MULOTI4_LOWERED) == null) {
+                            throw UnsupportedCall(
+                                locInst,
+                                msg = "${inst.name} is only supported for programs with static stack frames",
+                                function = inst.name
+                            )
+                        }
+                        val args = summarizer.getArgsFromU128BinaryCompilerRt(locInst) ?: return listOf()
+                        summarizer.summarizeMuloti4(args.copy(overflow = sbfTacB.mkVar(SbfRegister.R0)))
                     }
                     IntegerU128CompilerRtFunction.UDIVTI3 -> {
                         val args = summarizer.getArgsFromU128BinaryCompilerRt(locInst) ?: return listOf()

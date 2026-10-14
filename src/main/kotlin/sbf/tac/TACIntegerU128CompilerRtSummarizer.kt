@@ -42,6 +42,27 @@ open class SummarizeIntegerU128CompilerRt<TNum : INumValue<TNum>, TOffset : IOff
         return cmds
     }
 
+    /**
+     * `res := (x * y) mod 2^128` and `overflow := 1` exactly when the signed product of `x` and `y`
+     * does not fit in 128 bits.
+     *
+     * Both outputs come from a single 256-bit product `p` of the sign-extended operands: `p` agrees
+     * with the unsigned product modulo 2^128, so it yields `res`, and it is exact as a signed value,
+     * so it also decides the overflow flag.
+     **/
+    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+    internal open fun summarizeMuloti4(args: U128BinaryOperands): List<TACCmd.Simple> {
+        val cmds = mutableListOf<TACCmd.Simple>()
+        applyU128BinaryOperation(args, cmds) { res, overflow, x, y ->
+            check(overflow != null) { "__muloti4 was summarized without a variable for its overflow flag" }
+            val product = vFac.mkFreshIntVar()
+            cmds += assign(product, sbfTacB { x.asSym() sMulWide128 y.asSym() })
+            cmds += assign(res, sbfTacB.mask128(product.asSym()))
+            cmds += assign(overflow, sbfTacB { ite(fitsInSigned128(product.asSym()), ZERO, ONE) })
+        }
+        return cmds
+    }
+
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     internal open fun summarizeUDivti3(args: U128BinaryOperands): List<TACCmd.Simple> {
         val cmds = mutableListOf<TACCmd.Simple>()

@@ -107,9 +107,10 @@ enum class IntegerU128CompilerRtFunction(val function: ExternalFunction) {
         readRegisters = listOf(
             SbfRegister.R1, SbfRegister.R2,
             SbfRegister.R3, SbfRegister.R4, SbfRegister.R5).map{ Value.Reg(it)}.toSet())),
+    /** Returns the overflow flag in `r0`. See [sbf.cfg.lowerMuloti4Calls]. **/
     MULOTI4(ExternalFunction(
         name = "__muloti4",
-        writeRegister = setOf(),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0)),
         readRegisters = listOf(
             SbfRegister.R1, SbfRegister.R2,
             SbfRegister.R3, SbfRegister.R4, SbfRegister.R5).map{ Value.Reg(it)}.toSet())),
@@ -154,23 +155,20 @@ enum class IntegerU128CompilerRtFunction(val function: ExternalFunction) {
                     }
 
                     MULOTI4 -> {
-                        /** [MemSummaryArgument] is not expressive enough to express the summary for `__muloti4`
+                        /**
                          *  ```
                          *  ti_int __muloti4(ti_int a, ti_int b, int* overflow);
                          *  ```
-                         *   In SBF, we have `__muloti4(r1,r2,r3,r4,r5)` where:
-                         *   - `*(r1+0)` and `*(r1+8)` contains the low and high 64 bits of the result
-                         *   - `r2` and `r3` contains the low and high 64 bits of `a`
-                         *   - `r4` and `*(r5-(4096 - 0))` contains the low and high 64 bits of `b`
-                         *   - `*(r5-(4096 - 8))` contains `overflow` which is a pointer.
-                         *      Thus, `**(r5-(4096 - 8))` is where the actual overflow Boolean flag is stored
-                         *
-                         *  For now, we can only describe `*(r1+0)` and `*(r1+8)` but not `**(r5-4088)`.
-                         *  Thus, some warning or error should be reported if `__muloti4` is executed.
+                         *  `*(r1+0)` and `*(r1+8)` hold the low and high 64 bits of the result, as for
+                         *  [MULTI3]. `*overflow` is not described here: it is written through a pointer that
+                         *  the ABI spills to the caller's frame, which no summary can express, so
+                         *  [sbf.cfg.lowerMuloti4Calls] rewrites call sites to store the flag themselves from
+                         *  `r0`.
                          **/
                         val summaryArgs = listOf(
                             MemSummaryArgument(r = SbfRegister.R1, offset = 0, width = 8, type = MemSummaryArgumentType.NUM),
-                            MemSummaryArgument(r = SbfRegister.R1, offset = 8, width = 8, type = MemSummaryArgumentType.NUM)
+                            MemSummaryArgument(r = SbfRegister.R1, offset = 8, width = 8, type = MemSummaryArgumentType.NUM),
+                            MemSummaryArgument(r = SbfRegister.R0, type = MemSummaryArgumentType.NUM)
                         )
                         memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
                     }

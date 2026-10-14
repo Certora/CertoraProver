@@ -97,6 +97,8 @@ object SbfMeta {
     val LOWERED_OR = MetaKey<Unit>("lowered_or")
     val UNREACHABLE_FROM_COI = MetaKey<Unit>("unreachable_from_coi")
     val SAFE_MATH = MetaKey<Unit>("safe_math")
+    // the call's stack-passed arguments have been loaded into registers by `lowerMuloti4Calls`
+    val MULOTI4_LOWERED = MetaKey<Unit>("muloti4_lowered")
     val NARROWED_LOAD = MetaKey<Unit>("narrowed_load")
     // the assert comes from an assertion of the user, and not from one that the Prover inserted itself
     val USER_ASSERT = MetaKey<Unit>("user_assert")
@@ -124,6 +126,7 @@ fun toString(metaData: MetaData): String {
             SbfMeta.LOWERED_SELECT, SbfMeta.LOWERED_OR, SbfMeta.LOADED_AS_NUM_FOR_PTA,
             SbfMeta.REMOVED_MEMMOVE,
             SbfMeta.SAFE_MATH, SbfMeta.SET_GLOBAL, SbfMeta.NARROWED_LOAD,
+            SbfMeta.MULOTI4_LOWERED,
             SbfMeta.MATH_PROMOTION -> {
                 strB.append(" /*${k.name}*/")
             }

@@ -207,6 +207,22 @@ abstract class SbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : TACExprBase(re
     protected abstract fun SDiv128(o1: TACExpr, o2: TACExpr): TACExpr
     protected abstract fun Mod(o1: TACExpr, o2: TACExpr): TACExpr
 
+    /**
+     * Product of two 128-bit two's complement values, as a 256-bit two's complement value.
+     *
+     * Unlike [Mul128] the product is not truncated, which is what makes it possible to tell whether
+     * the 128-bit multiplication overflowed (see [FitsInSigned128]). The product is exact because
+     * `|x * y| < 2^254` for any two 128-bit signed `x` and `y`.
+     *
+     * This is independent of how 64-bit register semantics are modeled, hence not abstract.
+     **/
+    protected fun SMulWide128(o1: TACExpr, o2: TACExpr): TACExpr =
+        TACExpr.Vec.Mul(listOf(signExtendSbfValue(o1, 128), signExtendSbfValue(o2, 128)))
+
+    /** Whether [o], read as a 256-bit two's complement value, is in the range of a 128-bit signed integer **/
+    protected fun FitsInSigned128(o: TACExpr): TACExpr =
+        TACExpr.BinRel.Eq(o, signExtendSbfValue(o, 128))
+
     protected abstract fun Gt(o1: TACExpr, o2: TACExpr): TACExpr
     protected abstract fun Lt(o1: TACExpr, o2: TACExpr): TACExpr
     protected abstract fun Slt(o1: TACExpr, o2: TACExpr): TACExpr
@@ -397,6 +413,8 @@ abstract class SbfTACBuilder(regVars: ArrayList<TACSymbol.Var>) : TACExprBase(re
 
     infix fun ToTACExpr.mul(other: ToTACExpr)    = this@SbfTACBuilder.Mul(listOf(this.toTACExpr(), other.toTACExpr()))
     infix fun ToTACExpr.mul128(other: ToTACExpr) = this@SbfTACBuilder.Mul128(listOf(this.toTACExpr(), other.toTACExpr()))
+    infix fun ToTACExpr.sMulWide128(other: ToTACExpr) = this@SbfTACBuilder.SMulWide128(this.toTACExpr(), other.toTACExpr())
+    fun fitsInSigned128(o: ToTACExpr) = this@SbfTACBuilder.FitsInSigned128(o.toTACExpr())
     infix fun ToTACExpr.intMul(other: ToTACExpr) = this@SbfTACBuilder.IntMul(listOf(this.toTACExpr(), other.toTACExpr()))
     infix fun ToTACExpr.div(other: ToTACExpr)    = this@SbfTACBuilder.Div(this.toTACExpr(), other.toTACExpr())
     infix fun ToTACExpr.div128(other: ToTACExpr) = this@SbfTACBuilder.Div128(this.toTACExpr(), other.toTACExpr())
