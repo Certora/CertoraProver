@@ -37,8 +37,11 @@ import verifier.equivalence.AbstractRuleGeneration
 import verifier.equivalence.LoopEquivalence
 import verifier.equivalence.tracing.BufferTraceInstrumentation
 import verifier.equivalence.tracing.ReadSiteInstrumentationRecord
+import wasm.impCfg.WASM_HOST_FUNC_SUMMARY_END
 import wasm.impCfg.WASM_HOST_FUNC_SUMMARY_START
+import wasm.impCfg.WASM_INLINED_FUNC_END
 import wasm.impCfg.WASM_INLINED_FUNC_START
+import wasm.impCfg.WASM_SDK_FUNC_SUMMARY_END
 import wasm.impCfg.WASM_SDK_FUNC_SUMMARY_START
 
 /**
@@ -81,7 +84,9 @@ object AnnotationRemovers {
         INTERNAL_FUNC_EXIT,
         InternalFunctionHint.META_KEY,
         SummaryStack.START_EXTERNAL_SUMMARY,
+        SummaryStack.START_INTERNAL_SUMMARY,
         Inliner.CallStack.STACK_PUSH,
+        Inliner.CallStack.STACK_POP,
         LoopEquivalence.KeepAliveInt.META_KEY,
         ReadSiteInstrumentationRecord.META_KEY,
         BufferTraceInstrumentation.TraceIndexMarker.META_KEY,
@@ -107,8 +112,11 @@ object AnnotationRemovers {
         DEBUG_PTA_SPLIT_OR_MERGE,
         UNSUPPORTED,
         WASM_INLINED_FUNC_START,
+        WASM_INLINED_FUNC_END,
         WASM_SDK_FUNC_SUMMARY_START,
+        WASM_SDK_FUNC_SUMMARY_END,
         WASM_HOST_FUNC_SUMMARY_START,
+        WASM_HOST_FUNC_SUMMARY_END,
     )
 
     /**
@@ -119,7 +127,7 @@ object AnnotationRemovers {
         val (k, v) = annot
         return if (Config.EquivalenceCheck.get()) {
             when (k) {
-                Inliner.CallStack.STACK_PUSH ->
+                Inliner.CallStack.STACK_PUSH, Inliner.CallStack.STACK_POP ->
                     false
 
                 TACMeta.SNIPPET ->
