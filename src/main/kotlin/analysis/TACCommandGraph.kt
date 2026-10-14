@@ -132,6 +132,9 @@ data class LTACSymbol(val ptr: CmdPointer, val symbol: TACSymbol) : Serializable
 @Treapable
 data class LTACVar(val ptr: CmdPointer, val v: TACSymbol.Var) : Serializable {
     constructor(pair: Pair<CmdPointer, TACSymbol.Var>) : this(pair.first, pair.second)
+    companion object {
+        fun Pair<CmdPointer, TACSymbol.Var>.toLVar() = LTACVar(this)
+    }
 }
 
 data class LTACAnnotation<T: Serializable>(

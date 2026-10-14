@@ -339,11 +339,20 @@ class ContractClass(
                 }
             }
 
-            transforms.add(ReportTypes.SPURIOUS_FP_UPDATE_REMOVAL, SpuriousFreePointerUpdateRemoval::transformAddition)
-            transforms.add(ReportTypes.SPURIOUS_FP_UPDATE_REMOVAL_DIRECT, SpuriousFreePointerUpdateRemoval::transformIdentity)
+            transforms.add(ReportTypes.REDUNANT_PATH_CONDITION_REMOVER, RedundantJumpComparisonRemoval::removeRedundantRechecks)
+
             if(Config.EnableOptimisticSpillLocations.get()) {
+                if(Config.SuperOptimisticSpillLocations.get()) {
+                    transforms.add(
+                        ReportTypes.REDUNDANT_SPILL_REMOVER,
+                        RedundantSpillInitializerRemoval::removeRedundantSpills
+                    )
+                }
                 transforms.add(ReportTypes.OPTIMISTIC_SPILL_REWRITE, OptimisticSpillRewriter::rewrite)
             }
+
+            transforms.add(ReportTypes.SPURIOUS_FP_UPDATE_REMOVAL, SpuriousFreePointerUpdateRemoval::transformAddition)
+            transforms.add(ReportTypes.SPURIOUS_FP_UPDATE_REMOVAL_DIRECT, SpuriousFreePointerUpdateRemoval::transformIdentity)
 
             // these passes are directed at helping PTA not fail
             transforms.add(ReportTypes.NOTE_MODIFIER_REWRITER, NoteModifierRewriter::transform)
