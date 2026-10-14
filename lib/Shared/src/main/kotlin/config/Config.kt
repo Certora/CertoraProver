@@ -2931,14 +2931,15 @@ object Config {
                 "chooses the backend solving strategy: adaptive, cegar or singlerace. [default: adaptive]"
             )
         ), TransformationAgnosticConfig {
-            override fun get() = super.get().also {
-                if (it == BackendStrategyEnum.SINGLE_RACE) {
-                    checkNot(UseLIA.get() == UseLIAEnum.WITHOUT_VERIFIER && UseNIA.get()) {
-                        "We shouldn't run NIA solvers and non-verifying LIA solvers at the same time, as they can produce conflicting results."
-                    }
-                    check(!UseBV.get() || (UseLIA.get() == UseLIAEnum.NONE && !UseNIA.get())) {
-                        "We shouldn't run BV solvers and (LN)IA solvers at the same time, as they can produce conflicting results."
-                    }
+            /**
+             * The portfolio is checked for consistency where it is configured, by
+             * [DefaultCommandLineParser.checkLegalSolverPortfolio]. Reaching a solver with an inconsistent one means some
+             * code derived it internally, so this is an invariant of the Prover and not a user error.
+             */
+            override fun get() = super.get().also { strategy ->
+                val conflict = solverPortfolioConflict(strategy, UseBV.get(), UseLIA.get(), UseNIA.get())
+                check(conflict == null) {
+                    "Solvers of the ${strategy.name} portfolio can produce conflicting results: ${conflict?.explanation}"
                 }
             }
         }
@@ -2950,19 +2951,17 @@ object Config {
                 "smt_useLIA",
                 true,
                 "Include LIA solvers in the race. If set to true, Solvers specified in \"LIASolvers\" " +
-                    "will be included. [default: true, unless -preciseBitwiseOps is set]"
+                    "will be included. [default: true, unless bit-vector solving is requested]"
             )
         ), TransformationAgnosticConfig {
-            @OptIn(Smt.PreciseBitwiseOpsOption::class)
             override fun get(): UseLIAEnum = when {
                 !isDefault() -> super.get()
-                PreciseBitwiseOps.get() -> UseLIAEnum.NONE
-                else -> UseLIAEnum.WITH_VERIFIER
+                else -> defaultUseLIA(UseBV.get())
             }
         }
 
         val UseNIA: ConfigType.BooleanCmdLine =
-            "Include NIA solvers in the race. If set to true, Solvers specified in \"NIASolvers\" will be included. [default: true, unless -preciseBitwiseOps is set]".let { desc ->
+            "Include NIA solvers in the race. If set to true, Solvers specified in \"NIASolvers\" will be included. [default: true, unless bit-vector solving is requested]".let { desc ->
                 object : ConfigType.BooleanCmdLine(
                     true,
                     Option("smt_useNIA", true, desc),
@@ -2971,17 +2970,17 @@ object Config {
                         Option("smt_nonLinearArithmetic", true, desc),
                     )
                 ), TransformationAgnosticConfig {
-                    @OptIn(PreciseBitwiseOpsOption::class)
                     override fun get(): Boolean = when {
                         !isDefault() -> super.get()
-                        else -> !PreciseBitwiseOps.get()
+                        else -> defaultUseNIA(UseBV.get())
                     }
                 }
             }
 
         val UseBV: ConfigType.BooleanCmdLine =
             """Use bit-vector encoding and bit-vector solvers in the race. If set to true, Solvers specified in \"-smt_BVSolvers\" will be used.
-                Best used via \"-preciseBitwiseOps\", otherwise make sure to disable LIA and NIA via \"-smt_useLIA false -smt_useNIA false\".
+                Best used via \"-preciseBitwiseOps\". LIA and NIA solvers are then off by default; asking for them explicitly
+                is rejected under \"-backendStrategy singlerace\".
                 [defaults to -preciseBitwiseOps]""".trimMargin().let { desc ->
                 object : ConfigType.BooleanCmdLine(
                     false,
