@@ -2829,8 +2829,6 @@ object Config {
         )
     ) {}
 
-    val HashingScheme = Smt.HashingScheme
-
     val LiaBeforeBv = Smt.LiaBeforeBv
 
     val GetDifficulties = Smt.GetDifficulties
@@ -3060,20 +3058,13 @@ object Config {
             )
         ), TransformationAgnosticConfig {}
 
-        val HashingScheme: ConfigType.HashingSchemeCmdLine = object : ConfigType.HashingSchemeCmdLine(
-            smt.HashingScheme.DefaultInt,
+        /** deprecated and ignored; a warning is emitted when it is set (see `warnIfDeprecatedHashingSchemeSet`) */
+        val HashingScheme: ConfigType.StringCmdLine = object : ConfigType.StringCmdLine(
+            null,
             Option(
                 "smt_hashingScheme",
                 true,
-                "selects the scheme how we model and axiomatize hashing, options are: " +
-                    "${
-                        listOf(
-                            smt.HashingScheme.Legacy.CONFIG_KEYWORD,
-                            smt.HashingScheme.PlainInjectivity.CONFIG_KEYWORD,
-                            smt.HashingScheme.Datatypes.CONFIG_KEYWORD,
-                        ).joinToString(" ")
-                    } " +
-                    "[default: ${smt.HashingScheme.DefaultInt}]"
+                "deprecated and ignored -- there is only one hashing scheme (plain injectivity) [default: null]"
             )
         ), TransformationAgnosticConfig {}
 

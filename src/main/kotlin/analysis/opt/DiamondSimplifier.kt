@@ -398,11 +398,6 @@ object DiamondSimplifier {
                     is TACBuiltInFunction.OpaqueIdentity -> MERGEABLE
                     is TACBuiltInFunction.PrecompiledECRecover -> MERGEABLE
                     is TACBuiltInFunction.ToStorageKey -> MERGEABLE
-                    is TACBuiltInFunction.Hash.Basic -> MERGEABLE
-                    is TACBuiltInFunction.Hash.SimpleHashApplication -> MERGEABLE
-                    is TACBuiltInFunction.Hash.Addition -> MERGEABLE
-                    is TACBuiltInFunction.Hash.ToSkey -> MERGEABLE
-                    is TACBuiltInFunction.Hash.FromSkey -> MERGEABLE
                     is TACBuiltInFunction.PartitionInitialize -> MERGEABLE
                     is TACBuiltInFunction.ReadTransientPartition -> MERGEABLE
                     is TACBuiltInFunction.NondetFunction -> MERGEABLE

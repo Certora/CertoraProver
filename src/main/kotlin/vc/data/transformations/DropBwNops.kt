@@ -17,7 +17,6 @@
 
 package vc.data.transformations
 
-import analysis.skeyannotation.AnnotateSkeyBifs
 import evm.MAX_EVM_UINT256
 import tac.Tag
 import vc.data.ConcurrentPatchingProgram
@@ -30,7 +29,6 @@ import java.math.BigInteger
 
 /**
  * TAC program transformation that eliminates "bitwise noops", e.g. shifts by 0, etc.
- * [AnnotateSkeyBifs] expects that there are no bitwise noops in the program (will crash otherwise).
  *
  * Notes: This transformation assumes TACSimpleSimple. Perhaps it could be a good idea to do it much earlier, e.g., to
  *  make the lives of other analyses easier, then this would also have to transform commands, not just expressions.

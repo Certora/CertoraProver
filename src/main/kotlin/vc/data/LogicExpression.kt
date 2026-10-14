@@ -23,7 +23,6 @@ import datastructures.Bijection
 import datastructures.stdcollections.*
 import log.*
 import smt.GenerateEnv
-import smt.HashingScheme
 import smt.LExpressionToSmtLibScene
 import smt.solverscript.LExpressionFactory
 import smt.solverscript.SmtTheory
@@ -78,13 +77,11 @@ sealed class LExpressionWithComment {
 interface ToSmtLibData {
     val lExprFact: LExpressionFactory
     val targetTheory: SmtTheory
-    val hashingScheme: HashingScheme
 }
 
 data class ToSmtLibDataWithScene(private val lExpressionToSmtLibScene: LExpressionToSmtLibScene) : ToSmtLibData {
     override val lExprFact: LExpressionFactory = lExpressionToSmtLibScene.lExpressionFactory
     override val targetTheory get() = lExpressionToSmtLibScene.targetTheory
-    override val hashingScheme get() = lExpressionToSmtLibScene.hashingScheme
 }
 
 /**

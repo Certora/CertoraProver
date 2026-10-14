@@ -246,21 +246,8 @@ internal object SkolemizationGenerator : StorageComparisonDispatcher {
             }
         ) { params: List<TACSymbol.Var>, e1: TACSymbol.Var, e2: TACSymbol.Var ->
             /**
-             * This is a little more complicated than the ghost map case. Here, we want to capture
-             * the skey version of the witness (for parsing out counter example paths). However, at this
-             * point in the pipeline, skeys do not exist, and the `to_skey` function is not available to use.
-             * If we just capture the witness value directly, then we'll get:
-             *
-             * ```
-             * witness = *
-             * e1 = m1[to_skey(witness)]
-             * e2 = m2[to_skey(witness)]
-             * ```
-             *
-             * With the path to get the skey value chosen by `to_skey(witness)` difficult (impossible?) with the
-             * given call trace/counterexample model infra. Rather, we use a special BIF [vc.data.TACBuiltInFunction.ToStorageKey]
-             * which is promoted by the [analysis.skeyannotation.AnnotateSkeyBifs] into call to `to_skey`, using it
-             * as follows
+             * This is a little more complicated than the ghost map case. Here, we want to capture the witness
+             * storage key (for parsing out counterexample paths):
              *
              * ```
              * witness = *
@@ -269,13 +256,8 @@ internal object SkolemizationGenerator : StorageComparisonDispatcher {
              * e2 = m2[witness]
              * ```
              *
-             * After skey annotation we'll get:
-             * ```
-             * witness = *
-             * to_capture = to_skey(witness)
-             * e1 = m1[to_skey(witness)]
-             * e2 = m2[to_skey(witness)]
-             * ```
+             * [vc.data.TACBuiltInFunction.ToStorageKey] is translated as the identity function; it only exists so
+             * that counterexample-related code can recognize `to_capture` as a storage-comparison witness.
              *
              * Q: Why not use the value of `ToStorageKey` directly as the key to `m1` and `m2`?
              * A: I was not courageous enough to try that.

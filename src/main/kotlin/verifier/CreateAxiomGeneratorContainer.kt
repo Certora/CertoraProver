@@ -17,13 +17,11 @@
 
 package verifier
 
-import smt.HashingScheme
 import smt.axiomgenerators.fullinstantiation.generatorcontainers.*
 import smt.newufliatranslator.AxiomGeneratorContainer
 import smt.solverscript.LExpressionFactory
 import smt.solverscript.SmtTheory
 import smtlibutils.data.HasSmtExp
-import tac.Tag
 import vc.data.LExpression
 import datastructures.stdcollections.*
 
@@ -32,7 +30,6 @@ abstract class CreateAxiomGeneratorContainer {
     abstract fun create(lxf: LExpressionFactory, targetTheory: SmtTheory): AxiomGeneratorContainer
 
     data class Config(
-        val hashingScheme: HashingScheme,
         val extraAxioms: List<HasSmtExp>,
         val overflowChecks: BvOverflowChecks
     ) {
@@ -55,9 +52,7 @@ abstract class CreateAxiomGeneratorContainer {
     @Suppress("Unused")
     class NoInstantiation(val config: Config) : CreateAxiomGeneratorContainer() {
         override fun create(lxf: LExpressionFactory, targetTheory: SmtTheory): AxiomGeneratorContainer {
-            return object : AxiomGeneratorContainer(lxf, emptyList()) {
-                override val sortOfStorageKeys = Tag.Int
-            }
+            return object : AxiomGeneratorContainer(lxf, emptyList()) {}
         }
     }
 
@@ -66,7 +61,6 @@ abstract class CreateAxiomGeneratorContainer {
             return HashArrayAxiomsGeneratorContainer.create(
                 lxf,
                 targetTheory,
-                config.hashingScheme,
                 config.overflowChecks,
             )
         }
@@ -78,7 +72,6 @@ abstract class CreateAxiomGeneratorContainer {
             return HashOnlyGeneratorContainer.create(
                 lxf,
                 targetTheory,
-                config.hashingScheme,
                 config.overflowChecks,
             )
         }
@@ -87,7 +80,7 @@ abstract class CreateAxiomGeneratorContainer {
     class BwHashInstantiation(val config: Config) : CreateAxiomGeneratorContainer() {
         override fun create(lxf: LExpressionFactory, targetTheory: SmtTheory): AxiomGeneratorContainer {
             return BwHashInstantiationGeneratorContainer.create(
-                lxf, targetTheory, config.hashingScheme
+                lxf, targetTheory
             )
         }
     }
@@ -95,7 +88,7 @@ abstract class CreateAxiomGeneratorContainer {
     class FullInstantiation(val config: Config, private val linearizationSelector: (LExpression) -> Boolean = { true }) : CreateAxiomGeneratorContainer() {
         override fun create(lxf: LExpressionFactory, targetTheory: SmtTheory): AxiomGeneratorContainer {
             return FullAxiomInstantiationGeneratorContainer.create(
-                lxf, targetTheory, config.hashingScheme, linearizationSelector
+                lxf, targetTheory, linearizationSelector
             )
         }
     }

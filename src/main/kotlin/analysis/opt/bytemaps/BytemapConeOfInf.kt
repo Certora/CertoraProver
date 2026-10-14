@@ -311,8 +311,8 @@ class BytemapConeOfInf private constructor(
                     } else { // all queries match `loc`.
                         // We don't really need `loc`, so we can do:
                         //    replace(AssignExpCmd(lhs, simpleMapDef(value.asSym())))
-                        // but this crashes skey stuff. However, if we run the inliner first, this shouldn't happen
-                        // anyway. So instead of fixing, we just leave it as is:
+                        // but historically this crashed the (since removed) skey machinery, and if we run the
+                        // inliner first it shouldn't matter anyway. So we just leave it as is:
                         addToNeeded(loc, value)
                     }
                 }

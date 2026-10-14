@@ -37,7 +37,7 @@ class TACValueTest {
     @Test
     fun testSerializationRoundTripWordMap() {
         val num = BigInteger.valueOf(12344556789)
-        val idx = TACValue.SKey.basic(BigInteger.valueOf(13243))
+        val idx = TACValue.PrimitiveValue.Integer(13243)
         val biNum = TACValue.PrimitiveValue.Integer(num)
         val wm0 = TACValue.MappingValue.KVMapping.WordMap()
 
@@ -54,8 +54,8 @@ class TACValueTest {
 
     @Test
     fun testSerializationRoundTripByteMap() {
-        val num0 = TACValue.PrimitiveValue.Integer(BigInteger.valueOf(0x11))
-        val idx0 = TACValue.PrimitiveValue.Integer(BigInteger.valueOf(0))
+        val num0 = TACValue.PrimitiveValue.Integer(0x11)
+        val idx0 = TACValue.PrimitiveValue.Integer(0)
 
         val bm0 = TACValue.MappingValue.KVMapping.ByteMap()
 
@@ -70,7 +70,7 @@ class TACValueTest {
     @Test
     fun testWordMapRoundTrip() {
         val num = BigInteger.valueOf(12344556789)
-        val idx = TACValue.SKey.basic(BigInteger.valueOf(13243))
+        val idx = TACValue.PrimitiveValue.Integer(13243)
         val biNum = TACValue.PrimitiveValue.Integer(num)
         val wm0 = TACValue.MappingValue.KVMapping.WordMap()
 
@@ -84,18 +84,18 @@ class TACValueTest {
 
     @Test
     fun testWordMapWithInitialValue() {
-        val defValue = TACValue.PrimitiveValue.Integer(BigInteger.ONE)
+        val defValue = TACValue.PrimitiveValue.Integer(1)
         val bm = TACValue.MappingValue.KVMapping.WordMap(initialValue = defValue)
 
-        val res0 = bm.select(TACValue.SKey.basic(BigInteger.ZERO), false, MockRandomGenerator)
+        val res0 = bm.select(TACValue.PrimitiveValue.Integer(0), false, MockRandomGenerator)
         Assertions.assertEquals(defValue, res0.first)
         Assertions.assertNull(res0.second)
 
-        val res1 = bm.select(TACValue.SKey.basic(BigInteger.ONE), false, MockRandomGenerator)
+        val res1 = bm.select(TACValue.PrimitiveValue.Integer(1), false, MockRandomGenerator)
         Assertions.assertEquals(defValue, res1.first)
         Assertions.assertNull(res1.second)
 
-        val res2 = bm.select(TACValue.SKey.basic(BigInteger.valueOf(999)), false, MockRandomGenerator)
+        val res2 = bm.select(TACValue.PrimitiveValue.Integer(999), false, MockRandomGenerator)
         Assertions.assertEquals(defValue, res2.first)
         Assertions.assertNull(res2.second)
     }
@@ -104,7 +104,7 @@ class TACValueTest {
     fun testWordMapWithRandomOracle() {
         val bm = TACValue.MappingValue.KVMapping.WordMap()
 
-        val offset = TACValue.SKey.basic(BigInteger.TEN)
+        val offset = TACValue.PrimitiveValue.Integer(10)
 
         val res0 = bm.select(offset, false, MockRandomGenerator)
         Assertions.assertEquals(TACValue.Uninitialized, res0.first)
@@ -125,7 +125,7 @@ class TACValueTest {
     @Test
     fun testByteMapRoundTrip() {
         val num = BigInteger.valueOf(12344556789)
-        val idx = TACValue.PrimitiveValue.Integer(BigInteger.valueOf(13243))
+        val idx = TACValue.PrimitiveValue.Integer(13243)
         val biNum = TACValue.PrimitiveValue.Integer(num)
         val bm0 = TACValue.MappingValue.KVMapping.ByteMap()
 
@@ -157,7 +157,7 @@ class TACValueTest {
     @Test
     fun testByteMapLongStore() {
         val num0 = BigInteger.valueOf(0x0011)
-        val idx0 = TACValue.PrimitiveValue.Integer(BigInteger.valueOf(0))
+        val idx0 = TACValue.PrimitiveValue.Integer(0)
         val biNum0 = TACValue.PrimitiveValue.Integer(num0)
         val bm00 = TACValue.MappingValue.KVMapping.ByteMap()
         val bm01 = bm00.store(idx0, biNum0) as TACValue.MappingValue.KVMapping.ByteMap
@@ -178,8 +178,8 @@ class TACValueTest {
 
     @Test
     fun testByteMapDefaultZeros() {
-        val num0 = TACValue.PrimitiveValue.Integer(BigInteger.valueOf(0x11))
-        val idx0 = TACValue.PrimitiveValue.Integer(BigInteger.valueOf(0))
+        val num0 = TACValue.PrimitiveValue.Integer(0x11)
+        val idx0 = TACValue.PrimitiveValue.Integer(0)
         val num1 = TACValue.PrimitiveValue.Integer(BigInteger.valueOf(0xdeadbabe0000))
         val idx1 = TACValue.PrimitiveValue.Integer(BigInteger.valueOf(36))
 
@@ -203,18 +203,18 @@ class TACValueTest {
 
     @Test
     fun testByteMapWithInitialValue() {
-        val defValue = TACValue.PrimitiveValue.Integer(BigInteger.ONE)
+        val defValue = TACValue.PrimitiveValue.Integer(1)
         val bm = TACValue.MappingValue.KVMapping.ByteMap(initialValue = defValue)
 
-        val res0 = bm.select(TACValue.PrimitiveValue.Integer(BigInteger.ZERO), false, MockRandomGenerator)
+        val res0 = bm.select(TACValue.PrimitiveValue.Integer(0), false, MockRandomGenerator)
         Assertions.assertEquals(defValue, res0.first)
         Assertions.assertNull(res0.second)
 
-        val res1 = bm.select(TACValue.PrimitiveValue.Integer(BigInteger.ONE), false, MockRandomGenerator)
+        val res1 = bm.select(TACValue.PrimitiveValue.Integer(1), false, MockRandomGenerator)
         Assertions.assertEquals(defValue, res1.first)
         Assertions.assertNull(res1.second)
 
-        val res2 = bm.select(TACValue.PrimitiveValue.Integer(BigInteger.valueOf(999)), false, MockRandomGenerator)
+        val res2 = bm.select(TACValue.PrimitiveValue.Integer(999), false, MockRandomGenerator)
         Assertions.assertEquals(defValue, res2.first)
         Assertions.assertNull(res2.second)
     }
@@ -223,7 +223,7 @@ class TACValueTest {
     fun testByteMapWithRandomOracle() {
         val bm = TACValue.MappingValue.KVMapping.ByteMap()
 
-        val offset = TACValue.PrimitiveValue.Integer(BigInteger.TEN)
+        val offset = TACValue.PrimitiveValue.Integer(10)
 
         val res0 = bm.select(offset, false, MockRandomGenerator)
         Assertions.assertEquals(TACValue.Uninitialized, res0.first)
@@ -246,12 +246,12 @@ class TACValueTest {
         val bm = TACValue.MappingValue.KVMapping.ByteMap(
             bound = TACValue.MappingValue.KVMapping.Bound(
                 TACValue.PrimitiveValue.Integer(BigInteger.valueOf(100)),
-                TACValue.PrimitiveValue.Integer(BigInteger.TEN)
+                TACValue.PrimitiveValue.Integer(10)
             )
         )
 
         val res0 = bm.select(TACValue.PrimitiveValue.Integer(BigInteger.valueOf(150)), false, MockRandomGenerator)
-        Assertions.assertEquals(TACValue.PrimitiveValue.Integer(BigInteger.TEN), res0.first)
+        Assertions.assertEquals(TACValue.PrimitiveValue.Integer(10), res0.first)
         Assertions.assertNull(res0.second)
 
         val bm1 = bm.store(TACValue.PrimitiveValue.Integer(BigInteger.valueOf(50)),
@@ -276,9 +276,9 @@ class TACValueTest {
 
     @Test
     fun testByteMapGetEntries() {
-        val num0 = TACValue.PrimitiveValue.Integer(BigInteger.valueOf(0x11))
+        val num0 = TACValue.PrimitiveValue.Integer(0x11)
         val num1 = TACValue.PrimitiveValue.Integer(BigInteger.valueOf(0x1))
-        val idx0 = TACValue.PrimitiveValue.Integer(BigInteger.valueOf(0))
+        val idx0 = TACValue.PrimitiveValue.Integer(0)
         val idx1 = TACValue.PrimitiveValue.Integer(BigInteger.valueOf(36))
         val idx2 = TACValue.PrimitiveValue.Integer(BigInteger.valueOf(78))
 
@@ -310,7 +310,7 @@ class TACValueTest {
         @JvmStatic
         @BeforeAll
         fun setUp() {
-            val ret = TACValue.PrimitiveValue.Integer(BigInteger.ONE)
+            val ret = TACValue.PrimitiveValue.Integer(1)
             every { MockRandomGenerator.getUnsignedRandomBit256(any()) } returns ret
         }
     }

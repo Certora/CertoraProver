@@ -18,7 +18,6 @@
 package smt.solverscript.functionsymbols
 
 import datastructures.stdcollections.*
-import smt.axiomgenerators.fullinstantiation.StorageHashAxiomGeneratorLegacy
 import smt.solverscript.LExpressionFactory
 import smt.solverscript.functionsymbols.IFixedFunctionSignatures.Companion.IntNToInt
 import smt.solverscript.functionsymbols.IFixedFunctionSignatures.FixedFunctionSignatures
@@ -30,7 +29,6 @@ import tac.isMapType
 import utils.KSerializable
 import utils.hash
 import vc.data.*
-import vc.data.TACBuiltInFunction.Hash.Companion.skeySort
 import java.util.*
 
 @KSerializable
@@ -71,9 +69,8 @@ sealed class ArraySelectFunctionSymbol : UninterpretedFunctionSymbol() {
     abstract override val signature: FixedFunctionSignatures
 
     companion object {
-        /** This constructor helpe is for the case when [map]'s tag might not have the exact right signature
-         * (e.g. due to us flipping types to/from * skey during the LExpressionToSmtLib translation), thus we pass the
-         * required signature. */
+        /** This constructor helper is for the case when [map]'s tag might not have the exact right signature,
+         * thus we pass the required signature. */
         operator fun invoke(
             map: LExpression.Identifier,
             signature: FixedFunctionSignatures,
@@ -141,64 +138,7 @@ sealed class AxiomatizedFunctionSymbol : UninterpretedFunctionSymbol() {
     }
 
     /**
-     * These are the symbols that directly correspond to datatype constructors.
-     * For the function symbols that correspond to the TACBuiltin functions, look at
-     * [NonSMTInterpretedFunctionSymbol.Hash].
-     */
-    @KSerializable
-    sealed class SKeyDt(
-        override val name: String,
-        override val signature: FunctionSignature
-    ) : AxiomatizedFunctionSymbol() {
-
-        @KSerializable
-        data class Basic(val tag: Tag):
-            SKeyDt("basic_$tag", FixedFunctionSignatures(listOf(tag), skeySort))
-
-        @KSerializable
-        data class SkeyNode(val arity: Int) :
-            SKeyDt("$namePrefix$arity", IFixedFunctionSignatures.SkeyNIntToSkey(arity)) {
-            override fun toString(): String = super.toString() // needed due to data class
-
-            companion object {
-                const val namePrefix = "simple_hash_"
-            }
-        }
-
-        /** In contrast to the others, the following are not a datatype constructors, but will be functions (with a
-         * define-fun, or possibly axiomatized). */
-        @KSerializable
-        data class SkeyAdd(val tag: Tag) :
-            SKeyDt("skey_add_$tag", FixedFunctionSignatures(listOf(skeySort, tag), skeySort))
-
-        @KSerializable
-        data class ToSkey(val tag: Tag):
-            SKeyDt("to_skey_dt_$tag", FixedFunctionSignatures(listOf(tag), skeySort))
-
-        @KSerializable
-        data class FromSkey(val tag: Tag):
-            SKeyDt("from_skey_dt_$tag", FixedFunctionSignatures(listOf(skeySort), tag))
-
-        /** the skey datatype selectors */
-        @KSerializable
-        data class SKeySelector(val constructor: SKeyDt, val index: Int, val tag: Tag) :
-            SKeyDt(
-                "${constructor.name}$delim$index",
-                FixedFunctionSignatures(// TODO not really userdefined, this one ..
-                    listOf(tag),
-                    constructor.signature.getParamSort(index)!!
-                )
-            ) {
-            override fun toString(): String = super.toString() // needed due to data class
-
-            companion object {
-                const val delim = "_sel_"
-            }
-        }
-    }
-
-    /**
-     * These are used in the non datatype-based [HashingScheme]s.
+     * Symbols used to model hashing.
      */
     @KSerializable
     sealed class Hash : AxiomatizedFunctionSymbol() {
@@ -215,43 +155,11 @@ sealed class AxiomatizedFunctionSymbol : UninterpretedFunctionSymbol() {
             override fun toString(): String = super.toString()
         }
 
-        /** used in legacy hashing only */
         @KSerializable
-        object ToSkey : Hash() {
-            override val name: String = "to_skey"
-            override val signature: FunctionSignature = IFixedFunctionSignatures.IntToInt
-            private fun readResolve(): Any = ToSkey
-        }
-
-
-        @KSerializable
-        object FromSkey : Hash() {
-            override val name: String = "from_skey"
-            override val signature: FunctionSignature = IFixedFunctionSignatures.IntToInt
-            private fun readResolve(): Any = FromSkey
-        }
-
-        /** Auxiliary function symbols for setting up legacy hashing. See [StorageHashAxiomGeneratorLegacy]. */
-        @KSerializable
-        class ArityDisambig private constructor(
-            override val name: String,
-            override val signature: FunctionSignature = IFixedFunctionSignatures.IntToInt
-        ) : Hash() {
-            constructor(fsGroup: Any): this("arity_disambig_$fsGroup")
-        }
-
-        @KSerializable
-        object PIBase : Hash() {
+        object Base : Hash() {
             override val name: String = "pi_base"
             override val signature: FunctionSignature = IFixedFunctionSignatures.IntToInt
-            private fun readResolve(): Any = PIBase
-        }
-
-        @KSerializable
-        object PIIsLargeConstant : Hash() {
-            override val name: String = "pi_isLargeConstant"
-            override val signature: FunctionSignature = IFixedFunctionSignatures.IntToBool
-            private fun readResolve(): Any = PIIsLargeConstant
+            private fun readResolve(): Any = Base
         }
 
         @KSerializable
@@ -262,13 +170,6 @@ sealed class AxiomatizedFunctionSymbol : UninterpretedFunctionSymbol() {
             constructor(index: Int, hashFamily: HashFamily): this("inverse_${index}_$hashFamily")
         }
 
-        /** Auxiliary function symbols for setting up legacy hashing. See [StorageHashAxiomGeneratorLegacy]. */
-        @KSerializable
-        data class SimpleHashNPre(override val arity: Int) : Hash(), WithArity {
-            override val name: String = "simple_hash_pre_$arity"
-            override val signature: FunctionSignature = IntNToInt(arity)
-            override fun toString(): String = super.toString()
-        }
     }
 
     @KSerializable

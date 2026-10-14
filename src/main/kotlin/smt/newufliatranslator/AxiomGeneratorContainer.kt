@@ -20,14 +20,12 @@ package smt.newufliatranslator
 import smt.LExpressionToSmtLib
 import smt.axiomgenerators.AxiomContainer
 import smt.axiomgenerators.DefType
-import smt.axiomgenerators.fullinstantiation.StorageHashAxiomGeneratorPlainInjectivity
 import smt.solverscript.LExpressionFactory
 import smt.solverscript.functionsymbols.AxiomatizedFunctionSymbol
 import smt.solverscript.functionsymbols.FunctionSymbol
 import smt.solverscript.functionsymbols.traverseQuant
 import statistics.SDFeature
 import statistics.data.PrettyPrintableStats
-import tac.Tag
 import vc.data.LExpression
 import vc.data.lexpression.PlainLExpressionTransformer
 import vc.gen.LExpVCMetaData
@@ -53,8 +51,6 @@ abstract class AxiomGeneratorContainer(
 
     val stats: List<PrettyPrintableStats> get() = allGenerators.mapNotNull { it.stats }
 
-    abstract val sortOfStorageKeys: Tag
-
     /** Call [AxiomGenerator.visit] on the contained generators */
     fun visitRec(exp: LExpression) {
         exp.traverseQuant { e, env ->
@@ -73,21 +69,9 @@ abstract class AxiomGeneratorContainer(
      * subexpression. Is implemented not by [AxiomGenerator]s, but by [AxiomGeneratorContainer] only (to avoid
      * concurrent transformations through different generators).
      *
-     * Note that this postprocessing is applied to all [LExpression]s, both from the VC and the axioms (in contrast to
-     * [postVisitTransform]).
+     * Note that this postprocessing is applied to all [LExpression]s, both from the VC and the axioms.
      */
     fun postProcessTransform(e: LExpression) = postProcessTransformer?.invoke(e) ?: e
-
-    open val postVisitTransformer: PlainLExpressionTransformer? = null
-
-    /**
-     * Is called on each sub-expression right after calling [visitRec] in [LExpressionToSmtLib]. Note this is implemented not
-     * by [AxiomGenerator]s, but by [AxiomGeneratorContainer] only (to avoid concurrent transformations through
-     * different generators).
-     *
-     * Current use case: hash axiom generators.
-     */
-    fun postVisitTransform(e: LExpression) = postVisitTransformer?.invoke(e) ?: e
 
     /**
      * Allows generators to resolve dependencies between symbols.
@@ -106,14 +90,7 @@ abstract class AxiomGeneratorContainer(
     fun getStatsRecorders(queryName: String): List<SDFeature<*>> =
         allGenerators.flatMap { it.getStatsRecorders(queryName) }
 
-    /**
-     * Allows axiom generators to filter out declarations.
-     *
-     * This fixes crashes we have (e.g. in CustomersCode/keep/keep-ecdsa/solidity/run.sh) because some skey
-     * declarations remain that [StorageHashAxiomGeneratorPlainInjectivity] (or ...Legacy) did not flip to int because
-     * they don't see them during visit ...
-     *
-     * I'm not extremely happy with this -- we should think about better symbol management. */
+    /** Allows axiom generators to filter out declarations. */
     fun declarationFilter(fs: FunctionSymbol): Boolean {
         return allGenerators.all { gen -> gen.declarationFilter(fs) }
     }

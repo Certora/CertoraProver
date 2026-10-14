@@ -82,7 +82,6 @@ sealed class TACBuiltInFunction : AmbiSerializable {
      *  o.w. just add the name in the end of this list (as all the other bif objects)
      */
     fun printInstanceId() : String = when(this) {
-        is Hash.SimpleHashApplication -> "_${arity}_$hashFamily"
         is OpaqueIdentity -> "_$tag"
         is PartitionInitialize -> "${this.transientId.transientId}_${this.partitionId}"
         is ReadTransientPartition -> "${this.transientId.transientId}_${this.partitionId}"
@@ -106,10 +105,6 @@ sealed class TACBuiltInFunction : AmbiSerializable {
 
         //the rest are objects and don't have params:
         DisjointSighashes,
-        Hash.Addition,
-        Hash.Basic,
-        Hash.FromSkey,
-        Hash.ToSkey,
         LinkContractAddress,
         PrecompiledECRecover,
         ToStorageKey -> ""
@@ -173,11 +168,6 @@ sealed class TACBuiltInFunction : AmbiSerializable {
         ecrecover,
         wrap_twos_complement,
         unwrap_twos_complement,
-        skey_basic,
-        skey_add,
-        hash,
-        to_skey,
-        from_skey,
         safe_math_promotion,
         safe_math_narrow,
         safe_math_narrow_assuming,
@@ -459,156 +449,10 @@ sealed class TACBuiltInFunction : AmbiSerializable {
 
         fun readResolve(): Any = ToStorageKey
 
-        override fun getLExpressionBuilder(conv: ToLExpression.Conv, meta: MetaMap?): (List<TACExpr>) -> LExpression {
-            throw UnsupportedOperationException("Should have been replaced by SKey annotation")
-        }
-    }
-
-    @KSerializable
-    sealed class Hash : TACBuiltInFunction() {
-
-        companion object {
-            // TODO [CERT-1790]: have Tag.BuiltinSort or so instead? https://certora.atlassian.net/browse/CERT-1790
-            val skeySort = Tag.UserDefined.UninterpretedSort(storageKeySortName)
-        }
-
-        @KSerializable
-        object Basic : Hash() {
-            override fun hashCode() = hashObject(this)
-
-            override val eName: BuiltInFuncName
-                get() = BuiltInFuncName.skey_basic
-            override val paramSorts: List<Tag>
-                get() = listOf(Tag.Int)
-            override val returnSort: Tag
-                get() = skeySort
-
-            override fun getLExpressionBuilder(
-                conv: ToLExpression.Conv,
-                meta: MetaMap?
-            ): (List<TACExpr>) -> LExpression = { args ->
-                conv.lxf.applyExp(
-                    NonSMTInterpretedFunctionSymbol.Hash.Basic,
-                    args.map { conv(it, meta) }
-                )
-            }
-
-            private fun readResolve(): Any = Basic
-        }
-
-        @KSerializable
-        data class SimpleHashApplication(val arity: Int, val hashFamily: HashFamily) : Hash() {
-            override val eName: BuiltInFuncName
-                get() = BuiltInFuncName.hash
-            override val paramSorts: List<Tag>
-                get() =
-                    if (hashFamily.requiresLargeGaps) {
-                        List(arity) { skeySort }
-                    } else {
-                        List(arity) { Tag.Bit256 }
-                    }
-            override val returnSort: Tag
-                get() =
-                    if (hashFamily.requiresLargeGaps) {
-                        skeySort
-                    } else {
-                        Tag.Bit256
-                    }
-
-            override fun getLExpressionBuilder(
-                conv: ToLExpression.Conv,
-                meta: MetaMap?
-            ): (List<TACExpr>) -> LExpression =
-                { args ->
-                    conv.lxf.applyExp(
-                        NonSMTInterpretedFunctionSymbol.Hash.SimpleHashN(arity, hashFamily),
-                        args.map { conv(it, meta) }
-                    )
-                }
-        }
-
-        @KSerializable
-        object Addition : Hash() {
-            override fun hashCode() = hashObject(this)
-
-            override val eName: BuiltInFuncName
-                get() = BuiltInFuncName.skey_add
-            override val paramSorts: List<Tag>
-                get() = listOf(skeySort, Tag.Int)
-            override val returnSort: Tag
-                get() = skeySort
-
-            override fun getLExpressionBuilder(
-                conv: ToLExpression.Conv,
-                meta: MetaMap?
-            ): (List<TACExpr>) -> LExpression = { args ->
-                conv.lxf.applyExp(
-                    NonSMTInterpretedFunctionSymbol.Hash.SkeyAdd,
-                    args.map { conv(it, meta) }
-                )
-            }
-
-            private fun readResolve(): Any = Addition
-        }
-
-        @KSerializable
-        object ToSkey : Hash() {
-            override fun hashCode() = hashObject(this)
-
-            override val eName: BuiltInFuncName
-                get() = BuiltInFuncName.to_skey
-            override val paramSorts: List<Tag>
-                get() = listOf(Tag.Bit256)
-            override val returnSort: Tag
-                get() = skeySort
-
-            /** A map variable that the fuzzer can use to store the state of the ToSkey function.
-             * Doesn't really have anything to do with ghost. Once we have sorted out Tag.Map, this can be a normal map
-             * sort. */
-            val asMapVar: TACExpr.Sym.Var = TACSymbol.Var(eName.name, Tag.GhostMap(paramSorts, returnSort)).asSym()
-
-            override fun getLExpressionBuilder(
-                conv: ToLExpression.Conv,
-                meta: MetaMap?
-            ): (List<TACExpr>) -> LExpression = { args ->
-                conv.lxf.applyExp(
-                    NonSMTInterpretedFunctionSymbol.Hash.ToSkey,
-                    args.map { conv(it, meta) }
-                )
-            }
-
-            private fun readResolve(): Any = ToSkey
-        }
-
-        @KSerializable
-        object FromSkey : Hash() {
-            override fun hashCode() = hashObject(this)
-
-            override val eName: BuiltInFuncName
-                get() = BuiltInFuncName.from_skey
-            override val paramSorts: List<Tag>
-                get() = listOf(skeySort)
-            override val returnSort: Tag
-                get() = Tag.Bit256
-
-            /** A map variable that the fuzzer can use to store the state of the FromSkey function.
-             * Doesn't really have anything to do with ghost. Once we have sorted out Tag.Map, this can be a normal map
-             * sort. */
-            val asMapVar: TACExpr.Sym.Var =
-                TACSymbol.Var(eName.name, Tag.GhostMap(paramSorts, returnSort)).asSym()
-
-            override fun getLExpressionBuilder(
-                conv: ToLExpression.Conv,
-                meta: MetaMap?
-            ): (List<TACExpr>) -> LExpression = { args ->
-                conv.lxf.applyExp(
-                    NonSMTInterpretedFunctionSymbol.Hash.FromSkey,
-                    args.map { conv(it, meta) }
-                )
-            }
-
-            private fun readResolve(): Any = FromSkey
-        }
+        // the identity function -- this bif only exists so that counterexample-related code can recognize
+        // storage-comparison witnesses.
+        override fun getLExpressionBuilder(conv: ToLExpression.Conv, meta: MetaMap?): (List<TACExpr>) -> LExpression =
+            { args -> conv(args.single(), meta) }
     }
 
     /**

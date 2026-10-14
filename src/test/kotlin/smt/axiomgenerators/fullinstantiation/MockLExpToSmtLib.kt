@@ -19,7 +19,6 @@ package smt.axiomgenerators.fullinstantiation
 
 import kotlinx.coroutines.runBlocking
 import smt.GenerateEnv
-import smt.HashingScheme
 import smt.LExpressionToSmtLib
 import smt.axiomgenerators.AxiomContainer
 import smt.axiomgenerators.DefType
@@ -27,14 +26,12 @@ import smt.axiomgenerators.fullinstantiation.expnormalizer.ExpNormalizer
 import smt.axiomgenerators.fullinstantiation.expnormalizer.ExpNormalizerIA
 import smt.newufliatranslator.AxiomGenerator
 import smt.newufliatranslator.AxiomGeneratorContainer
-import smt.newufliatranslator.StorageHashAxiomGenerator
 import smt.solverscript.LExpressionFactory
 import smt.solverscript.SmtTheory
 import smt.solverscript.SmtTheoryFeature
 import smt.solverscript.functionsymbols.ConstantSymbol
 import smt.solverscript.functionsymbols.UninterpretedFunctionSymbol
 import smt.solverscript.functionsymbols.subs
-import smt.solverscript.functionsymbols.transformPost
 import smtlibutils.cmdprocessor.*
 import smtlibutils.data.Cmd
 import smtlibutils.data.SmtScript
@@ -50,26 +47,23 @@ object MockLExpToSmtLib {
 
     data class TestSetup(
         val targetTheory: SmtTheory,
-        val hashingScheme: HashingScheme,
         val makeAxiomGenerators: (LExpressionFactory) -> List<AxiomGenerator>,
         val makeExpNormalizer: (LExpressionFactory) -> ExpNormalizer,
     ) {
         companion object {
             fun makeNiaSetup(
-                hashingScheme: HashingScheme,
                 makeAxiomGenerators: (LExpressionFactory) -> List<AxiomGenerator>,
             ): TestSetup = TestSetup(
                 niaTargetTheory,
-                hashingScheme,
                 makeAxiomGenerators,
-                niaMakeExpNormalizer(hashingScheme),
+                niaMakeExpNormalizer,
             )
         }
     }
 
     val niaTargetTheory = SmtTheory.fromString("QF_UFNIA")
-    private fun niaMakeExpNormalizer(hashingScheme: HashingScheme) =
-        { lxf: LExpressionFactory -> ExpNormalizerIA(lxf, niaTargetTheory, hashingScheme, { false }) }
+    private val niaMakeExpNormalizer =
+        { lxf: LExpressionFactory -> ExpNormalizerIA(lxf, niaTargetTheory, { false }) }
 
     private val dumpFile: String? = null // "out.smt2", for easy debugging -- give a file name here to dump the generated smt there
 
@@ -83,7 +77,6 @@ object MockLExpToSmtLib {
             lxf,
             setupLExpToSmtSetupInfo(
                 testSetup.targetTheory,
-                testSetup.hashingScheme,
                 testSetup.makeAxiomGenerators,
                 testSetup.makeExpNormalizer,
             )
@@ -99,7 +92,8 @@ object MockLExpToSmtLib {
         val axiomGeneratorContainer =
             lExpToSmtSetupInfo.createAxiomGeneratorContainer.create(lxf, targetTheory)
         val axiomGenerators = axiomGeneratorContainer.allGenerators
-        val storageHashAxiomGenerator = axiomGenerators.filterIsInstance<StorageHashAxiomGenerator>().firstOrNull()
+        val storageHashAxiomGenerator =
+            axiomGenerators.filterIsInstance<StorageHashAxiomGenerator>().firstOrNull()
         val expNormalizer = lExpToSmtSetupInfo.createExpNormalizer(lxf)
 
         storageHashAxiomGenerator?.emptyNotLargeConstantsInCode()
@@ -125,22 +119,12 @@ object MockLExpToSmtLib {
                 get() = lxf
             override val targetTheory: SmtTheory
                 get() = targetTheory
-            override val hashingScheme: HashingScheme
-                get() = lExpToSmtSetupInfo.hashingScheme
         }
 
         val lexpAssertions = formula
-            .map { conjunct -> storageHashAxiomGenerator?.postProcessSkeyTransformer?.invoke(conjunct) ?: conjunct }
             .map { expNormalizer.normalizeRec(it) } +
             axiomContainer.getAxiomSequence()
-                .map { lexpWc ->
-                    expNormalizer.normalizeRec(
-                        storageHashAxiomGenerator
-                            ?.postProcessSkeyTransformer
-                            ?.invoke(lexpWc.lExpression)
-                            ?: lexpWc.lExpression
-                    )
-                }
+                .map { lexpWc -> expNormalizer.normalizeRec(lexpWc.lExpression) }
 
         lxf.freezeArrays()
         lxf.freezeConstants()
@@ -193,12 +177,10 @@ object MockLExpToSmtLib {
 
     private fun setupLExpToSmtSetupInfo(
         theory: SmtTheory,
-        hashingScheme: HashingScheme,
         makeAxiomGenerators: (LExpressionFactory) -> List<AxiomGenerator>,
         makeExpNormalizer: (LExpressionFactory) -> ExpNormalizer
     ) = LExpToSmtSetupInfo(
         theory,
-        hashingScheme,
         createAxiomGeneratorContainer(makeAxiomGenerators),
         makeExpNormalizer,
     )
@@ -212,9 +194,7 @@ object MockLExpToSmtLib {
                 return object : AxiomGeneratorContainer(
                     lxf,
                     createAxiomGenerators(lxf)
-                ) {
-                    override val sortOfStorageKeys = Tag.Int
-                }
+                ) {}
             }
         }
 }

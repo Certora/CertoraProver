@@ -27,7 +27,7 @@ internal class TACExprKtTest {
      * The order of [TACExpr.getOperands] relied upon by the `ExpPointer` class, which views each TACExpr as a
      * ranked tree.
      * The convention is that the order follows the order of the constructor parameters of each [TACExpr].
-     * This test is a canary for when the order is changed, and things that rely on it, e.g., `SkeyDetection`,
+     * This test is a canary for when the order is changed, and things that rely on it, e.g.,
      * `AccumulatingTACExprTransformer` are adapted.
      */
     @Test

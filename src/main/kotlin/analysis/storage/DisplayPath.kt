@@ -36,11 +36,8 @@ import spec.cvlast.typedescriptors.VMTypeDescriptor
 import tac.TACStorageType
 import utils.AmbiSerializable
 import utils.KSerializable
-import utils.leftOrThrow
-import vc.data.TACBuiltInFunction
 import vc.data.TACSymbol
 import vc.data.TransformableSymEntityWithRlxSupport
-import vc.data.state.ConcreteTacValue
 import vc.data.state.TACValue
 
 private val logger = Logger(LoggerTypes.STORAGE_ANALYSIS)
@@ -380,8 +377,6 @@ sealed class InstantiatedDisplayPath : AmbiSerializable, Comparable<Instantiated
                     // 2) for an integer type, either of the two values may have been promoted to bool
                     // 3) it's not clear that being strict here is useful
                     t.asBigInt.compareTo(o.asBigInt)
-                } else if (t is TACValue.SKey && o is TACValue.SKey) {
-                    t.offset.compareTo(o.offset)
                 } else if (t == TACValue.SumIndex && o == TACValue.SumIndex) {
                     0
                 } else if (t == TACValue.SumIndex) {
@@ -457,14 +452,6 @@ sealed class InstantiatedDisplayPath : AmbiSerializable, Comparable<Instantiated
 /** deal with cases where a map/array has a bytes value as the index */
 private fun TACSymbol.toIntegerOrThrow(model: CounterexampleModel): TACValue.PrimitiveValue.Integer {
     val tv = model.valueAsTACValue(this)
-    return when {
-        tv is ConcreteTacValue && this.tag == TACBuiltInFunction.Hash.skeySort -> {
-            model
-                .storageKeyToInteger(tv)
-                .onRight { logger.error { "can't instantiate index $this of DisplayPath, expected SKey index to be hashable" } }
-                .leftOrThrow()
-        }
-        tv is TACValue.PrimitiveValue.Integer -> tv
-        else -> throw UnsupportedOperationException("can't instantiate index $this of DisplayPath, value has incompatible type")
-    }
+    return tv as? TACValue.PrimitiveValue.Integer
+        ?: throw UnsupportedOperationException("can't instantiate index $this of DisplayPath, value has incompatible type")
 }

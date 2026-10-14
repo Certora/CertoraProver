@@ -31,7 +31,6 @@ import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.map
 import utils.CollectingResult.Companion.ok
 import vc.data.*
-import vc.data.TACBuiltInFunction.Hash.Companion.skeySort
 import vc.data.TACExpr.*
 import vc.data.TACMeta.IS_STORAGE_ACCESS
 import vc.data.tacexprutil.TACExprFreeVarsCollector
@@ -55,7 +54,6 @@ class TACTypeChecker(private val symbolTable: TACSymbolTable, private val allowT
     private val expectBool = "${Tag.Bool} or ${Tag.Bit256} or ${Tag.Int}"
     private val expectMap = "${Tag.ByteMap} or ${Tag.WordMap} or ${Tag.GhostMap.namePrefix}"
     private val expectMutableMap = "${Tag.ByteMap} or ${Tag.WordMap} or ${Tag.GhostMap.namePrefix}"
-    private val expectSkeyOrInt = "$skeySort or $expectInt"
 
     companion object {
         val logger = Logger(LoggerTypes.INTERNAL_TYPE_CHECKER)
@@ -718,18 +716,16 @@ class TACTypeChecker(private val symbolTable: TACSymbolTable, private val allowT
                         errors += "The base of $e should have type $expectMap, not $baseTag"
                     }
                     if (baseTag.isSubtypeOf(Tag.ByteMap) &&
-                        !locTag.isSubtypeOf(skeySort) &&
                         !(locTag is Tag.Bits)
                     ) {
                         errors += "Because the base of $e has type $baseTag, loc should have type " +
                                 "${Tag.Bit256}, not $locTag"
                     }
                     if (baseTag.isSubtypeOf(Tag.WordMap) &&
-                        !locTag.isSubtypeOf(skeySort) &&
                         !locTag.isSubtypeOf(Tag.Int)
                     ) {
                         errors += "Because the base of $e has type $baseTag, loc should have type " +
-                                "$expectSkeyOrInt, not $locTag"
+                                "$expectInt, not $locTag"
                     }
                     if (baseTag is Tag.GhostMap &&
                         !locTag.isSubtypeOf(baseTag.paramSorts.first()))
@@ -788,23 +784,19 @@ class TACTypeChecker(private val symbolTable: TACSymbolTable, private val allowT
                     }
                     @Suppress("DEPRECATION")
                     val bytemapKeyOk = if (baseTag.isSubtypeOf(Tag.ByteMap)
-                        && !locTag.isSubtypeOf(Tag.Bit256) && !locTag.isSubtypeOf(
-                            skeySort
-                        ))
+                        && !locTag.isSubtypeOf(Tag.Bit256))
                     {
                         ("Because the base of $e has type $baseTag, loc should have type " +
-                            "${Tag.Bit256} or $skeySort not $locTag").asError()
+                            "${Tag.Bit256}, not $locTag").asError()
                     } else {
                         ok
                     }
                     @Suppress("DEPRECATION")
                     val wordmapKeyOk = if (baseTag.isSubtypeOf(Tag.WordMap) &&
-                        !locTag.isSubtypeOf(Tag.Int) && !locTag.isSubtypeOf(
-                            skeySort
-                        )
+                        !locTag.isSubtypeOf(Tag.Int)
                     ) {
                         ("Because the base of $e has type $baseTag, loc should have type " +
-                            "$expectSkeyOrInt not $locTag").asError()
+                            "$expectInt, not $locTag").asError()
                     } else {
                         ok
                     }

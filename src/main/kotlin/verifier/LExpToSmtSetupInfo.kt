@@ -17,7 +17,6 @@
 
 package verifier
 
-import smt.HashingScheme
 import smt.axiomgenerators.fullinstantiation.expnormalizer.ExpNormalizer
 import smt.solverscript.LExpressionFactory
 import smt.solverscript.SmtTheory
@@ -28,7 +27,6 @@ import vc.data.LExpression
  * generation of the VC as LExpressions. This includes axiom generation, smt solver interaction, etc. */
 class LExpToSmtSetupInfo(
     val targetTheory: SmtTheory,
-    val hashingScheme: HashingScheme,
     val createAxiomGeneratorContainer: CreateAxiomGeneratorContainer,
     val createExpNormalizer: (LExpressionFactory) -> ExpNormalizer
 ) {
@@ -91,20 +89,12 @@ class LExpToSmtSetupInfo(
             useQuantifiers: Boolean,
             createAxiomGeneratorContainerConfig: CreateAxiomGeneratorContainer.Config
         ): LExpToSmtSetupInfo {
-            val theory = when (createAxiomGeneratorContainerConfig.hashingScheme) {
-                is HashingScheme.Legacy,
-                HashingScheme.PlainInjectivity ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "AUFBV")
-                HashingScheme.Datatypes ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "AUFDTBV")
-            }
+            val theory = SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "AUFBV")
             return LExpToSmtSetupInfo(
                 theory,
-                createAxiomGeneratorContainerConfig.hashingScheme,
                 CreateAxiomGeneratorContainer.HashAxioms(createAxiomGeneratorContainerConfig),
                 ExpNormalizer.create(
                     theory,
-                    createAxiomGeneratorContainerConfig.hashingScheme,
                     createAxiomGeneratorContainerConfig.overflowChecks
                 )
             )
@@ -114,20 +104,12 @@ class LExpToSmtSetupInfo(
             useQuantifiers: Boolean,
             createAxiomGeneratorContainerConfig: CreateAxiomGeneratorContainer.Config
         ): LExpToSmtSetupInfo {
-            val theory = when (createAxiomGeneratorContainerConfig.hashingScheme) {
-                is HashingScheme.Legacy,
-                HashingScheme.PlainInjectivity ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "AUFNIA")
-                HashingScheme.Datatypes ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "AUFDTNIA")
-            }
+            val theory = SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "AUFNIA")
             return LExpToSmtSetupInfo(
                 theory,
-                createAxiomGeneratorContainerConfig.hashingScheme,
                 CreateAxiomGeneratorContainer.BwHashInstantiation(createAxiomGeneratorContainerConfig),
                 ExpNormalizer.create(
                     theory,
-                    createAxiomGeneratorContainerConfig.hashingScheme,
                     createAxiomGeneratorContainerConfig.overflowChecks,
                     { false }
                 )
@@ -139,20 +121,12 @@ class LExpToSmtSetupInfo(
             createAxiomGeneratorContainerConfig: CreateAxiomGeneratorContainer.Config,
             linearizationSelector: (LExpression) -> Boolean
         ): LExpToSmtSetupInfo {
-            val theory = when (createAxiomGeneratorContainerConfig.hashingScheme) {
-                is HashingScheme.Legacy,
-                HashingScheme.PlainInjectivity ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "AUFNIA")
-                HashingScheme.Datatypes ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "AUFDTNIA")
-            }
+            val theory = SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "AUFNIA")
             return LExpToSmtSetupInfo(
                 theory,
-                createAxiomGeneratorContainerConfig.hashingScheme,
                 CreateAxiomGeneratorContainer.FullInstantiation(createAxiomGeneratorContainerConfig, linearizationSelector),
                 ExpNormalizer.create(
                     theory,
-                    createAxiomGeneratorContainerConfig.hashingScheme,
                     createAxiomGeneratorContainerConfig.overflowChecks,
                     linearizationSelector
                 )
@@ -163,20 +137,12 @@ class LExpToSmtSetupInfo(
             useQuantifiers: Boolean,
             createAxiomGeneratorContainerConfig: CreateAxiomGeneratorContainer.Config
         ): LExpToSmtSetupInfo {
-            val theory = when (createAxiomGeneratorContainerConfig.hashingScheme) {
-                is HashingScheme.Legacy,
-                HashingScheme.PlainInjectivity ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "AUFLIA")
-                HashingScheme.Datatypes ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "AUFDTLIA")
-            }
+            val theory = SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "AUFLIA")
             return LExpToSmtSetupInfo(
                 theory,
-                createAxiomGeneratorContainerConfig.hashingScheme,
                 CreateAxiomGeneratorContainer.FullInstantiation(createAxiomGeneratorContainerConfig),
                 ExpNormalizer.create(
                     theory,
-                    createAxiomGeneratorContainerConfig.hashingScheme,
                     createAxiomGeneratorContainerConfig.overflowChecks,
                     { true }
                 )
@@ -187,20 +153,12 @@ class LExpToSmtSetupInfo(
             useQuantifiers: Boolean,
             createAxiomGeneratorContainerConfig: CreateAxiomGeneratorContainer.Config
         ): LExpToSmtSetupInfo {
-            val theory = when (createAxiomGeneratorContainerConfig.hashingScheme) {
-                is HashingScheme.Legacy,
-                HashingScheme.PlainInjectivity ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "UFBV")
-                HashingScheme.Datatypes ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "UFDTBV")
-            }
+            val theory = SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "UFBV")
             return LExpToSmtSetupInfo(
                 theory,
-                createAxiomGeneratorContainerConfig.hashingScheme,
                 CreateAxiomGeneratorContainer.HashArrayAxioms(createAxiomGeneratorContainerConfig),
                 ExpNormalizer.create(
                     theory,
-                    createAxiomGeneratorContainerConfig.hashingScheme,
                     createAxiomGeneratorContainerConfig.overflowChecks
                 )
             )
@@ -211,20 +169,12 @@ class LExpToSmtSetupInfo(
             useQuantifiers: Boolean,
             createAxiomGeneratorContainerConfig: CreateAxiomGeneratorContainer.Config
         ): LExpToSmtSetupInfo {
-            val theory = when (createAxiomGeneratorContainerConfig.hashingScheme) {
-                is HashingScheme.Legacy,
-                HashingScheme.PlainInjectivity ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "ABV")
-                HashingScheme.Datatypes ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "ADTBV")
-            }
+            val theory = SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "ABV")
             return LExpToSmtSetupInfo(
                 theory,
-                createAxiomGeneratorContainerConfig.hashingScheme,
                 CreateAxiomGeneratorContainer.HashAxioms(createAxiomGeneratorContainerConfig),
                 ExpNormalizer.create(
                     theory,
-                    createAxiomGeneratorContainerConfig.hashingScheme,
                     createAxiomGeneratorContainerConfig.overflowChecks
                 )
             )
@@ -234,20 +184,12 @@ class LExpToSmtSetupInfo(
             useQuantifiers: Boolean,
             createAxiomGeneratorContainerConfig: CreateAxiomGeneratorContainer.Config
         ): LExpToSmtSetupInfo {
-            val theory = when (createAxiomGeneratorContainerConfig.hashingScheme) {
-                is HashingScheme.Legacy,
-                HashingScheme.PlainInjectivity ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "BV")
-                HashingScheme.Datatypes ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "DTBV")
-            }
+            val theory = SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "BV")
             return LExpToSmtSetupInfo(
                 theory,
-                createAxiomGeneratorContainerConfig.hashingScheme,
                 CreateAxiomGeneratorContainer.HashArrayAxioms(createAxiomGeneratorContainerConfig),
                 ExpNormalizer.create(
                     theory,
-                    createAxiomGeneratorContainerConfig.hashingScheme,
                     createAxiomGeneratorContainerConfig.overflowChecks
                 )
             )
@@ -257,20 +199,12 @@ class LExpToSmtSetupInfo(
             useQuantifiers: Boolean,
             createAxiomGeneratorContainerConfig: CreateAxiomGeneratorContainer.Config
         ): LExpToSmtSetupInfo {
-            val theory = when (createAxiomGeneratorContainerConfig.hashingScheme) {
-                is HashingScheme.Legacy,
-                HashingScheme.PlainInjectivity ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "UFNIA")
-                HashingScheme.Datatypes ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "UFDTNIA")
-            }
+            val theory = SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "UFNIA")
             return LExpToSmtSetupInfo(
                 theory,
-                createAxiomGeneratorContainerConfig.hashingScheme,
                 CreateAxiomGeneratorContainer.BwHashInstantiation(createAxiomGeneratorContainerConfig),
                 ExpNormalizer.create(
                     theory,
-                    createAxiomGeneratorContainerConfig.hashingScheme,
                     createAxiomGeneratorContainerConfig.overflowChecks,
                     { false }
                 )
@@ -282,20 +216,12 @@ class LExpToSmtSetupInfo(
             createAxiomGeneratorContainerConfig: CreateAxiomGeneratorContainer.Config,
             linearizationSelector: (LExpression) -> Boolean
         ): LExpToSmtSetupInfo {
-            val theory = when (createAxiomGeneratorContainerConfig.hashingScheme) {
-                is HashingScheme.Legacy,
-                HashingScheme.PlainInjectivity ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "UFNIA")
-                HashingScheme.Datatypes ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "UFDTNIA")
-            }
+            val theory = SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "UFNIA")
             return LExpToSmtSetupInfo(
                 theory,
-                createAxiomGeneratorContainerConfig.hashingScheme,
                 CreateAxiomGeneratorContainer.FullInstantiation(createAxiomGeneratorContainerConfig, linearizationSelector),
                 ExpNormalizer.create(
                     theory,
-                    createAxiomGeneratorContainerConfig.hashingScheme,
                     createAxiomGeneratorContainerConfig.overflowChecks,
                     linearizationSelector
                 )
@@ -306,20 +232,12 @@ class LExpToSmtSetupInfo(
             useQuantifiers: Boolean,
             createAxiomGeneratorContainerConfig: CreateAxiomGeneratorContainer.Config
         ): LExpToSmtSetupInfo {
-            val theory = when (createAxiomGeneratorContainerConfig.hashingScheme) {
-                is HashingScheme.Legacy,
-                HashingScheme.PlainInjectivity ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "UFLIA")
-                HashingScheme.Datatypes ->
-                    SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "UFDTLIA")
-            }
+            val theory = SmtTheory.fromString(SmtTheoryFeature.Quantifiers.smtlibAbbreviation(useQuantifiers) + "UFLIA")
             return LExpToSmtSetupInfo(
                 theory,
-                createAxiomGeneratorContainerConfig.hashingScheme,
                 CreateAxiomGeneratorContainer.FullInstantiation(createAxiomGeneratorContainerConfig),
                 ExpNormalizer.create(
                     theory,
-                    createAxiomGeneratorContainerConfig.hashingScheme,
                     createAxiomGeneratorContainerConfig.overflowChecks,
                     { true }
                 )

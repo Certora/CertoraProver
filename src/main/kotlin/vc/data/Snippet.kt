@@ -601,7 +601,7 @@ sealed class SnippetCmd: AmbiSerializable {
 
         /**
          * Snippets for when we want to display storage accesses even when storage analysis failed. [sym] is the
-         * location (number, or internally an skey) in the wordmap that the access is located at. A [range] can be given
+         * location (a storage key) in the wordmap that the access is located at. A [range] can be given
          * if available (used in the jump-to-source feature).
          */
         @KSerializable
@@ -1261,7 +1261,7 @@ sealed class SnippetCmd: AmbiSerializable {
          * The [basis] field provides information about what is being compared. [spec.cvlast.StorageBasis.VMStorageBasis]
          * must be either a [spec.cvlast.StorageBasis.ContractClass] or [spec.cvlast.StorageBasis.Balances].
          * In general, knowing exactly which component of a contract's storage is being compared requires knowing
-         * the exact value of the witness skey itself (see [spec.cvlast.StorageBasis] for a
+         * the exact value of the witness storage key itself (see [spec.cvlast.StorageBasis] for a
          * discussion of this point), so that information is not recorded here.
          */
         @KSerializable
@@ -1328,7 +1328,7 @@ sealed class SnippetCmd: AmbiSerializable {
          * which hold different values in th model if [resultSymbol] itself holds `false` in the model.
          * Similarly, [p1].second and [p2].second are both defined to be selected out of the two versions of the ghost function/map
          * at some witness parameters. Unlike the storage case, there may be multiple parameters of arbitrary types
-         * (compared to [StorageWitnessComparison.witnessSymbol], of which there is just one and is known to be an skey).
+         * (compared to [StorageWitnessComparison.witnessSymbol], of which there is just one and is known to be a storage key).
          *
          * The [parameters] field holds a list of variables which are the parameters/keys at which the ghost function/map
          * differs at the different storages.

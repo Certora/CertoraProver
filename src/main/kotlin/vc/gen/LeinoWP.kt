@@ -38,7 +38,6 @@ import tac.Tag
 import tac.isMapType
 import utils.*
 import vc.data.*
-import vc.data.TACBuiltInFunction.Hash.Companion.skeySort
 import vc.data.lexpression.META_AUTO_GENERATED_ASSERT
 import vc.data.lexpression.META_CMD_PTR
 import vc.data.lexpression.META_MODEL_TOI
@@ -65,12 +64,11 @@ class LeinoWP(
 
     private val tyScope: TACSymbolTable = core.symbolTable
     private val blocksWithReachVarsInUse = findReachVarsInUse()
-    private val txf = TACExprFactTypeChecked(tyScope)
 
     /**
      * Constants that originate from the fixed model in the rerun of the two-stage mode.
      * Some context: we add axioms saying that any large constant (>[Config-MaxSoliditySlot]) is different from any hash
-     * value (see [StorageHashAxiomGeneratorPlainInjectivity]). The fixed model in the two-stage mode may very well have
+     * value (see [StorageHashAxiomGenerator]). The fixed model in the two-stage mode may very well have
      * values for hashes, thus adding axioms for those breaks solving. (More precisely: it leads to spurious conflicts
      * in the SMT solver, and thus to incorrect UNSAT results)
      * We thus collect the constants from the fixed model and pass them on as [notLargeConstantsInCode] so that axioms
@@ -113,30 +111,13 @@ class LeinoWP(
      *
      * This also sets up back translation for all these terms from SMT to TAC.
      *
-     * Right now, terms of interest are all non-map variables plus for every term of interest `t` that has skey type, we
-     * also add the term `from_skey(t)` to the terms of interest. This is helpful to get the values of skeys in Bit256
-     * in any hashing scheme.
+     * Right now, terms of interest are all non-map variables.
      *
      * (In the future we may want to support map variables here, either by giving `select`-terms here, or by adding the
      *  map variables themselves; in the latter case we'll also need to implement parsing of map models to TACValues
      *  (not that hard I think, we need to watch out for the sizes though).)
      */
     private fun addToTermsOI(tacExp: ToLExpression, lExp: LExpression) {
-        fun fromSkeyTOILExp(tacExp: TACExpr, lExp: LExpression): LExpression? =
-            if (tacExp.tagAssumeChecked != skeySort) {
-                logger.warn { "attempted to apply `from_skey` to an LExpression ($lExp) that is not of skey type" }
-                null
-            } else {
-                lxf {
-                    applyExp(
-                        NonSMTInterpretedFunctionSymbol.Hash.FromSkey,
-                        lExp,
-                        meta = MetaMap(META_MODEL_TOI to txf.fromSkey(tacExp))
-                    )
-                }
-            }
-
-
         when (tacExp) {
             is TACExpr.QuantifiedFormula -> {
                 tacExp.quantifiedVars.map { qVar ->
@@ -169,12 +150,6 @@ class LeinoWP(
                         }
                         termsOfInterest += lExp.addMeta(META_MODEL_TOI, withMeta)
                     }
-                    if (tacExp.tagAssumeChecked == skeySort) {
-                        check(lExp.tag == skeySort) {
-                            "the translation of an tac-skey (\"$tacExp\") should be an skey, got \"$lExp\""
-                        }
-                        fromSkeyTOILExp(tacExp, lExp)?.let { termsOfInterest += it }
-                    }
                 } else if (lExp is LExpression.Identifier && lExp.tag is Tag.ByteMap) {
                     // just trying bytemaps for starters .. should be possible to just add more terms of interest here
                     //  if we want other maps (wordmaps, ghost maps)
@@ -186,22 +161,6 @@ class LeinoWP(
                         lxf {
                             termsOfInterest += lExp.addMeta(META_MODEL_TOI, tacExp)
                         }
-                    }
-                } else if (tacExp.tag == skeySort) {
-                    // make sure that we have a model for `from_skey` available, which is used in displaying
-                    // skeys in call trace (we want to show them as numbers there, since it's the unified representation)
-                    //
-                    // NB we only consider hashes that we model as skeys (i.e. keccak, and hypothetically others that
-                    // use large-gap hashing), hence the check for the skey sort
-
-                    if (lExp.isApplyOf<NonSMTInterpretedFunctionSymbol.Hash.SimpleHashN>()) {
-                        lExp.args.zip((tacExp as TACExpr.Apply).ops).forEach { (argLExp, argTacExp) ->
-                            fromSkeyTOILExp(argTacExp, argLExp)?.let { termsOfInterest += it }
-                        }
-                    } else if (lExp.isApplyOf<NonSMTInterpretedFunctionSymbol.Hash.SkeyAdd>()) {
-                        val argLExp = lExp.args.first()
-                        val argTacExp = (tacExp as TACExpr.Apply).ops.first()
-                        fromSkeyTOILExp(argTacExp, argLExp)?.let { termsOfInterest += it }
                     }
                 }
             }
@@ -470,7 +429,6 @@ class LeinoWP(
 
             val valAsInt = when (value) {
                 is TACValue.PrimitiveValue -> value.asBigInt
-                is TACValue.SKey.Basic -> value.offset.asBigInt
                 else -> {
                     logger.warn { "Fixed model ${acmd.lhs} = ${value}, but the value is not primitive" }
                     return@letIf blk
@@ -481,11 +439,6 @@ class LeinoWP(
                 constantsFromFixedModel.add(valAsInt)
             }
             val valAsExpr = when {
-                // TACValue is properly encoded as SKey
-                value is TACValue.SKey -> ToLExpression(value.asConstantTacExpr(), lxf, tyScope)
-                // TACValue should be SKey but isn't, e.g., for plain injectivity encoding
-                acmd.lhs.tag == skeySort -> lxf.applyExp(NonSMTInterpretedFunctionSymbol.Hash.ToSkey, ToLExpression(valAsInt.asTACExpr, lxf, tyScope))
-                // TACValue is something normal
                 value is ConcreteTacValue ->
                     value.asBigIntOrNull()
                         ?.let { lxf.lit(it, acmd.lhs.tag) }

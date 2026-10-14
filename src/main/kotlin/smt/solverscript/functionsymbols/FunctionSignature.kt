@@ -26,7 +26,6 @@ import smtlibutils.data.ISmtScript
 import smtlibutils.data.Rank
 import tac.Tag
 import utils.*
-import vc.data.TACBuiltInFunction.Hash.Companion.skeySort
 import vc.data.ToSmtLibData
 
 sealed class NrOfParameters {
@@ -150,11 +149,7 @@ sealed class IFixedFunctionSignatures : FunctionSignature() {
         private fun f(vararg tags: Tag) = ff(tags.asList())
 
         fun IntNToInt(n: Int) = ff(List(n + 1) { Tag.Int })
-        fun SkeyNToSkey(n: Int) = ff(List(n + 1) { skeySort })
         fun IntNToBool(n: Int) = ff(List(n) { Tag.Int } + Tag.Bool)
-
-        /** [n] number of skey args, the single int (for the offset) comes on top */
-        fun SkeyNIntToSkey(n: Int) = ff(List(n) { skeySort } + Tag.Int + skeySort)
 
         fun binaryOperator(tag: Tag) = FixedFunctionSignatures(listOf(tag, tag), tag)
 
@@ -174,25 +169,16 @@ sealed class IFixedFunctionSignatures : FunctionSignature() {
         val Bv256Bv256ToBv512 by lazy { f(Tag.Bit256, Tag.Bit256, Tag.Bit512) }
         val Bv512ToBv256 by lazy { f(Tag.Bit512, Tag.Bit256) }
         val BoolIntIntToInt by lazy { f(Tag.Bool, Tag.Int, Tag.Int, Tag.Int) }
-        val Skey by lazy { f(skeySort) }
-        val IntToSkey by lazy { f(Tag.Int, skeySort) }
-        val SkeyToInt by lazy { f(skeySort, Tag.Int) }
-        val SkeyToBool by lazy { f(skeySort, Tag.Bool) }
-        val SkeyIntToSkey by lazy { SkeyNIntToSkey(1) }
-        val Skey2IntToSkey by lazy { SkeyNIntToSkey(2) }
-        val Skey3IntToSkey by lazy { SkeyNIntToSkey(3) }
-        val Skey4IntToSkey by lazy { SkeyNIntToSkey(4) }
-        val WordMapSkeyToInt by lazy { f(Tag.WordMap, skeySort, Tag.Int) }
         val IntToBv256 by lazy { f(Tag.Int, Tag.Bit256) }
         val IntToBool by lazy { f(Tag.Int, Tag.Bool) }
         val LongStoreSignature by lazy { f(Tag.ByteMap, Tag.Int, Tag.ByteMap, Tag.Int, Tag.Int, Tag.ByteMap) }
 
-        fun selectSignature(mapType: Tag, skeySort: Tag? = null) = when (mapType) {
+        fun selectSignature(mapType: Tag, storageKeySort: Tag? = null) = when (mapType) {
             Tag.ByteMap -> FixedFunctionSignatures(listOf(Tag.ByteMap, Tag.Int), Tag.Int)
             Tag.WordMap -> {
-                val skey =
-                    skeySort ?: error("storage key sort must be present when building a wordmap-select signature")
-                FixedFunctionSignatures(listOf(Tag.WordMap, skey), Tag.Int)
+                val key =
+                    storageKeySort ?: error("storage key sort must be present when building a wordmap-select signature")
+                FixedFunctionSignatures(listOf(Tag.WordMap, key), Tag.Int)
             }
 
             is Tag.GhostMap -> FixedFunctionSignatures(
@@ -205,11 +191,12 @@ sealed class IFixedFunctionSignatures : FunctionSignature() {
         fun multiSelectSignature(mapType: Tag.GhostMap) =
             FixedFunctionSignatures(listOf(mapType) + mapType.paramSorts, mapType.resultSort)
 
-        fun storeSignature(mapType: Tag, skeySort: Tag? = null) = when (mapType) {
+        fun storeSignature(mapType: Tag, storageKeySort: Tag? = null) = when (mapType) {
             Tag.ByteMap -> FixedFunctionSignatures(listOf(Tag.ByteMap, Tag.Int, Tag.Int), Tag.ByteMap)
             Tag.WordMap -> {
-                val skey = skeySort ?: error("storage key sort must be present when building a wordmap-store signature")
-                FixedFunctionSignatures(listOf(Tag.WordMap, skey, Tag.Int), Tag.WordMap)
+                val key =
+                    storageKeySort ?: error("storage key sort must be present when building a wordmap-store signature")
+                FixedFunctionSignatures(listOf(Tag.WordMap, key, Tag.Int), Tag.WordMap)
             }
 
             is Tag.GhostMap ->
@@ -221,7 +208,6 @@ sealed class IFixedFunctionSignatures : FunctionSignature() {
             FixedFunctionSignatures(listOf(mapType) + mapType.paramSorts + mapType.resultSort, mapType)
 
         fun wordMapSignature(sortOfStorageKeys: Tag) = when (sortOfStorageKeys) {
-            skeySort -> SkeyToInt
             Tag.Bit256 -> IntToInt
             Tag.Int -> IntToInt
             else -> error("unexpected sort of storage keys: \"$sortOfStorageKeys\"")

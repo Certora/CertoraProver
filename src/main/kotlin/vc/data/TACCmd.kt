@@ -34,7 +34,6 @@ import spec.cvlast.CVLType
 import spec.cvlast.ComparisonBasis
 import tac.*
 import utils.*
-import vc.data.TACBuiltInFunction.Hash.Companion.skeySort
 import vc.data.annotation.HookableOpcode
 import vc.data.annotation.OpcodeEnvironmentParam
 import vc.data.annotation.OpcodeOutput
@@ -744,8 +743,8 @@ sealed class TACCmd : Serializable, ITACCmd {
                 override val meta: MetaMap = MetaMap()
             ) : AssigningCmd(), DirectMemoryAccessCmd { //tacM (store with overlapping)
                 init {
-                    check(loc.tag.isSubtypeOf(Tag.Int) || loc.tag.isSubtypeOf(skeySort)) {
-                        "$this requires loc to be an int or skey"
+                    check(loc.tag.isSubtypeOf(Tag.Int)) {
+                        "$this requires loc to be an int"
                     }
                     check(value.tag.isSubtypeOf(Tag.Int)) { "$this requires values to be numeric, but got ${value.tag}" }
                 }
@@ -852,8 +851,8 @@ sealed class TACCmd : Serializable, ITACCmd {
             override val meta: MetaMap = MetaMap()
         ) : Simple(), StorageAccessCmd { //tacS (store without overlapping) //TODO: Check if Simple(meta) should be replaced with AssigningCmd(base, meta) ?
             init {
-                check(loc.tag.isSubtypeOf(Tag.Int) || loc.tag.isSubtypeOf(skeySort)) {
-                    "$this requires loc to be an int or skey"
+                check(loc.tag.isSubtypeOf(Tag.Int)) {
+                    "$this requires loc to be an int"
                 }
                 check(value.tag.isSubtypeOf(Tag.Int)) { "$this requires values to be numeric, but got ${value.tag}" }
             }

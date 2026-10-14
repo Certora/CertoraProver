@@ -44,22 +44,19 @@ class LExpVcCheckerConfigTest {
     @Test
     fun solverConfigNoCLITest() {
         fun doChecks(expectedSolvers: SolverChoice? = null, filter: (SolverChoice) -> SolverChoice = { it }) {
-            val hashingSchemeFilter = { solverChoice: SolverChoice, config: LExpVcCheckerConfig ->
-                LExpVcCheckerConfig.filterByHashingScheme(solverChoice, config.hashingScheme, config.usedFeatures)
-            }
 
             getConfig(SolverConfig.lowTimeoutBound.div(2)).let { config ->
-                assertEquals(expectedSolvers ?: hashingSchemeFilter(filter(SolverChoice.BvCommonAvailableSolversWithClOptions), config), config.bvSolvers)
+                assertEquals(expectedSolvers ?: filter(SolverChoice.BvCommonAvailableSolversWithClOptions), config.bvSolvers)
                 assertEquals(expectedSolvers ?: filter(SolverChoice.LIASolversSmallTimeout), config.liaSolvers)
                 assertEquals(expectedSolvers ?: filter(SolverChoice.NIASolversSmallTimeout), config.niaSolvers)
             }
             getConfig((SolverConfig.lowTimeoutBound + SolverConfig.highTimeoutBound).div(2)).let { config ->
-                assertEquals(expectedSolvers ?: hashingSchemeFilter(filter(SolverChoice.BvCommonAvailableSolversWithClOptions), config), config.bvSolvers)
+                assertEquals(expectedSolvers ?: filter(SolverChoice.BvCommonAvailableSolversWithClOptions), config.bvSolvers)
                 assertEquals(expectedSolvers ?: filter(SolverChoice.LIASolversMediumTimeout), config.liaSolvers)
                 assertEquals(expectedSolvers ?: filter(SolverChoice.NIASolversMediumTimeout), config.niaSolvers)
             }
             getConfig(SolverConfig.highTimeoutBound.times(2)).let { config ->
-                assertEquals(expectedSolvers ?: hashingSchemeFilter(filter(SolverChoice.BvCommonAvailableSolversWithClOptions), config), config.bvSolvers)
+                assertEquals(expectedSolvers ?: filter(SolverChoice.BvCommonAvailableSolversWithClOptions), config.bvSolvers)
                 assertEquals(expectedSolvers ?: filter(SolverChoice.LIASolversLargeTimeout), config.liaSolvers)
                 assertEquals(expectedSolvers ?: filter(SolverChoice.NIASolversLargeTimeout), config.niaSolvers)
             }

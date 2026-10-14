@@ -228,6 +228,7 @@ fun main(args: Array<String>) {
             val cvtStopEventBuilder = CvtEvent.CvtStopEvent.Builder()
 
             Config.warnIfSetupPhaseFlagsEnabled()
+            Config.warnIfDeprecatedHashingSchemeSet()
             Config.validateResourceFiles()
 
             // Log the SMT solver versions in the environment
@@ -718,6 +719,26 @@ private fun Config.warnIfSetupPhaseFlagsEnabled() {
                 "Consider disabling these flags in production, or when running performance-intensive rules."
         )
     }
+}
+
+/**
+ * `smt_hashingScheme` used to select between several hashing axiomatizations. There is only one scheme now
+ * (plain injectivity), so the option is accepted -- so that existing configurations don't error -- but ignored.
+ *
+ * NOTE: this function expects [report.CVTAlertReporter] to have been initialized.
+ */
+private fun Config.warnIfDeprecatedHashingSchemeSet() {
+    val scheme = Config.Smt.HashingScheme.getOrNull() ?: return
+
+    CVTAlertReporter.reportAlert(
+        CVTAlertType.GENERAL,
+        CVTAlertSeverity.WARNING,
+        jumpToDefinition = null,
+        "The ${Config.Smt.HashingScheme.option.realOpt()} option is deprecated and ignored (given: \"$scheme\"); " +
+            "hashing is always modeled by the plain-injectivity scheme. The option will be removed in a " +
+            "future version.",
+        hint = "Remove ${Config.Smt.HashingScheme.option.realOpt()} from your configuration.",
+    )
 }
 
 /**

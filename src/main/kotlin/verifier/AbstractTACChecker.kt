@@ -17,7 +17,6 @@
 
 package verifier
 
-import analysis.skeyannotation.AnnotateSkeyBifs
 import config.Config
 import config.ConfigType
 import config.ReportTypes
@@ -252,13 +251,12 @@ abstract class AbstractTACChecker {
         }
 
         /**
-         * Performs 3 transformations on a TAC object [tacObject]:
+         * Performs 2 transformations on a TAC object [tacObject]:
          * 1. Conversion to simple-simple + maps SSA-ing (Result in [ReportTypes.PRELASTOPT_RULE])
-         * 2. Perform last-phase optimizations + Skey annotation (Result in [ReportTypes.PRESOLVER_RULE])
-         * 3. Run Skey detection.
+         * 2. Perform last-phase optimizations (Result in [ReportTypes.PRESOLVER_RULE])
          * No more passes should be run on the result.
          */
-        fun toSimpleSimpleSSAFoldAndSkeyAnnotate(
+        fun toSimpleSimpleSSAAndFold(
             tacObject: CoreTACProgram,
             enableHeuristicalFolding: Boolean = true
         ): CoreTACProgram {
@@ -274,7 +272,6 @@ abstract class AbstractTACChecker {
 
             val preSolverProgram = lastOptimizations(fullySSAd, enableHeuristicalFolding)
                 .let(AssumeSafeMathGuarantees::transform)
-                .let(AnnotateSkeyBifs::annotate)
                 .let { QuantifierNormalizer(it).go() }
 
             // make sure there are no new/removed asserts in the code, as this will break multi_assert_check

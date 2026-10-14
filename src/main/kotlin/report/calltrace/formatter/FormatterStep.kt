@@ -26,7 +26,6 @@ import report.calltrace.formatter.AlternativeRepresentations.Representations
 import report.calltrace.formatter.AlternativeRepresentations.RepresentationsMap
 import report.calltrace.sarif.Sarif
 import report.checkWarn
-import report.globalstate.logger
 import rules.ContractInfo
 import solver.CounterexampleModel
 import spec.cvlast.EVMBuiltinTypes.evmBitWidths
@@ -160,22 +159,6 @@ internal class ValueFormattingJob(val tacValueIn: TACValue,
                             num.toHexString()
                         }
                 }
-            }
-
-            // (alex n:) `job.tv is TACValue.Skey` is actually not the right criterion for this case.
-            //  See the other usages of CounterExampleModel.storageKeyToInteger for the right criterion.
-            //  (There it was somewhat easy to do, but here we're missing the type of the tac expression whose model
-            //  we're printing unfortunately.)
-            //  (background: in the Legacy hashing scheme case, we should use the value of `from_skey(x)` rather than
-            //  `x`, just like in the Datatypes case, and then we'll see a TACValue...Integer here)
-            is TACValue.SKey -> {
-                model
-                    .storageKeyToInteger(tv)
-                    .mapLeft { integer -> integer.toString() }
-                    .leftOrElse { err ->
-                        logger.warn { "while formatting $tv: expected hashable SKey, got $err" }
-                        null
-                    }
             }
 
             else -> null

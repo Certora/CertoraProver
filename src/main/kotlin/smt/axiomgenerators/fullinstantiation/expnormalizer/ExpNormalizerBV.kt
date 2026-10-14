@@ -21,7 +21,6 @@ import analysis.split.Ternary.Companion.isPowOf2
 import evm.EVM_MOD_GROUP256
 import evm.MAX_EVM_UINT256
 import evm.twoToThe
-import smt.HashingScheme
 import smt.solverscript.LExpressionFactory
 import smt.solverscript.SmtTheory
 import smt.solverscript.functionsymbols.*
@@ -39,9 +38,8 @@ import java.math.BigInteger
 class ExpNormalizerBV(
     lxf: LExpressionFactory,
     targetTheory: SmtTheory,
-    hashingScheme: HashingScheme,
     private val overflowChecks: CreateAxiomGeneratorContainer.Config.BvOverflowChecks
-) : ExpNormalizer(lxf, targetTheory, hashingScheme) {
+) : ExpNormalizer(lxf, targetTheory) {
 
     val useSmtBuiltinOverflowChecks
         get() = when (overflowChecks) {
@@ -189,7 +187,6 @@ class ExpNormalizerBV(
 
                 is NonSMTInterpretedFunctionSymbol.Vec.Add -> vecAdd(exp, exp.args.deriveTag())
                 is NonSMTInterpretedFunctionSymbol.Vec.Mul -> vecMul(exp, exp.args.deriveTag())
-                is NonSMTInterpretedFunctionSymbol.Hash -> null
                 is NonSMTInterpretedFunctionSymbol.MultiDimArray -> null
 
                 /**
@@ -225,8 +222,6 @@ class ExpNormalizerBV(
                 is TheoryFunctionSymbol.Array -> null
                 is TheoryFunctionSymbol.BV -> null
 
-                is TheoryFunctionSymbol.Unary.Is ->
-                    exp.copy(f = exp.f.copy(constructor = normalizeSKeyDtFS(exp.f.constructor)))
                 is TheoryFunctionSymbol.Unary -> null
 
                 is TheoryFunctionSymbol.Binary.LImplies -> null
@@ -261,7 +256,6 @@ class ExpNormalizerBV(
             is ArraySelectFunctionSymbol.MultiDim ->
                 exp.copy(f = exp.f.copy(signature = exp.f.signature.transform { it.toBV() }))
             is AxiomatizedFunctionSymbol -> when (exp.f) {
-                is AxiomatizedFunctionSymbol.SKeyDt -> exp.copy(f = normalizeSKeyDtFS(exp.f))
                 is AxiomatizedFunctionSymbol.Hash.SimpleHashN ->
                     exp.copy(f = exp.f.copy(tag = exp.f.tag.toBV()))
                 is AxiomatizedFunctionSymbol.Bitwise.SignExtend -> lxf {
@@ -298,19 +292,7 @@ class ExpNormalizerBV(
         }
     }
 
-    fun normalizeSKeyDtFS(f: AxiomatizedFunctionSymbol.SKeyDt): AxiomatizedFunctionSymbol.SKeyDt = when (f) {
-        is AxiomatizedFunctionSymbol.SKeyDt.Basic -> f.copy(tag = f.tag.toBV())
-        is AxiomatizedFunctionSymbol.SKeyDt.SkeyNode -> f
-        is AxiomatizedFunctionSymbol.SKeyDt.SkeyAdd -> f.copy(tag = f.tag.toBV())
-        is AxiomatizedFunctionSymbol.SKeyDt.ToSkey -> f.copy(tag = f.tag.toBV())
-        is AxiomatizedFunctionSymbol.SKeyDt.FromSkey -> f.copy(tag = f.tag.toBV())
-        is AxiomatizedFunctionSymbol.SKeyDt.SKeySelector ->
-            f.copy(tag = f.tag.toBV(), constructor = normalizeSKeyDtFS(f.constructor))
-    }
-
     override fun normalizeFunctionSymbol(fs: FunctionSymbol): FunctionSymbol = when (fs) {
-        is AxiomatizedFunctionSymbol.SKeyDt -> normalizeSKeyDtFS(fs)
-
         is AxiomatizedFunctionSymbol.DefFunc ->
             fs.copy(signature = fs.signature.transform { it.toBV() })
         else -> fs

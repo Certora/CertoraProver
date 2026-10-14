@@ -19,6 +19,7 @@ package report.calltrace.sarif
 
 import com.certora.collect.*
 import report.calltrace.CallInstance
+import report.calltrace.ModelSkeyReconstructor
 import report.calltrace.StorageDisplayPathGenerator
 import report.calltrace.formatter.CallTraceValueFormatter
 import report.calltrace.formatter.CallTraceValue
@@ -119,6 +120,7 @@ fun sarifForStorageLocation(
     model: CounterexampleModel,
     formatter: CallTraceValueFormatter,
     scene: ISceneIdentifiers,
+    skeyReconstructor: ModelSkeyReconstructor,
 ): Either<Sarif, String> {
     val skeyResolver = StorageDisplayPathGenerator(scene)
     val sarifFormatter = SarifFormatter(formatter)
@@ -137,15 +139,13 @@ fun sarifForStorageLocation(
                 }
 
                 is SnippetCmd.CVLSnippetCmd.StorageWitnessComparison -> {
-                    val witnessSkey = (model.valueAsTACValue(snippetCmd.witnessSymbol) as? TACValue.SKey)
-                        ?: return "Value of witness symbol ${snippetCmd.witnessSymbol} in $snippetCmd was not an SKey".toRight()
+                    val witnessValue = (model.valueAsTACValue(snippetCmd.witnessSymbol) as? TACValue.PrimitiveValue.Integer)
+                        ?: return "Value of witness symbol ${snippetCmd.witnessSymbol} in $snippetCmd was not an integer".toRight()
 
                     when (snippetCmd.basis) {
                         StorageBasis.Balances -> {
-                            val addrTv = (witnessSkey as? TACValue.SKey.Basic)?.offset
-                                ?: return "Address $witnessSkey for balance was not a Basic skey for $snippetCmd".toRight()
                             val addr = FmtArg.CtfValue.buildOrUnknown(
-                                tv = addrTv,
+                                tv = witnessValue,
                                 type = EVMTypeDescriptor.address,
                                 tooltip = "address of contract",
                             )
@@ -154,11 +154,8 @@ fun sarifForStorageLocation(
                         }
 
                         StorageBasis.ExternalCodesizes -> {
-                            val addrTv = (witnessSkey as? TACValue.SKey.Basic)?.offset
-                                ?: return "Address $witnessSkey for extcodesize was not a Basic skey for $snippetCmd".toRight()
-
                             val addr = FmtArg.CtfValue.buildOrUnknown(
-                                tv = addrTv,
+                                tv = witnessValue,
                                 type = EVMTypeDescriptor.address,
                                 tooltip = "address of contract"
                             )
@@ -167,6 +164,9 @@ fun sarifForStorageLocation(
                         }
 
                         is StorageBasis.ContractClass -> {
+                            // the model value is a plain integer; recover the skey structure that the display-path
+                            // machinery works on by matching it against the program's hash applications
+                            val witnessSkey = skeyReconstructor.reconstruct(witnessValue.value)
                             val id = scene.getContract(snippetCmd.basis.canonicalId).instanceId
                             val displayPath = skeyResolver.displayPathFor(id, witnessSkey, snippetCmd.baseMap)
                                 ?.toFormattedString(formatter)

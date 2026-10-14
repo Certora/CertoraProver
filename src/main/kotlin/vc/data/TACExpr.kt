@@ -53,7 +53,6 @@ import utils.ModZm.Companion.highOnes
 import utils.ModZm.Companion.isZero
 import utils.ModZm.Companion.mulMod
 import utils.ModZm.Companion.shr
-import vc.data.TACBuiltInFunction.Hash.Companion.skeySort
 import vc.data.TACCmd.Simple.AnnotationCmd.Annotation
 import vc.data.TACCmd.Simple.AnnotationCmd.Companion.Annotation
 import vc.data.TACMeta.ACCESS_PATHS
@@ -1917,9 +1916,9 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
                     val locLExp = conv(loc, meta)
                     val locTag = loc.tagAssumeChecked
                     val baseLExp = conv(base, meta)
-                    val skeySort = if (baseTag == Tag.WordMap) locTag else null
+                    val storageKeySort = if (baseTag == Tag.WordMap) locTag else null
                     conv.lxf.applyExp(
-                        TheoryFunctionSymbol.Array.Select(baseTag, skeySort),
+                        TheoryFunctionSymbol.Array.Select(baseTag, storageKeySort),
                         baseLExp,
                         locLExp
                     )
@@ -2027,9 +2026,9 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
         ): LExpression {
             val baseTag = base.tagAssumeChecked
             val locTag = loc.tagAssumeChecked
-            val skeySort = if (baseTag == Tag.WordMap) locTag else null
+            val storageKeySort = if (baseTag == Tag.WordMap) locTag else null
             return conv.lxf.applyExp(
-                TheoryFunctionSymbol.Array.Store(baseTag, skeySort),
+                TheoryFunctionSymbol.Array.Store(baseTag, storageKeySort),
                 conv(base, meta),
                 conv(loc, meta),
                 conv(value, meta)
@@ -2369,10 +2368,6 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
 
         override fun eval(cs: List<BigInteger>) = null
 
-        /**
-         * Note that this function is only called for non-keccak (non "large gaps" hashing) instances of hashes.
-         * The other instances of this class have been transformed to TAC builtin functions by [AnnotateSkeyBifs].
-         */
         override fun toLExpression(conv: ToLExpression.Conv, meta: MetaMap?): LExpression =
             conv.lxf.applyExp(
                 AxiomatizedFunctionSymbol.Hash.SimpleHashN(Tag.Bit256, ls.size, hashFamily),
@@ -2446,7 +2441,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
             // to the lexpression world. Specifically it does not like the `UserArray` tag.
             // See the test `Test/CVLCompilation/DirectStorageAccess/Default.conf` - `test_bytes_keys`.
             // If we do want to support quantification over bytes keys, we'll need to solve this and some more.
-            private val validAccessPathIndexTags = setOf(Tag.Bool, Tag.Bit256, Tag.Int, skeySort)
+            private val validAccessPathIndexTags = setOf<Tag>(Tag.Bool, Tag.Bit256, Tag.Int)
 
             operator fun invoke(o: TACExpr, k: MetaKey<Nothing>) = AnnotationExp(o, Annotation(k))
         }

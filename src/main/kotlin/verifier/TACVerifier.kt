@@ -328,7 +328,7 @@ class TACVerifier private constructor(
         oneStateInvariant(tacObject, ReportTypes.PRESIMPLIFIED_RULE)
 
         // returns a Presolver tac
-        val finalTac = toSimpleSimpleSSAFoldAndSkeyAnnotate(
+        val finalTac = toSimpleSimpleSSAAndFold(
             tacObject = tacObject,
             enableHeuristicalFolding = Config.CoverageInfoMode.get() != CoverageInfoEnum.ADVANCED
         ).letIf(

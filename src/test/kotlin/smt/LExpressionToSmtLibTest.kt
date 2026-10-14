@@ -41,9 +41,8 @@ import kotlin.time.Duration.Companion.seconds
 
 internal class LExpressionToSmtLibTest : WithTACSource {
 
-    private fun mockAxiomGeneratorConfig(hashingScheme: HashingScheme): CreateAxiomGeneratorContainer.Config =
+    private fun mockAxiomGeneratorConfig(): CreateAxiomGeneratorContainer.Config =
         CreateAxiomGeneratorContainer.Config(
-            hashingScheme,
             listOf(),
             CreateAxiomGeneratorContainer.Config.BvOverflowChecks.ViaDefineFun
         )
@@ -62,7 +61,6 @@ internal class LExpressionToSmtLibTest : WithTACSource {
                 lExpToSmtSetupInfo.targetTheory,
             ),
             lExpToSmtSetupInfo.targetTheory,
-            lExpToSmtSetupInfo.hashingScheme,
             lExpToSmtSetupInfo.createExpNormalizer(lxf),
         )
     }
@@ -127,7 +125,7 @@ internal class LExpressionToSmtLibTest : WithTACSource {
                 LExpToSmtSetupInfo.UFLIAorAUFLIA(
                     useArrayTheory,
                     useQuantifiers,
-                    mockAxiomGeneratorConfig(HashingScheme.Legacy(EVM_MOD_GROUP256))
+                    mockAxiomGeneratorConfig()
                 ),
                 fileName
             ),

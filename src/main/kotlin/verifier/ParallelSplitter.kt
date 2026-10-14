@@ -25,7 +25,6 @@ import datastructures.stdcollections.*
 import log.*
 import parallel.*
 import parallel.coroutines.*
-import smt.HashingScheme
 import smt.LExpressionToSmtLib
 import smt.LExpressionToSmtLibScene
 import smt.solverscript.LExpressionFactory
@@ -101,7 +100,6 @@ class ParallelSplitter(
                     lxf,
                     setup.createAxiomGeneratorContainer.create(lxf, setup.targetTheory),
                     setup.targetTheory,
-                    setup.hashingScheme,
                     setup.createExpNormalizer(lxf),
                 ),
                 vc
@@ -138,7 +136,6 @@ class ParallelSplitter(
                 false,
                 VcFeature.Quantification in lxf.getUsedFeatures(),
                 CreateAxiomGeneratorContainer.Config(
-                    HashingScheme.Datatypes,
                     listOf(),
                     CreateAxiomGeneratorContainer.Config.BvOverflowChecks.DontCare
                 )
@@ -148,7 +145,6 @@ class ParallelSplitter(
                 false,
                 VcFeature.Quantification in lxf.getUsedFeatures(),
                 CreateAxiomGeneratorContainer.Config(
-                    HashingScheme.Datatypes,
                     listOf(),
                     CreateAxiomGeneratorContainer.Config.BvOverflowChecks.DontCare
                 )

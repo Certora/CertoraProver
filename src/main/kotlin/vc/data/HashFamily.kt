@@ -23,7 +23,7 @@ import vc.data.HashFamily.Keccack
 import java.io.Serializable
 
 /** Note that for now we assume that there is exactly one [HashFamily] that requires the "large gaps" modeling.
- * And that is [Keccack]. If this changes, the pipeline ([SkeyDetection] etc.) will need a slight rework. */
+ * And that is [Keccack]. */
 @KSerializable
 @Treapable
 sealed class HashFamily: Serializable, HasKSerializable {

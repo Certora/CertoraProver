@@ -40,13 +40,13 @@ object WordMapSerializer: KSerializer<TACValue.MappingValue.KVMapping.WordMap> {
     @OptIn(ExperimentalSerializationApi::class)
     override fun deserialize(decoder: Decoder): TACValue.MappingValue.KVMapping.WordMap =
         decoder.decodeStructure(descriptor) {
-            var value: TreapMap<TACValue.SKey, TACValue.PrimitiveValue.Integer> = treapMapOf()
+            var value: TreapMap<TACValue.PrimitiveValue.Integer, TACValue.PrimitiveValue.Integer> = treapMapOf()
             var initialValue: TACValue.PrimitiveValue.Integer? = null
             var sanityCount = 0
             while(true) {
                 when (val index = decodeElementIndex(descriptor)) {
                     0 -> value = decodeSerializableElement(descriptor, index,
-                        skeyMapSerializer)
+                        wordMapKeySerializer)
                     1 -> initialValue = decodeNullableSerializableElement(descriptor, index,
                         initialValueSerializer)
                     CompositeDecoder.DECODE_DONE -> break
@@ -60,18 +60,18 @@ object WordMapSerializer: KSerializer<TACValue.MappingValue.KVMapping.WordMap> {
 
     private val initialValueSerializer: KSerializer<TACValue.PrimitiveValue.Integer?> =
         TACValue.PrimitiveValue.Integer.serializer().nullable
-    private val skeyMapSerializer: KSerializer<TreapMap<TACValue.SKey, TACValue.PrimitiveValue.Integer>> =
-        TreapMapSerializer(TACValue.SKey.serializer(), TACValue.PrimitiveValue.Integer.serializer())
+    private val wordMapKeySerializer: KSerializer<TreapMap<TACValue.PrimitiveValue.Integer, TACValue.PrimitiveValue.Integer>> =
+        TreapMapSerializer(TACValue.PrimitiveValue.Integer.serializer(), TACValue.PrimitiveValue.Integer.serializer())
     override val descriptor: SerialDescriptor =
         buildClassSerialDescriptor(TACValue.MappingValue.KVMapping.WordMap::class.java.canonicalName) {
-            element("value", skeyMapSerializer.descriptor)
+            element("value", wordMapKeySerializer.descriptor)
             element("initialValue", initialValueSerializer.descriptor)
         }
 
     @OptIn(ExperimentalSerializationApi::class)
     override fun serialize(encoder: Encoder, value: TACValue.MappingValue.KVMapping.WordMap) {
         encoder.encodeStructure(descriptor) {
-            encodeSerializableElement(descriptor, 0, skeyMapSerializer, value.value)
+            encodeSerializableElement(descriptor, 0, wordMapKeySerializer, value.value)
             encodeNullableSerializableElement(descriptor, 1, initialValueSerializer, value.initialValue)
         }
     }

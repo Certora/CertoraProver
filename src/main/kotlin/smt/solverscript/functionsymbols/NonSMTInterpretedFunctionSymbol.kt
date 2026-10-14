@@ -24,7 +24,6 @@ import smtlibutils.data.SmtFunctionSymbol
 import tac.Tag
 import utils.KSerializable
 import utils.hashObject
-import vc.data.HashFamily
 import vc.data.LExpression
 import vc.data.ToSmtLibData
 
@@ -240,56 +239,6 @@ sealed class NonSMTInterpretedFunctionSymbol : InterpretedFunctionSymbol() {
             SingleVarargFunctionSignature(tag, tag, minParamCount = 2)
         )
 
-    }
-
-    /**
-     * These correspond to TACBuiltin function symbols.
-     * For the ones that correspond to the data type constructors when we compile to a *DT* theory, look into
-     * [AxiomatizedFunctionSymbol.SKeyDt].
-     */
-    @KSerializable
-    sealed class Hash(
-        override val name: String,
-        override val signature: FunctionSignature
-    ) : NonSMTInterpretedFunctionSymbol() {
-        @KSerializable
-        object Basic : Hash("basic", IFixedFunctionSignatures.IntToSkey) {
-            private fun readResolve(): Any = Basic
-            override fun hashCode(): Int = hashObject(this)
-        }
-
-        @KSerializable
-        object ToSkey : Hash("to_skey", IFixedFunctionSignatures.IntToSkey) {
-            private fun readResolve(): Any = ToSkey
-            override fun hashCode(): Int = hashObject(this)
-        }
-
-        @KSerializable
-        object FromSkey : Hash("from_skey", IFixedFunctionSignatures.SkeyToInt) {
-            private fun readResolve(): Any = FromSkey
-            override fun hashCode(): Int = hashObject(this)
-        }
-
-        @KSerializable
-        object SkeyAdd : Hash("skey_add", IFixedFunctionSignatures.SkeyIntToSkey) {
-            private fun readResolve(): Any = SkeyAdd
-            override fun hashCode(): Int = hashObject(this)
-        }
-
-        // TODO [CERT-1789]
-        @KSerializable
-        data class SimpleHashN(val arity: Int, val hashFamily: HashFamily) :
-            Hash(
-                "${hashFamily}__$arity",
-                if (hashFamily.requiresLargeGaps) {
-                    IFixedFunctionSignatures.SkeyNToSkey(arity)
-                } else {
-                    // choosing Int, not Bv256, is a bit dubious in the FunctionSignature context ..
-                    //  -- regularly use int for "will be an int or bv depending on theory" ...
-                    //  -- but in this context no bounds axioms are needed so it's fine for the time being I think
-                    IFixedFunctionSignatures.IntNToInt(arity)
-                }
-            )
     }
 
     @KSerializable

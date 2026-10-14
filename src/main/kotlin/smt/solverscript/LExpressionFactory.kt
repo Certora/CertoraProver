@@ -24,7 +24,6 @@ import datastructures.enumSetOf
 import datastructures.stdcollections.*
 import evm.*
 import log.*
-import smt.HashingScheme
 import smt.axiomgenerators.LExpDefineFun
 import smt.axiomgenerators.fullinstantiation.expnormalizer.ExpNormalizerIA.Companion.atMostOneNonConstant
 import smt.solverscript.functionsymbols.*
@@ -697,20 +696,11 @@ class LExpressionFactory private constructor(
                 Sort.IntSort
             }
 
-        fun getSortOfStorageKeyValues(targetTheory: SmtTheory, hashingScheme: HashingScheme): Sort =
-            when (hashingScheme) {
-                is HashingScheme.Legacy,
-                HashingScheme.PlainInjectivity -> getSortOfIntValues(targetTheory)
-
-                HashingScheme.Datatypes -> Sort.SKeySort
-            }
-
-
         fun tagToSort(tag: Tag, toSmtLibData: ToSmtLibData): Sort =
             tagToSort(
                 tag,
                 getSortOfIntValues(toSmtLibData.targetTheory),
-                getSortOfStorageKeyValues(toSmtLibData.targetTheory, toSmtLibData.hashingScheme)
+                getSortOfIntValues(toSmtLibData.targetTheory)
             )
 
         /**
@@ -1078,8 +1068,6 @@ class LExpressionFactory private constructor(
 
     // datatypes
 
-    infix fun LExpression.`is`(fs: AxiomatizedFunctionSymbol.SKeyDt) =
-        applyExp(TheoryFunctionSymbol.Unary.Is(fs), this)
 
     // extra convenience methods
 

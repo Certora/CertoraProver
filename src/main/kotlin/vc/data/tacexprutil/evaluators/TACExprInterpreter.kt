@@ -47,12 +47,7 @@ fun Tag.defaultValue(): TACValue {
             TACValue.MappingValue.MapDefinition(
                 TACExprFactUntyped.mapDef(mapOf("x" to Tag.Bit256), { 0.asTACExpr }, Tag.WordMap)
             )
-        is Tag.UserDefined.UninterpretedSort ->
-            if (this == TACBuiltInFunction.Hash.skeySort) {
-                TACValue.SKey.Basic(0.asTACValue)
-            } else {
-                unsupp()
-            }
+        is Tag.UserDefined.UninterpretedSort -> unsupp()
         is Tag.GhostMap,
         is Tag.UserDefined.Struct,
         is Tag.Move,
@@ -164,34 +159,6 @@ object TACExprInterpreter : AccumulatingTACExprTransFormerWithDefaultRes<TACExpr
     override fun transformVec(acc: Acc, e: TACExpr.Vec): TACValue =
         e.eval(transformIntList(acc, e.ls)).asTacValue
 
-    override fun transformApply(acc: Acc, e: TACExpr.Apply): TACValue {
-        return when (val fs = e.f) {
-            is TACExpr.TACFunctionSym.BuiltIn -> when (val bif = fs.bif) {
-                is TACBuiltInFunction.Hash.ToSkey -> transformSelect(acc, bif.asMapVar, e.expectSingleOp(), bif.returnSort)
-                is TACBuiltInFunction.Hash.FromSkey -> transformSelect(acc, bif.asMapVar, e.expectSingleOp(), bif.returnSort)
-                is TACBuiltInFunction.Hash.SimpleHashApplication -> {
-                    val children = e.ops.map { transform(acc, it).expectSKey() }
-                    TACValue.SKey.Node(children, TACValue.valueOf(0))
-                }
-                is TACBuiltInFunction.Hash.Basic -> {
-                    val offset = transform(acc, e.expectSingleOp()).expectInteger()
-                    TACValue.SKey.Basic(offset)
-                }
-                is TACBuiltInFunction.Hash.Addition -> {
-                    val (firstOp, secondOp) = e.expectOpCount(2)
-
-                    val skey = transform(acc, firstOp).expectSKey()
-                    val int = transform(acc, secondOp).expectInteger()
-
-                    skey.withOffset(skey.offset + int)
-                }
-                else -> super.transformApply(acc, e)
-            }
-            is TACExpr.TACFunctionSym.Adhoc -> super.transformApply(acc, e)
-        }
-
-    }
-
     override fun transformBinBoolOp(acc: Acc, e: TACExpr.BinBoolOp): TACValue.PrimitiveValue.Integer =
         e.eval(transformIntList(acc, e.ls)).asTacValue
 
@@ -208,13 +175,6 @@ object TACExprInterpreter : AccumulatingTACExprTransFormerWithDefaultRes<TACExpr
                     o1.asPrimitiveInt.value,
                     o2.asPrimitiveInt.value
                 ) != BigInteger.ZERO).asTacValue
-            is TACValue.SKey ->
-                when (e) {
-                    /** The `equals` method of the [TACValue.SKey] classes is written such that `==` works as the
-                     * semantic equality.   */
-                    is TACExpr.BinRel.Eq -> (o1 == o2).asTacValue
-                    else -> unsupp()
-                }
             else -> unsupp()
         }
     }
@@ -238,7 +198,7 @@ object TACExprInterpreter : AccumulatingTACExprTransFormerWithDefaultRes<TACExpr
         val locEvaled = transform(acc, loc)
         return when (baseEvaled) {
             is TACValue.MappingValue.KVMapping.ByteMap -> baseEvaled.get(locEvaled as TACValue.PrimitiveValue.Integer)
-            is TACValue.MappingValue.KVMapping.WordMap -> baseEvaled.get(locEvaled as TACValue.SKey)
+            is TACValue.MappingValue.KVMapping.WordMap -> baseEvaled.get(locEvaled as TACValue.PrimitiveValue.Integer)
             is TACValue.MappingValue.UninterpretedFunction -> baseEvaled.get(listOf(locEvaled))
             is TACValue.MappingValue.MapDefinition -> baseEvaled.get(listOf(locEvaled))
             is TACValue.MappingValue.StructValue ->
@@ -310,19 +270,5 @@ object TACExprInterpreter : AccumulatingTACExprTransFormerWithDefaultRes<TACExpr
 
     class ValueMissingFromStateException(v: TACExpr.Sym.Var, acc: Acc) :
         InterpreterException("Interpreting expression failed: \"$v\" does not exist in state \"$acc\".")
-
-    /** a single exception type which can be caught by downstream. simplistic approximation of possible exceptions */
-    sealed class HashingException : RuntimeException() {
-        override val message = "reached illegal state while hashing"
-
-        class WrongNumberOfOperands : HashingException()
-        class UnexpectedResultValue : HashingException()
-    }
-
-    private fun TACExpr.Apply.expectSingleOp() = ops.singleOrNull() ?: throw HashingException.WrongNumberOfOperands()
-    private fun TACExpr.Apply.expectOpCount(count: Int) = ops.takeIf { it.size == count } ?: throw HashingException.WrongNumberOfOperands()
-
-    private fun TACValue.expectInteger() = this as? TACValue.PrimitiveValue.Integer ?: throw HashingException.UnexpectedResultValue()
-    private fun TACValue.expectSKey() = this as? TACValue.SKey ?: throw HashingException.UnexpectedResultValue()
 
 }

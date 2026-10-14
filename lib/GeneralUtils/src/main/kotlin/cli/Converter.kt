@@ -22,7 +22,6 @@ import config.DebugAdapterProtocolMode
 import config.HardFailMode
 import datastructures.stdcollections.*
 import smt.*
-import smt.HashingScheme
 import solver.*
 import java.io.Serializable
 import java.math.BigInteger
@@ -138,15 +137,6 @@ val AssertFilterConverter = Converter { input ->
 val SolverProgramListConverter = Converter { parseList(it, SolverConfig.Converter()).toTypedArray() }
 
 val CEGARConfigConverter = Converter { parseOne(it, CEGARConfig.Converter()) }
-
-val HashingSchemeConverter = Converter {
-    when (it.lowercase()) {
-        HashingScheme.Legacy.CONFIG_KEYWORD.lowercase() -> HashingScheme.Legacy()
-        HashingScheme.PlainInjectivity.CONFIG_KEYWORD.lowercase() -> HashingScheme.PlainInjectivity
-        HashingScheme.Datatypes.CONFIG_KEYWORD.lowercase() -> HashingScheme.Datatypes
-        else -> throw ConversionException(it, HashingScheme::class.java)
-    }
-}
 
 val HardFailConverter = Converter {
     HardFailMode.entries

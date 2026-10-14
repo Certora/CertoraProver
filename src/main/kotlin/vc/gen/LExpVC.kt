@@ -21,7 +21,7 @@ import analysis.TACCommandGraph
 import datastructures.stdcollections.*
 import smt.LExpressionToSmtLib
 import smt.newufliatranslator.AxiomGeneratorContainer
-import smt.newufliatranslator.StorageHashAxiomGenerator
+import smt.axiomgenerators.fullinstantiation.StorageHashAxiomGenerator
 import smt.solverscript.functionsymbols.subs
 import statistics.data.TACProgramMetadata
 import vc.data.CoreTACProgram
@@ -37,7 +37,7 @@ import java.math.BigInteger
  */
 interface LExpVCMetaData {
     /**
-     * A set of literals that the [StorageHashAxiomGenerator]s should not consider as "large constants in code", i.e.,
+     * A set of literals that the [StorageHashAxiomGenerator] should not consider as "large constants in code", i.e.,
      * not as potential results of the keccack hash function.
      * Current use case: the literals that occur in the state constraint coming from the [TACState] should not be
      * considered as large constants in code, since it leads to unsoundness. (Further discussion + example in

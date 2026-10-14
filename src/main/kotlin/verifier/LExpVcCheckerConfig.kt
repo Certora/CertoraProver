@@ -75,7 +75,6 @@ data class LExpVcCheckerConfig(
     val partialNIASolvers: SolverChoice,
     val partialNIASelectorDepth: Int,
     val configLiaBeforeBv: Boolean,
-    val hashingScheme: HashingScheme,
     val configMemLimitBytes: Long?,
     val incrementalMode: Boolean,
     val dumpSmtFiles: Boolean,
@@ -199,33 +198,11 @@ data class LExpVcCheckerConfig(
             }
         }
 
-        fun filterByHashingScheme(
-            candidates: SolverChoice,
-            hashingScheme: HashingScheme,
-            usedFeatures: Collection<VcFeature>
-        ): SolverChoice {
-            return when (hashingScheme) {
-                HashingScheme.Datatypes -> SolverChoice(candidates
-                    .solverInfoClOptions.filterTo(mutableSetOf()) {
-                        it.solverInfo.supportsLogicFeatures(
-                            SolverConfig.LogicFeatures(
-                                ArithmeticOperations.Any,
-                                usesDatatypes = true,
-                                usesQuantifiers = VcFeature.Quantification in usedFeatures
-                            )
-                        )
-                    }
-                )
-
-                else -> candidates
-            }
-        }
-
         fun fromGlobalConfig(
             vcName: String,
             usedFeatures: EnumSet<VcFeature>,
             timeout: Duration,
-            containsStorageComparisons: Boolean? = null
+            @Suppress("UNUSED_PARAMETER") containsStorageComparisons: Boolean? = null
         ): LExpVcCheckerConfig {
             val backendStrategy = Config.Smt.BackendStrategy.get()
             val useLIA = Config.Smt.UseLIA.get()
@@ -238,28 +215,7 @@ data class LExpVcCheckerConfig(
 
             val configLiaBeforeBv = Config.LiaBeforeBv.get()
 
-            val hashingScheme = Config.HashingScheme.get().let { scheme ->
-                when {
-                    containsStorageComparisons == null -> {
-                        logger.warn {
-                            "Calling `fromGlobalConfig` without a parameter for `containsStorageComparison`."
-                        }
-                        scheme
-                    }
-
-                    containsStorageComparisons && scheme == HashingScheme.PlainInjectivity -> {
-                        logger.warn {
-                            "In $vcName, ${HashingScheme.PlainInjectivity.CONFIG_KEYWORD} changed to " +
-                                "${HashingScheme.Datatypes.CONFIG_KEYWORD} because of the presence of storage comparisons."
-                        }
-                        HashingScheme.Datatypes
-                    }
-
-                    else -> scheme
-                }
-            }
-
-            val configSolverChoice = filterByHashingScheme(SolverChoice(Config.SolverProgramChoice.get().toList()), hashingScheme, usedFeatures)
+            val configSolverChoice = SolverChoice(Config.SolverProgramChoice.get().toList())
             check(configSolverChoice.isNotEmpty()) { "No solvers found when trying to check a rule ($vcName)." }
             LExpVcChecker.logSolverChoice(configSolverChoice, SolverChoice.AllCommonAvailableSolversWithClOptions)
 
@@ -328,7 +284,7 @@ data class LExpVcCheckerConfig(
                 timeout,
                 SolverConfig.LogicFeatures(
                     SmtTheory.ArithmeticOperations.NonLinear.toSolverConfigArithOps(),
-                    hashingScheme is HashingScheme.Datatypes,
+                    usesDatatypes = false,
                     VcFeature.Quantification in usedFeatures
                 ),
                 solverChoiceDefault = Config.SolverProgramChoice.isDefault()
@@ -339,22 +295,21 @@ data class LExpVcCheckerConfig(
                 timeout,
                 SolverConfig.LogicFeatures(
                     SmtTheory.ArithmeticOperations.LinearOnly.toSolverConfigArithOps(),
-                    hashingScheme is HashingScheme.Datatypes,
+                    usesDatatypes = false,
                     VcFeature.Quantification in usedFeatures
                 ),
                 solverChoiceDefault = Config.SolverProgramChoice.isDefault()
             )
 
-            val bvSolvers = filterByHashingScheme(usersSolversOrDefault(
-                    Config.BVsolvers,
-                    timeout,
-                    SolverConfig.LogicFeatures(
-                        SmtTheory.ArithmeticOperations.BitVector.toSolverConfigArithOps(),
-                        hashingScheme is HashingScheme.Datatypes,
-                        VcFeature.Quantification in usedFeatures
-                    ),
-                    solverChoiceDefault = Config.SolverProgramChoice.isDefault()
-                ), hashingScheme, usedFeatures
+            val bvSolvers = usersSolversOrDefault(
+                Config.BVsolvers,
+                timeout,
+                SolverConfig.LogicFeatures(
+                    SmtTheory.ArithmeticOperations.BitVector.toSolverConfigArithOps(),
+                    usesDatatypes = false,
+                    VcFeature.Quantification in usedFeatures
+                ),
+                solverChoiceDefault = Config.SolverProgramChoice.isDefault()
             )
 
 
@@ -400,7 +355,6 @@ data class LExpVcCheckerConfig(
                 partialNIASolvers = partialNIASolvers,
                 partialNIASelectorDepth = partialNIASelectorDepth,
                 configLiaBeforeBv = configLiaBeforeBv,
-                hashingScheme = hashingScheme,
                 configMemLimitBytes = configMemLimitBytes,
                 incrementalMode = incrementalMode,
                 dumpSmtFiles = dumpSmtFiles,
@@ -471,15 +425,14 @@ data class LExpVcCheckerConfig(
                 fromGlobalConfigWithTACConfig(vcName, usedFeatures, containsStorageComparisons, timeout, tacVerifierSettings)
             }
 
-            val configSolverChoice = filterByHashingScheme(SolverChoice(Config.SolverProgramChoice.get().toList()),
-                config.hashingScheme, usedFeatures)
+            val configSolverChoice = SolverChoice(Config.SolverProgramChoice.get().toList())
 
             val niaSolvers = usersSolversOrDefault(
                 Config.NIAsolvers,
                 timeout,
                 SolverConfig.LogicFeatures(
                     SmtTheory.ArithmeticOperations.NonLinear.toSolverConfigArithOps(),
-                    config.hashingScheme is HashingScheme.Datatypes,
+                    usesDatatypes = false,
                     VcFeature.Quantification in usedFeatures
                 ),
                 overrideSolvers = localSettings.overrideSolvers,
@@ -492,7 +445,7 @@ data class LExpVcCheckerConfig(
                 timeout,
                 SolverConfig.LogicFeatures(
                     SmtTheory.ArithmeticOperations.LinearOnly.toSolverConfigArithOps(),
-                    config.hashingScheme is HashingScheme.Datatypes,
+                    usesDatatypes = false,
                     VcFeature.Quantification in usedFeatures
                 ),
                 overrideSolvers = localSettings.overrideSolvers,

@@ -173,8 +173,7 @@ object DumpGraphHTML {
                 prefix = "<br/>&nbsp;&nbsp;&nbsp;",
                 postfix = "<br/>"
             ) { (kl, v) ->
-                "${kl.joinToString(",") { if (it is TACValue.SKey) skeyValueToHTML(it) else it.toString() }} -> " +
-                    if (v is TACValue.SKey) skeyValueToHTML(v) else v.toString()
+                "${kl.joinToString(",")} -> $v"
             }
         }
 
@@ -453,10 +452,6 @@ object DumpGraphHTML {
         }
 }
 
-fun skeyValueToHTML(skey: TACValue.SKey): String = when (skey) {
-    is TACValue.SKey.Basic -> "Basic(${skey.offset})"
-    is TACValue.SKey.Node -> "Node(${skey.children.joinToString { skeyValueToHTML(it) }}, ${skey.offset})"
-}
 
 private const val HTML_LINE_BREAK = "<br/>"
 
