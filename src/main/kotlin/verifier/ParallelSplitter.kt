@@ -22,6 +22,7 @@ import config.Config
 import config.LocalSettings
 import datastructures.NonEmptyList
 import datastructures.stdcollections.*
+import kotlinx.coroutines.CancellationException
 import log.*
 import parallel.*
 import parallel.coroutines.*
@@ -196,8 +197,8 @@ class ParallelSplitter(
          * Execute the actual race. Note that an executable that solves its query wins the race only if the result is SAT
          * (i.e., in this case, it interrupts all the other executables and stop the race).
          */
-        val resultInfo = measureTimedValue {
-            try {
+        val results: List<ParallelRacerResult> = try {
+            val resultInfo = measureTimedValue {
                 ParallelPool.inherit(ParallelPool.SpawnPolicy.GLOBAL) {
                     it.rpcRace(
                         executables.map {
@@ -215,50 +216,61 @@ class ParallelSplitter(
                         }
                     )
                 }
-            } catch (e: Exception) {
-                return executables.map {
-                    ParallelRacerResult.Basic(
-                        subProblem = it.subProblem,
-                        result = SmtFormulaCheckerResult.OtherException(
-                            e,
-                            it.executable.checkerInstance,
-                            it.executable.query,
-                            null,
-                            null
-                        ).withChecker(it.executable.checkerInstance),
-                        postprocessor = it.postprocessor
-                    )
-                }
             }
-        }
-        val (_, ress) = resultInfo.value
+            val (_, ress) = resultInfo.value
 
-        val results = ress.zip(executables).map { (res, racerTask) ->
-            val makeInterrupt: (SmtFormulaCheckerResult.Companion.InterruptReason) -> SmtFormulaCheckerResultWithChecker =
-                { reason: SmtFormulaCheckerResult.Companion.InterruptReason ->
-                    racerTask.executable.interrupted(
-                        null,
-                        reason,
-                        (res.res?.result as? SmtFormulaCheckerResult.Single)?.preExecutionStatistics
-                            ?: PreExecutionStatistics(ConfigStatistics(), listOf()),
-                        ResultStatistics()
-                    )
+            ress.zip(executables).map { (res, racerTask) ->
+                val makeInterrupt: (SmtFormulaCheckerResult.Companion.InterruptReason) -> SmtFormulaCheckerResultWithChecker =
+                    { reason: SmtFormulaCheckerResult.Companion.InterruptReason ->
+                        racerTask.executable.interrupted(
+                            null,
+                            reason,
+                            (res.res?.result as? SmtFormulaCheckerResult.Single)?.preExecutionStatistics
+                                ?: PreExecutionStatistics(ConfigStatistics(), listOf()),
+                            ResultStatistics()
+                        )
+                    }
+                val result = when (res) {
+                    is RacerResult.FromJob -> racerTask.executable.interpret(res.res)
+                    is RacerResult.LostRace -> makeInterrupt(SmtFormulaCheckerResult.Companion.InterruptReason.LOST_RACE)
+                    is RacerResult.Skipped -> makeInterrupt(SmtFormulaCheckerResult.Companion.InterruptReason.SKIPPED)
+                    is RacerResult.SkippedDelayed -> makeInterrupt(SmtFormulaCheckerResult.Companion.InterruptReason.SKIPPED_DELAYED)
+                    is RacerResult.Timeout -> makeInterrupt(SmtFormulaCheckerResult.Companion.InterruptReason.EXTERNAL_TIMEOUT)
                 }
-            val result = when (res) {
-                is RacerResult.FromJob -> racerTask.executable.interpret(res.res)
-                is RacerResult.LostRace -> makeInterrupt(SmtFormulaCheckerResult.Companion.InterruptReason.LOST_RACE)
-                is RacerResult.Skipped -> makeInterrupt(SmtFormulaCheckerResult.Companion.InterruptReason.SKIPPED)
-                is RacerResult.SkippedDelayed -> makeInterrupt(SmtFormulaCheckerResult.Companion.InterruptReason.SKIPPED_DELAYED)
-                is RacerResult.Timeout -> makeInterrupt(SmtFormulaCheckerResult.Companion.InterruptReason.EXTERNAL_TIMEOUT)
+                ParallelRacerResult.Full(
+                    racerTask.subProblem,
+                    result,
+                    racerTask.postprocessor,
+                    collapsedTacGraph = racerTask.collapsedTACProgram.analysisCache.graph,
+                    query = racerTask.executable.query,
+                    solverConfig = racerTask.executable.config,
+                )
             }
-            ParallelRacerResult.Full(
-                racerTask.subProblem,
-                result,
-                racerTask.postprocessor,
-                collapsedTacGraph = racerTask.collapsedTACProgram.analysisCache.graph,
-                query = racerTask.executable.query,
-                solverConfig = racerTask.executable.config,
-            )
+        } catch (e: CancellationException) {
+            /**
+             * The whole job is going away, so there is no point in turning this into an inconclusive result and
+             * having [solve] split these subProblems again.
+             */
+            throw e
+        } catch (e: Exception) {
+            /**
+             * The race failed as a whole, so there is nothing to interpret per executable. Report the exception
+             * for each executable; [oneResultPerSplit] below collapses these down to one result per split, just
+             * like it does for the results of a race that ran to completion.
+             */
+            executables.map {
+                ParallelRacerResult.Basic(
+                    subProblem = it.subProblem,
+                    result = SmtFormulaCheckerResult.OtherException(
+                        e,
+                        it.executable.checkerInstance,
+                        it.executable.query,
+                        null,
+                        null
+                    ).withChecker(it.executable.checkerInstance),
+                    postprocessor = it.postprocessor
+                )
+            }
         }
 
         /** Close the non-SAT solvers. The SAT solvers are kept alive for future CEX postprocessing **/
@@ -268,38 +280,7 @@ class ParallelSplitter(
             }
         }
 
-        /**
-         * In the race, we can possibly run multiple executables (read Solvers) per split. Here, we select just one
-         * result per split (to propagate it outside the function).
-         */
-        val mappedResults = mutableMapOf<SplitTree.Node, ParallelRacerResult>().let { mm ->
-            results.forEach { res ->
-                if (res.subProblem !in mm) {
-                    mm[res.subProblem] = res
-                    /** ensure we have "a" result **/
-                } else if (res.result.result.satResult is SatResult.SAT) {
-                    /** we definitely prefer SAT to timeout **/
-                    check(mm[res.subProblem]!!.result.result.satResult !is SatResult.UNSAT) { "Got contradicting results from solvers" }
-                    /** we need to make sure we close all solvers that are not propagated to the following steps **/
-                    if (mm[res.subProblem]!!.result.result.satResult is SatResult.SAT) {
-                        mm[res.subProblem]!!.result.checker?.close()
-                    }
-                    mm[res.subProblem] = res
-                } else if (res.result.result.satResult is SatResult.UNSAT) {
-                    /** we prefer UNSAT to timeout **/
-                    check(mm[res.subProblem]!!.result.result.satResult !is SatResult.SAT) { "Got contradicting results from solvers" }
-                    mm[res.subProblem] = res
-                } else if (mm[res.subProblem]!!.result.result.satResult !is SatResult.SAT && mm[res.subProblem]!!.result.result.satResult !is SatResult.UNSAT) {
-                    /** Currently, this one might not apply. But it would be useful e.g. in case of unsat-underapproximation
-                     * or sat-overapproximation results (if we get any) **/
-                    mm[res.subProblem] = res
-                }
-            }
-            mm
-        }
-
-        check(splitsToSolve.toSet() == mappedResults.keys.toSet()) { "Missing results for some splits" }
-        return mappedResults.values.toList()
+        return oneResultPerSplit(splitsToSolve, results)
     }
 
     /**
@@ -518,6 +499,47 @@ class ParallelSplitter(
             elapsedTimeSeconds = startTime.elapsedNow().inWholeSeconds,
             postprocessor = represenativeResult.postprocessor
         )
+    }
+
+    companion object {
+        /**
+         * A race runs several executables (read: solvers) per split, so [results] may hold several entries for
+         * the same split, and the caller wants exactly one. Prefer a conclusive result (SAT, then UNSAT) over an
+         * inconclusive one, and close the solvers of the results that are dropped here.
+         */
+        internal fun oneResultPerSplit(
+            splitsToSolve: List<SplitTree.Node>,
+            results: List<ParallelRacerResult>,
+        ): List<ParallelRacerResult> {
+            val mappedResults = mutableMapOf<SplitTree.Node, ParallelRacerResult>().let { mm ->
+                results.forEach { res ->
+                    if (res.subProblem !in mm) {
+                        mm[res.subProblem] = res
+                        /** ensure we have "a" result **/
+                    } else if (res.result.result.satResult is SatResult.SAT) {
+                        /** we definitely prefer SAT to timeout **/
+                        check(mm[res.subProblem]!!.result.result.satResult !is SatResult.UNSAT) { "Got contradicting results from solvers" }
+                        /** we need to make sure we close all solvers that are not propagated to the following steps **/
+                        if (mm[res.subProblem]!!.result.result.satResult is SatResult.SAT) {
+                            mm[res.subProblem]!!.result.checker?.close()
+                        }
+                        mm[res.subProblem] = res
+                    } else if (res.result.result.satResult is SatResult.UNSAT) {
+                        /** we prefer UNSAT to timeout **/
+                        check(mm[res.subProblem]!!.result.result.satResult !is SatResult.SAT) { "Got contradicting results from solvers" }
+                        mm[res.subProblem] = res
+                    } else if (mm[res.subProblem]!!.result.result.satResult !is SatResult.SAT && mm[res.subProblem]!!.result.result.satResult !is SatResult.UNSAT) {
+                        /** Currently, this one might not apply. But it would be useful e.g. in case of unsat-underapproximation
+                         * or sat-overapproximation results (if we get any) **/
+                        mm[res.subProblem] = res
+                    }
+                }
+                mm
+            }
+
+            check(splitsToSolve.toSet() == mappedResults.keys.toSet()) { "Missing results for some splits" }
+            return mappedResults.values.toList()
+        }
     }
 }
 
