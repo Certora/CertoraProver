@@ -114,6 +114,31 @@ class OptimizeBytemapsTest : TACBuilderAuxiliaries() {
         }
     }
 
+    /**
+     * Every query of `rM` reads the key the store writes, so `aM` is not needed: the store becomes the constant map
+     * of `c`. It used to stay a read of `aM` while `aM`'s own havoc was deleted as unqueried, leaving a read of an
+     * undefined map (`Not in DSA! useBeforeDef` at the POSTDSA dump).
+     */
+    @Test
+    fun aStoreEveryQueryOfWhichMatchesReadsNoDeletedBase() {
+        val prog = TACProgramBuilder {
+            havoc(aM)
+            havoc(b)
+            havoc(c)
+            rM assign TACExpr.Store(aM.asSym(), bS, cS)
+            checkR
+        }
+        val result = BytemapConeOfInf.go(prog.code, FilteringFunctions.NoFilter)
+        val cmds = result.analysisCache.graph.commands.map { it.cmd }.toList()
+        // `DSAChecker` counts a variable with no def at all as an input, so look for reads of undefined maps directly.
+        val defined = cmds.mapNotNull { it.getModifiedVar() }.toSet()
+        val undefinedMapReads = cmds
+            .flatMap { it.getFreeVarsOfRhs() }
+            .filter { it.tag == Tag.ByteMap && it !in defined }
+        assertEquals(listOf<TACSymbol.Var>(), undefinedMapReads)
+        assertEquals(0, cmds.count { aM in it.getFreeVarsOfRhs() })
+    }
+
 
     @Test
     fun simpleIgnore() {
