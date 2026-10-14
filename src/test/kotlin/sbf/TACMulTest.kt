@@ -273,6 +273,39 @@ class TACMulTest {
         verifyMuloti4(sound, mathInt, cfg)
     }
 
+    /** `(2^100 + 1) x 2^40`: `__multi3` wraps around, keeping the low 128 bits of the product **/
+    @ParameterizedTest
+    @CsvSource("true,true", "true,false", "false,true", "false,false")
+    fun test10(sound: Boolean, mathInt: Boolean) {
+        val cfg = SbfTestDSL.makeCFG("test10") {
+            bb(0) {
+                r1 = r10
+                BinOp.SUB(r1, 100)
+                r2 = 1
+                r3 = 1L shl 36
+                r4 = 1L shl 40
+                r5 = 0
+                "__multi3"()
+                r2 = r1[0]
+                r3 = r1[8]
+                // 2^140 does not fit in 128 bits, so only the 2^40 term is left
+                assert(CondOp.EQ(r2, 1UL shl 40))
+                assert(CondOp.EQ(r3, 0UL))
+                exit()
+            }
+        }
+        cfg.normalize()
+        cfg.verify(true)
+        println("$cfg")
+        ConfigScope(SolanaConfig.TACSoundSignedMath, sound)
+            .extend(SolanaConfig.UseTACMathInt, mathInt)
+            .use {
+                val tacProg = toTAC(cfg)
+                println(dumpTAC(tacProg))
+                Assertions.assertEquals(true, verify(tacProg))
+            }
+    }
+
     /** A wrong expectation is refuted, so the other `__muloti4` tests do not hold vacuously **/
     @ParameterizedTest
     @CsvSource("true,true", "true,false", "false,true", "false,false")

@@ -153,6 +153,13 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     // To improve TAC encoding
     val isPointerAnalysis: IsPointerAnalysis<*,*,*>
 
+    /**
+     * Whether the promoted encoding of the overflow patterns found by `detectOverflowPatterns` is used:
+     * the [SbfMeta.SAFE_MATH] arithmetic is kept untruncated, the [SbfMeta.PROMOTED_OVERFLOW_CHECK] compares the
+     * untruncated result against 2^64-1, and the result is truncated once the check has been made.
+     */
+    private val needOverflowPromotion get() = SolanaConfig.TACPromoteOverflow.get()
+
     init {
         val scalarAnalysis = GenericScalarAnalysis(
             cfg,
@@ -401,12 +408,10 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 throw TACTranslationError("TAC encoding of 32-bit $inst not supported")
             }
             val op1 = sbfTacB.mkVar(inst.dst)
-            if (!SolanaConfig.TACSoundSignedMath.get() && // TODO CERT-10061 revisit this
-                SolanaConfig.UseTACMathInt.get() &&
-                inst.metaData.getVal(SbfMeta.SAFE_MATH) != null) {
-                // Currently, `SAFE_MATH` annotations are only used for addition/subtraction before checking for overflow.
-                // These operations must be done on MathInt.
-
+            // `SAFE_MATH` annotates the addition/subtraction of a promoted overflow check, whose result must not be
+            // truncated to 64 bits before the check itself (see `translateOverflowCond`).
+            val isSafeMath = needOverflowPromotion && inst.metaData.getVal(SbfMeta.SAFE_MATH) != null
+            if (isSafeMath && SolanaConfig.UseTACMathInt.get()) {
                 val x = vFac.mkFreshMathIntVar()
                 val y = vFac.mkFreshMathIntVar()
                 val z = vFac.mkFreshMathIntVar()
@@ -428,11 +433,17 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 )
             } else {
                 val op2 = sbfTacB.mkExprSym(rhs)
-                // We assume pointer addition never overflows
-                val expr = if (inst.op == BinOp.ADD && isPointerAnalysis.isPointerOp(locInst)) {
-                    sbfTacB { op1.asSym().addNoOvf(op2, "pointer addition at $locInst") }
-                } else {
-                    inst.op(op1.asSym(), op2, useMathInt = false, sbfTacB)
+                val expr = when {
+                    isSafeMath -> {
+                        sbfTacB.mkUntruncatedBinOpExp(inst.op, op1.asSym(), op2)
+                    }
+                    // We assume pointer addition never overflows
+                    inst.op == BinOp.ADD && isPointerAnalysis.isPointerOp(locInst) -> {
+                        sbfTacB { op1.asSym().addNoOvf(op2, "pointer addition at $locInst") }
+                    }
+                    else -> {
+                        inst.op(op1.asSym(), op2, useMathInt = false, sbfTacB)
+                    }
                 }
                 listOf(assign(op1, expr))
             }
@@ -459,23 +470,21 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     }
 
     private fun translateSelect(inst: SbfInstruction.Select): List<TACCmd.Simple> {
-        val overflowCond = inst.metaData.getVal(SbfMeta.PROMOTED_OVERFLOW_CHECK)
+        val overflowCond = inst.promotedOverflowCheck()
 
-        return if (sbfTacB.needOverflowPromotion && overflowCond != null) {
+        return if (overflowCond != null) {
             // This is another 64 vs 256-bit arithmetic fix. See comments from `translateJump`
             val overflowCondTac = translateOverflowCond(overflowCond)
-            val overflowVar = overflowCondTac.getRhs().filterIsInstance<TACSymbol.Var>().single()
-            val cmds = mutableListOf(
+            listOf(
                 Debug.externalCall("overflow_check"),
                 overflowCondTac,
+                truncateOverflowVar(overflowCond),
                 assign(sbfTacB.mkVar(inst.dst),
                     sbfTacB {
                         ite(overflowCondTac.lhs.toTACExpr(), mkExprSym(inst.trueVal), mkExprSym(inst.falseVal))
                     }
                 )
             )
-            cmds += assign(overflowVar, sbfTacB.mask64(overflowVar.asSym()))
-            cmds
         } else {
             val condCmd = translateCond(inst.cond)
             listOf(
@@ -527,6 +536,19 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         return assign(lhs, sbfTacB { mkExprSym(cond.left) gt sbfTacB.mask64.asSym })
     }
 
+    /** The overflow check [SbfMeta.PROMOTED_OVERFLOW_CHECK] of this instruction, if it is translated as promoted **/
+    private fun SbfInstruction.promotedOverflowCheck(): Condition? =
+        metaData.getVal(SbfMeta.PROMOTED_OVERFLOW_CHECK)?.takeIf { needOverflowPromotion }
+
+    /**
+     * Truncate the register checked by [cond] back to 64 bits, restoring the invariant that registers hold 64-bit
+     * values.  This must be emitted right after the [translateOverflowCond] that consumes the untruncated value.
+     */
+    private fun truncateOverflowVar(cond: Condition): TACCmd.Simple.AssigningCmd {
+        val v = sbfTacB.mkVar(cond.left)
+        return assign(v, sbfTacB.truncateTo64(v.asSym()))
+    }
+
     /** Return true if [locInst] is an Assume instruction and its condition is evaluated semantically to true **/
     private fun isTautology(locInst: LocatedSbfInstruction): Boolean {
         val inst = locInst.inst
@@ -559,22 +581,22 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         return false
     }
 
-    /** Given a lowered assume it finds its corresponding jump instruction **/
-    private fun getJumpFromLoweredAssume(locInst: LocatedSbfInstruction): SbfInstruction.Jump.ConditionalJump? {
+    /** Return true if [locInst] is a lowered assume whose condition is already enforced by the jump it comes from **/
+    private fun isLoweredAssumeOfJump(locInst: LocatedSbfInstruction): Boolean {
         val inst = locInst.inst
-        check(inst is SbfInstruction.Assume) { "getJumpFromLoweredAssume expects an Assume instead of $inst" }
+        check(inst is SbfInstruction.Assume) { "isLoweredAssumeOfJump expects an Assume instead of $inst" }
 
         if (locInst.pos != 0) {
-            return null
+            return false
         }
 
         if (!inst.isLoweredAssume()) {
-            return null
+            return false
         }
 
         val b = cfg.getBlock(locInst.label)
-        checkNotNull(b) { "getJumpFromLoweredAssume cannot find block ${locInst.label}" }
-        val predB = b.getPreds().singleOrNull() ?: return null
+        checkNotNull(b) { "isLoweredAssumeOfJump cannot find block ${locInst.label}" }
+        val predB = b.getPreds().singleOrNull() ?: return false
         val predTerminatorInst = predB.getTerminator()
         if (predTerminatorInst is SbfInstruction.Jump.ConditionalJump) {
             val predCond = if (predTerminatorInst.target == b.getLabel()) {
@@ -582,11 +604,9 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
             } else {
                 predTerminatorInst.cond.negate()
             }
-            if (predCond == inst.cond) {
-                return predTerminatorInst
-            }
+            return predCond == inst.cond
         }
-        return null
+        return false
     }
 
     /**
@@ -603,27 +623,8 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
             return listOf()
         }
 
-        val jumpInst = getJumpFromLoweredAssume(locInst)
-        return if (jumpInst != null) {
-            // This is another 64 vs 256-bit arithmetic fix similar to the one we do in `translateSelect`
-            // Given this code
-            // ```
-            //    if (x >= 2^64) {
-            //          A
-            //    } else {
-            //          B
-            //    }
-            // ```
-            // We know that the `if` condition is checking whether `x` overflows or not.
-            // This fix ensures that after the overflow check has being done (i.e., A and B) x fits in 64 bits.
-            //
-            val overflowCond = jumpInst.metaData.getVal(SbfMeta.PROMOTED_OVERFLOW_CHECK)
-            if (sbfTacB.needOverflowPromotion && overflowCond != null) {
-                val x = sbfTacB.mkVar(overflowCond.left)
-                listOf(assign(x, sbfTacB.mask64(x.asSym())))
-            } else {
-                listOf()
-            }
+        return if (isLoweredAssumeOfJump(locInst)) {
+            listOf()
         } else {
             val inst = locInst.inst as SbfInstruction.Assume
             val cmd = translateCond(inst.cond)
@@ -693,8 +694,8 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 val falseTargetNBId = getBlockIdentifier(falseTargetBB)
 
                 val newCmds = mutableListOf<TACCmd.Simple>()
-                val overflowCond = inst.metaData.getVal(SbfMeta.PROMOTED_OVERFLOW_CHECK)
-                val cmd = if (sbfTacB.needOverflowPromotion && overflowCond != null) {
+                val overflowCond = inst.promotedOverflowCheck()
+                val cmd = if (overflowCond != null) {
                     /**
                      * We replace the original condition with the metadata's condition.
                      * Thus, by default the SBF code:
@@ -726,6 +727,9 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                     translateCond(inst.cond)
                 }
                 newCmds += cmd
+                if (overflowCond != null) {
+                    newCmds += truncateOverflowVar(overflowCond)
+                }
                 newCmds += TACCmd.Simple.JumpiCmd(trueTargetNBId, falseTargetNBId, cmd.lhs)
                 newCmds
             }

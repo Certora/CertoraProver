@@ -17,7 +17,6 @@ checked_add_i128 : Pattern-Rewriter replaced 1 occurrences of xor-sext-lt
 checked_add_i128 : Pattern-Rewriter replaced 2 occurrences of xor-sext-lt
 checked_add_i64 : Pattern-Rewriter replaced 1 occurrences of add-flip-sign-no-ovf-64
 checked_add_i64 : Pattern-Rewriter replaced 1 occurrences of const-sext
-checked_add_u128 : Pattern-Rewriter replaced 1 occurrences of add-ovf-1
 checked_add_u128 : Pattern-Rewriter replaced 2 occurrences of mod-add-simplify
 checked_div_i128 : Pattern-Rewriter replaced 1 occurrences of add-flip-sign-no-ovf-64
 checked_div_i128 : Pattern-Rewriter replaced 3 occurrences of const-sext
@@ -53,7 +52,6 @@ saturating_abs_i64 : Pattern-Rewriter replaced 1 occurrences of mod-mod
 saturating_abs_i64 : Pattern-Rewriter replaced 1 occurrences of shl-mod-signext
 saturating_abs_i64 : Pattern-Rewriter replaced 3 occurrences of neg-mod
 saturating_abs_i64 : Pattern-Rewriter replaced 5 occurrences of const-sext
-saturating_add_i128 : Pattern-Rewriter replaced 1 occurrences of add-ovf-1
 saturating_add_i128 : Pattern-Rewriter replaced 1 occurrences of and-sext-ge
 saturating_add_i128 : Pattern-Rewriter replaced 1 occurrences of and-sext-lt
 saturating_add_i128 : Pattern-Rewriter replaced 1 occurrences of mod-add-simplify
@@ -63,9 +61,7 @@ saturating_add_i128 : Pattern-Rewriter replaced 2 occurrences of xor-sext-lt
 saturating_add_i128 : Pattern-Rewriter replaced 4 occurrences of xor-sext-lt
 saturating_add_i64 : Pattern-Rewriter replaced 1 occurrences of const-sext
 saturating_add_i64 : Pattern-Rewriter replaced 1 occurrences of sext-shr-xor-1
-saturating_add_u128 : Pattern-Rewriter replaced 1 occurrences of add-ovf-1
 saturating_add_u128 : Pattern-Rewriter replaced 1 occurrences of mod-add-simplify
-saturating_add_u64 : Pattern-Rewriter replaced 1 occurrences of add-ovf-1
 saturating_div_i128 : Pattern-Rewriter replaced 1 occurrences of add-flip-sign-no-ovf-64
 saturating_div_i128 : Pattern-Rewriter replaced 3 occurrences of const-sext
 saturating_div_i64 : Pattern-Rewriter replaced 1 occurrences of add-flip-sign-no-ovf-64

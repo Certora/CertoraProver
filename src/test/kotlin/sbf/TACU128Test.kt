@@ -307,6 +307,97 @@ class TACU128Test {
         }
     }
 
+    /**
+     * `x - y` and `x + y`, where the halves of `x` and `y` are the given registers, leaving the halves of the
+     * result in `r6` and `r7`, and `u64::MAX` in `r8`.
+     *
+     * `u64::MAX` is built with `CVT_mask_64` rather than written as a constant, since a constant with its
+     * top bit set is sign extended to 256 bits in "lazy masking" mode.
+     **/
+    private fun SbfTestDSL.BlockBuilderScope.wrappingOp(
+        xLow: Any, xHigh: Any, yLow: Any, yHigh: Any, isSub: Boolean
+    ) {
+        r1 = -1
+        "CVT_mask_64"()
+        r8 = r0
+        r1 = xLow
+        r2 = xHigh
+        r3 = yLow
+        r4 = yHigh
+        if (isSub) {
+            CvlrFunctions.CVT_u128_wrapping_sub()
+        } else {
+            CvlrFunctions.CVT_u128_wrapping_add()
+        }
+        r6 = r0[8]
+        r7 = r0[16]
+    }
+
+    private fun verifyU128(sound: Boolean, cfg: MutableSbfCFG, expected: Boolean = true) {
+        cfg.normalize()
+        cfg.verify(true)
+        println("$cfg")
+        ConfigScope(SolanaConfig.TACSoundSignedMath, sound).use {
+            val tacProg = toTAC(cfg)
+            println(dumpTAC(tacProg))
+            Assertions.assertEquals(expected, verify(tacProg))
+        }
+    }
+
+    /** 128-bits wrapping subtraction: `0 - 1` wraps around to 2^128-1 **/
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `u128 wrapping sub underflows to u128 MAX`(sound: Boolean) {
+        verifyU128(sound, SbfTestDSL.makeCFG("test") {
+            bb(0) {
+                wrappingOp(xLow = 0, xHigh = 0, yLow = 1, yHigh = 0, isSub = true)
+                assert(CondOp.EQ(r6, r8))
+                assert(CondOp.EQ(r7, r8))
+                exit()
+            }
+        })
+    }
+
+    /** A wrong expectation is refuted, so the underflow above does not hold vacuously **/
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `u128 wrapping sub underflow is not vacuous`(sound: Boolean) {
+        verifyU128(sound, SbfTestDSL.makeCFG("test") {
+            bb(0) {
+                wrappingOp(xLow = 0, xHigh = 0, yLow = 1, yHigh = 0, isSub = true)
+                assert(CondOp.EQ(r7, 12345UL))
+                exit()
+            }
+        }, expected = false)
+    }
+
+    /** 128-bits wrapping addition: `u128::MAX + 1` wraps around to 0 **/
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `u128 wrapping add overflows to zero`(sound: Boolean) {
+        verifyU128(sound, SbfTestDSL.makeCFG("test") {
+            bb(0) {
+                wrappingOp(xLow = r8, xHigh = r8, yLow = 1, yHigh = 0, isSub = false)
+                assert(CondOp.EQ(r6, 0UL))
+                assert(CondOp.EQ(r7, 0UL))
+                exit()
+            }
+        })
+    }
+
+    /** A wrong expectation is refuted, so the overflow above does not hold vacuously **/
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `u128 wrapping add overflow is not vacuous`(sound: Boolean) {
+        verifyU128(sound, SbfTestDSL.makeCFG("test") {
+            bb(0) {
+                wrappingOp(xLow = r8, xHigh = r8, yLow = 1, yHigh = 0, isSub = false)
+                assert(CondOp.EQ(r7, 12345UL))
+                exit()
+            }
+        }, expected = false)
+    }
+
     /** 128-bits less than: high(x)=0 < high(y)=1 → true **/
     @ParameterizedTest
     @ValueSource(booleans = [true, false])
