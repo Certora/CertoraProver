@@ -24,6 +24,7 @@ import log.LoggerTypes
 import tac.NBId
 import utils.uniqueOrNull
 import vc.data.*
+import vc.gen.LeinoWP
 
 private val logger = Logger(LoggerTypes.NORMALIZER)
 
@@ -76,12 +77,43 @@ object BlockMerger {
     }
 
     fun mergeBlocks(prog: CoreTACProgram): CoreTACProgram {
-        return generateMerged(prog).let { (code, graph) ->
-            prog.copy(
-                code = code,
-                blockgraph = graph
-            )
+        val absorbedBy = mutableMapOf<NBId, NBId>()
+        return generateMerged(prog, onMerge = { absorbed, head -> absorbedBy[absorbed] = head })
+            .let { (code, graph) ->
+                prog.copy(
+                    code = code,
+                    blockgraph = graph
+                )
+            }
+            .renameReachVarsOf(absorbedBy)
+    }
+
+    /**
+     * Renames the reachability variable of every block [absorbedBy] contracted away to its chain head's. A block
+     * is contracted only into one it is reached exactly together with — its only predecessor, of which it is the
+     * only successor — so the two reach variables denote the same thing, which is what makes the rename sound.
+     * It is also necessary: [instrumentation.transformers.DSAToSSA] writes reach variables into the program to
+     * select between the arms of a merged map, and [vc.gen.LeinoWP] can only define the ones whose block is still
+     * there. [UniqueSuccessorRemover] does the same for the contraction it performs at solving time.
+     */
+    private fun CoreTACProgram.renameReachVarsOf(absorbedBy: Map<NBId, NBId>): CoreTACProgram {
+        fun headOf(b: NBId): NBId = absorbedBy[b]?.let(::headOf) ?: b
+        val sigma = absorbedBy.keys
+            .associate { LeinoWP.genReachabilityVar(it) to LeinoWP.genReachabilityVar(headOf(it)) }
+            .filterKeys { it in symbolTable }
+        if (sigma.isEmpty()) {
+            return this
         }
+        // left-hand sides too: [instrumentation.transformers.DSAToSSA] havocs the reach variable of each arm at
+        // the join, and renaming only the reads would leave the head's reach variable with no definition, which
+        // [instrumentation.transformers.DSAChecker] reports as a use before def
+        val subst = object : DefaultTACCmdMapper() {
+            override fun mapVar(t: TACSymbol.Var) = sigma[t] ?: t
+        }
+        return copy(
+            code = code.mapValues { (_, cmds) -> cmds.map { subst.map(it) } },
+            symbolTable = symbolTable.mergeDecls(sigma.values.toSet()),
+        )
     }
 
     fun mergeBlocks(prog: CVLTACProgram): CVLTACProgram {
@@ -99,7 +131,8 @@ object BlockMerger {
      */
     fun <T: TACCmd> generateMerged(
         c: TACProgram<T>,
-        mayMerge: (NBId, NBId) -> Boolean = { _, _ -> true }
+        mayMerge: (NBId, NBId) -> Boolean = { _, _ -> true },
+        onMerge: (absorbed: NBId, head: NBId) -> Unit = { _, _ -> }
     ): Pair<Map<NBId, List<T>>, BlockGraph> {
         val newCode = c.code.toMutableMap()
         val newGraph = MutableReversibleDigraph<NBId>(c.blockgraph)
@@ -172,6 +205,7 @@ object BlockMerger {
                     chain.forAllButFirst {
                         newCode.remove(it)
                         newGraph.remove(it)
+                        onMerge(it, mergeCandidate.key)
                     }
                     candidates.removeAll { chain.containsIgnoringFirst(it.key) }
 

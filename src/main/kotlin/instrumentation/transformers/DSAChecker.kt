@@ -19,9 +19,8 @@ package instrumentation.transformers
 
 import algorithms.strictlyDominates
 import analysis.CmdPointer
-import datastructures.add
-import datastructures.buildMultiMap
 import datastructures.stdcollections.*
+import tac.NBId
 import tac.Tag
 import utils.*
 import vc.data.CoreTACProgram
@@ -37,8 +36,10 @@ object DSAChecker {
      * The two ways a variable can violate DSA form:
      *  - [badDefForm]: the definition shape itself is wrong (multiple defs in the same block, or multi-def blocks
      *    that don't form a single-successor diamond with a clean join). Use-sites are not even examined for these.
-     *  - [useBeforeDef]: the def shape is acceptable, but some use is not strictly dominated by a def — i.e. on
-     *    some path the variable is read while still undefined.
+     *    See [analysis.dataflow.DsaDefAnalysis], which relies on this shape to answer reaching definitions without
+     *    any dataflow.
+     *  - [useBeforeDef]: the def shape is acceptable, but some use is not dominated by a def — i.e. on some path
+     *    the variable is read while still undefined. A variable that is read and never assigned is here too.
      */
     data class NonDsaVars(
         val badDefForm: Set<TACSymbol.Var>,
@@ -51,91 +52,87 @@ object DSAChecker {
      * Returns the variables in [code] that violate DSA form, split into [NonDsaVars.badDefForm] and
      * [NonDsaVars.useBeforeDef]. A variable is DSA-good when either:
      *  - It has a single definition that strictly dominates every use; or
-     *  - Its definitions sit in distinct sibling blocks (all flowing into one common successor) and either:
-     *      (a) every use is local to one of those def blocks (strictly after that block's def), so the variable
-     *          never escapes the def blocks; or
-     *      (b) the common successor has no predecessors besides the defining blocks (a clean diamond), and every
-     *          use is either later in a defining block or in a block dominated by the join.
+     *  - Its definitions sit in distinct sibling blocks, each with exactly one successor, all the same block `J`,
+     *    whose predecessors are exactly those blocks (a clean diamond), and every use is either in a block
+     *    dominated by `J` or in a defining arm, after that arm's own definition.
+     *
+     * So the check is three steps: collect the definitions, keeping the single-def variables apart from the rest;
+     * check the shape of the multi-def ones, which reduces each of them to the block its arms join at; then walk
+     * the program once more and ask of every use that it be dominated by its variable's single definition, by that
+     * join, or by the definition its own arm makes. A variable that is never assigned anywhere is undefined at
+     * every read, so it lands in [NonDsaVars.useBeforeDef]; the uses of one whose definitions are already
+     * malformed are not examined.
+     *
+     * The arm-local read is the one thing beyond "below the join", and it is not a concession: it is what
+     * [analysis.opt.intervals.IntervalsRewriter] produces, by carrying a fact the join assumed back to the arm
+     * that defines the condition, which is the natural place to state it. What it costs is that the reaching
+     * definition at such a read is that arm's, not "all of them", so anything answering the question must look at
+     * the reading block - see [analysis.dataflow.DsaDefAnalysis] and
+     * [analysis.dataflow.BranchAwareGlobalValueNumbering], which both do.
      */
     fun nonDsaVars(code: CoreTACProgram): NonDsaVars {
         val g = code.analysisCache.graph
         val dom = code.analysisCache.domination
 
-        val allDefs = buildMultiMap {
-            for ((ptr, cmd) in g.commands) {
-                val v = cmd.getModifiedVar()
-                    ?: continue
-                add(v, ptr)
-            }
-        }
-        val allUsages = buildMultiMap {
-            for ((ptr, cmd) in g.commands) {
-                for (v in cmd.getFreeVarsOfRhs()) {
-                    add(v, ptr)
-                }
-            }
-        }
-
-        // null = def shape itself is wrong; true = every use is properly covered; false = some use isn't.
-        fun classify(v: TACSymbol.Var, defs: Set<CmdPointer>): Boolean? {
-            require(defs.isNotEmpty())
-            if (defs.size == 1) {
-                val defPtr = defs.single()
-                return allUsages[v].orEmpty().all {
-                    dom.strictlyDominates(defPtr, it)
-                }
-            }
-            if (!defs.map { it.block }.allDifferent()) {
-                return null
-            }
-            val defsByBlock = defs.associateBy { it.block }
-            val defBlocks = defsByBlock.keys
-            // Each defining block must flow into exactly one successor; a sink can't participate in a diamond shape.
-            val succs = defBlocks.map {
-                g.succ(it).singleOrNull() ?: return null
-            }
-            if (!succs.allSame()) {
-                return null
-            }
-            val succ = succs[0]
-
-            // Option (a): if every use is local to a defining block (strictly after that block's def), the variable
-            // never escapes - the join's predecessor topology is irrelevant.
-            val usages = allUsages[v].orEmpty()
-            val everyUseIsLocalToDefBlock = usages.all { usePtr ->
-                defsByBlock[usePtr.block]?.let { defPtr -> usePtr.pos > defPtr.pos } == true
-            }
-            if (everyUseIsLocalToDefBlock) {
-                return true
-            }
-
-            // Option (b): clean diamond - the common successor has no predecessors besides the defining blocks.
-            if (g.pred(succ).size != defBlocks.size) {
-                return null
-            }
-            for (usePtr in usages) {
-                defsByBlock[usePtr.block]
-                    ?.let { defPtr ->
-                        if (usePtr.pos <= defPtr.pos) {
-                            return false
-                        }
-                    }
-                    ?: run {
-                        if (!dom.dominates(succ, usePtr.block)) {
-                            return false
-                        }
-                    }
-            }
-            return true
-        }
-
         val badDefForm = mutableSetOf<TACSymbol.Var>()
+        val single = mutableMapOf<TACSymbol.Var, CmdPointer>()
+        val multi = mutableMapOf<TACSymbol.Var, MutableMap<NBId, CmdPointer>>()
+
+        for ((ptr, cmd) in g.commands) {
+            val v = cmd.getModifiedVar()
+                ?: continue
+            val defs = multi[v]
+            when {
+                // a second definition in a block already holding one is never DSA, whatever the shape
+                defs != null -> if (defs.put(ptr.block, ptr) != null) {
+                    badDefForm += v
+                }
+                v !in single -> single[v] = ptr
+                else -> {
+                    val first = single.remove(v)!!
+                    if (first.block == ptr.block) {
+                        badDefForm += v
+                    }
+                    multi[v] = mutableMapOf(first.block to first, ptr.block to ptr)
+                }
+            }
+        }
+
+        /** The block [defBlocks] all flow into, if they are its only predecessors and each has it as sole successor. */
+        fun cleanJoinOf(defBlocks: Set<NBId>) =
+            defBlocks.monadicMap { g.succ(it).singleOrNull() }
+                ?.uniqueOrNull()
+                ?.takeIf { g.pred(it).size == defBlocks.size }
+
+        // every multi-def variable now stands for the single block its definitions join at
+        val joinOf = mutableMapOf<TACSymbol.Var, NBId>()
+        multi.forEachEntry { (v, defs) ->
+            if (v !in badDefForm) {
+                cleanJoinOf(defs.keys)
+                    ?.let { joinOf[v] = it }
+                    ?: badDefForm.add(v)
+            }
+        }
+
         val useBeforeDef = mutableSetOf<TACSymbol.Var>()
-        allDefs.forEachEntry { (v, defs) ->
-            when (classify(v, defs)) {
-                null -> badDefForm += v
-                false -> useBeforeDef += v
-                true -> {}
+        for ((ptr, cmd) in g.commands) {
+            for (v in cmd.getFreeVarsOfRhs()) {
+                if (v in badDefForm) {
+                    continue
+                }
+                val def = single[v]
+                val join = joinOf[v]
+                val defined = when {
+                    def != null -> dom.strictlyDominates(def, ptr)
+                    // below the join, or in a defining arm after that arm's own definition
+                    join != null -> dom.dominates(join, ptr.block) ||
+                        multi[v]?.get(ptr.block)?.let { it.pos < ptr.pos } == true
+                    // a variable that is never assigned is undefined at every read of it
+                    else -> false
+                }
+                if (!defined) {
+                    useBeforeDef += v
+                }
             }
         }
         return NonDsaVars(badDefForm, useBeforeDef)

@@ -54,7 +54,7 @@ object InsertMapDefinitions {
         val havocMaps = mutableSetOf<TACSymbol.Var>()
 
         forwardVolatileDagDataFlow<TreapSet<TACSymbol.Var>>(code) { b, predSets ->
-            var initializedMaps = predSets.reduceOrNull { x, y -> x intersect y } ?: treapSetOf()
+            var initializedMaps = predSets.intersectAll()
 
             g.lcmdSequence(b).forEach { (ptr, cmd) ->
                 val rhsMaps = cmd.getFreeVarsOfRhsExtended()

@@ -79,6 +79,7 @@ class TACCommandGraphAnalysisCache(private val lazyGraph: Lazy<TACCommandGraph>)
     // Convenience properties to get some common analyses
     val def get() = this[LooseDefAnalysis]
     val strictDef get() = this[StrictDefAnalysis]
+    val dsaDef get() = this[DsaDefAnalysis]
     val use get() = this[OnDemandUseAnalysis]
     val lva get() = this[LiveVariableAnalysis]
     val gvn get() = this[GlobalValueNumbering]

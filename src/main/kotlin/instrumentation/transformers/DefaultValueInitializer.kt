@@ -21,6 +21,7 @@ import analysis.forwardVolatileDagDataFlow
 import com.certora.collect.*
 import datastructures.stdcollections.*
 import tac.Tag
+import utils.intersectAll
 import vc.data.CoreTACProgram
 import vc.data.TACCmd.Simple.AssigningCmd.AssignHavocCmd
 import vc.data.TACSymbol
@@ -57,7 +58,7 @@ object DefaultValueInitializer {
         val newVars = treapSetBuilderOf<TACSymbol.Var>()
 
         forwardVolatileDagDataFlow<TreapSet<TACSymbol.Var>>(code) { b, predSets ->
-            var newSet = predSets.reduceOrNull { x, y -> x intersect y } ?: treapSetOf()
+            var newSet = predSets.intersectAll()
             g.lcmdSequence(b).forEach { (_, cmd) ->
 
                 newVars += (cmd.getFreeVarsOfRhsExtended().toTreapSet() - newSet).removeAll { it.tag is Tag.CVLArray }

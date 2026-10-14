@@ -17,7 +17,7 @@
 
 package verifier
 
-import analysis.opt.CommonExpressionFolder
+import analysis.opt.BranchAwareSimplifier
 import config.Config
 import config.ConfigType
 import config.ReportTypes
@@ -215,16 +215,20 @@ abstract class AbstractTACChecker {
         fun toSimpleSimpleSSA(tacObject: CoreTACProgram): CoreTACProgram {
             return CoreTACProgram.Linear(toSimpleSimpleDSA(tacObject))
                 // placed after [TACDSA] and before [DSAToSSA], where map variables are still in the same
-                // checked diamond-DSA form as scalars, so the folder can treat all variables uniformly.
+                // checked diamond-DSA form as scalars, so the pass can treat all variables uniformly — and
+                // where its own precondition, that the program is in DSA, has just been established.
                 // mapIfAllowed: folding redirects assert conditions away from the variables their snippets
                 // record, which the unsat-core snippet scoping cannot tolerate — skip it in that mode
                 .mapIfAllowed(
-                    CoreToCoreTransformer(ReportTypes.FOLD_COMMON_EXPRESSIONS) { CommonExpressionFolder.fold(it) }
+                    CoreToCoreTransformer(ReportTypes.BRANCH_AWARE_SIMPLIFIER) {
+                        BranchAwareSimplifier.rewrite(it)
+                    }
                 )
-                // NOTE: do not add CFG-restructuring simplifications (e.g. [ConstantPropagatorAndSimplifier])
-                // between here and [DSAToSSA]: linearized control flow lets [BlockMerger] later merge away
-                // blocks whose [DSAToSSA]-created reach variables are still in use, which [vc.gen.LeinoWP]
-                // cannot handle. The folder itself never touches the CFG.
+                // NOTE: restructuring the control flow here — which [BranchAwareSimplifier] does when it cuts a
+                // branch it decided — linearizes it, and [BlockMerger] in [lastOptimizations] then contracts the
+                // chains that creates. A contracted block's [DSAToSSA] reach variable may still be read, so
+                // [BlockMerger] renames it to its chain head's; without that rename [vc.gen.LeinoWP] fails with
+                // `Expected to find the ReachVarEquation of ...`.
                 .map(CoreToCoreTransformer(ReportTypes.DSA_TO_SSA) { DSAToSSA.rewrite(it) })
                 .ref
         }
