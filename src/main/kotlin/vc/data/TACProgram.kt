@@ -1067,6 +1067,7 @@ class CoreTACProgram private constructor(
             //these make the unsat core analysis imprecise (the list might not be exhaustive)
             if(Config.CoverageInfoMode.get() == CoverageInfoEnum.ADVANCED) {
                 disallowedTransformersByReportType.addAll(listOf(
+                    ReportTypes.FOLD_COMMON_EXPRESSIONS,
                     ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS1,
                     ReportTypes.TERNARY_OPTIMIZE,
                     ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS2,

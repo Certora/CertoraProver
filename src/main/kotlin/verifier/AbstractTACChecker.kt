@@ -17,6 +17,7 @@
 
 package verifier
 
+import analysis.opt.CommonExpressionFolder
 import config.Config
 import config.ConfigType
 import config.ReportTypes
@@ -213,6 +214,17 @@ abstract class AbstractTACChecker {
          */
         fun toSimpleSimpleSSA(tacObject: CoreTACProgram): CoreTACProgram {
             return CoreTACProgram.Linear(toSimpleSimpleDSA(tacObject))
+                // placed after [TACDSA] and before [DSAToSSA], where map variables are still in the same
+                // checked diamond-DSA form as scalars, so the folder can treat all variables uniformly.
+                // mapIfAllowed: folding redirects assert conditions away from the variables their snippets
+                // record, which the unsat-core snippet scoping cannot tolerate — skip it in that mode
+                .mapIfAllowed(
+                    CoreToCoreTransformer(ReportTypes.FOLD_COMMON_EXPRESSIONS) { CommonExpressionFolder.fold(it) }
+                )
+                // NOTE: do not add CFG-restructuring simplifications (e.g. [ConstantPropagatorAndSimplifier])
+                // between here and [DSAToSSA]: linearized control flow lets [BlockMerger] later merge away
+                // blocks whose [DSAToSSA]-created reach variables are still in use, which [vc.gen.LeinoWP]
+                // cannot handle. The folder itself never touches the CFG.
                 .map(CoreToCoreTransformer(ReportTypes.DSA_TO_SSA) { DSAToSSA.rewrite(it) })
                 .ref
         }
