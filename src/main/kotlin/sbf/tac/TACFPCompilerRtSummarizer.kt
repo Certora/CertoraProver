@@ -549,8 +549,8 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
             summarizeBinRel(res, arg1, arg2,
                 eitherNaN = falseV,
                 bothZero = falseV,
-                firstZero = trueV,
-                secondZero = falseV
+                less = trueV,
+                greater = falseV
             )
     }
 
@@ -567,8 +567,8 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
             summarizeBinRel(res, arg1, arg2,
                 eitherNaN = falseV,
                 bothZero = trueV,
-                firstZero = trueV,
-                secondZero = falseV
+                less = trueV,
+                greater = falseV
             )
     }
 
@@ -587,8 +587,8 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
             summarizeBinRel(res, arg1, arg2,
                 eitherNaN = falseV,
                 bothZero = trueV,
-                firstZero = falseV,
-                secondZero = trueV
+                less = falseV,
+                greater = trueV
             )
     }
 
@@ -625,9 +625,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
                 sbfTacB {
                     switch(
                         isf64NaN(arg1) or isf64NaN(arg2) to falseV,
-                        isf64Zero(arg1) and isf64Zero(arg2) to falseV,
-                        isf64Zero(arg1) to falseV,
-                        isf64Zero(arg2) to trueV,
+                        *zeroCases(arg1, arg2, bothZero = falseV, less = falseV, greater = trueV),
                         // arg2 == 0x43EFFFFFFFFFFFFF and arg1 negative and arg1 < 0 < arg2 →  false
                         (mask64(arg2.asSym()) eq maxU64Fp) and isf64Negative(arg1) to falseV,
                         // arg2 == 0x43EFFFFFFFFFFFFF and arg1 positive and arg1 > arg2 → true
@@ -646,12 +644,8 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
      * ```
      * return if isNaN(arg1) || isNaN(arg2)
      *     eitherNaN
-     * if arg1 == 0 && arg2 == 0
-     *     bothZero
-     * if arg1 == 0
-     *     firstZero
-     * if arg2 == 0
-     *     secondZero
+     * else if arg1 == 0 || arg2 == 0
+     *     zeroCases(arg1, arg2, bothZero, less, greater)
      * else
      *     nondet
      * ```
@@ -659,8 +653,8 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
      * @param [arg2] represents a f64 number.
      * @param [eitherNaN] represents a u64 number.
      * @param [bothZero] represents a u64 number.
-     * @param [firstZero] represents a u64 number.
-     * @param [secondZero] represents a u64 number.
+     * @param [less] represents a u64 number.
+     * @param [greater] represents a u64 number.
      **/
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     private fun summarizeBinRel(
@@ -669,8 +663,8 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
         arg2: TACSymbol,
         eitherNaN: TACExpr.Sym,
         bothZero: TACExpr.Sym,
-        firstZero: TACExpr.Sym,
-        secondZero: TACExpr.Sym
+        less: TACExpr.Sym,
+        greater: TACExpr.Sym
     ): List<TACCmd.Simple> {
         val cmds = mutableListOf<TACCmd.Simple>()
         // `nondetV` represents a u64 number
@@ -679,13 +673,38 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
                 assign(res,
                 sbfTacB {
                     switch(
-                        isf64NaN(arg1) or isf64NaN(arg1) to eitherNaN,
-                            isf64Zero(arg1) and isf64Zero(arg1) to bothZero,
-                            isf64Zero(arg1) to firstZero,
-                            isf64Zero(arg2) to secondZero,
+                        isf64NaN(arg1) or isf64NaN(arg2) to eitherNaN,
+                        *zeroCases(arg1, arg2, bothZero, less, greater),
                         default = nondetV.asSym()
                     )
                 }
             )
+    }
+
+    /**
+     * `switch` cases resolving the order of [arg1] and [arg2] when at least one of them is `+0` or `-0`.
+     * Both must already be known not to be `NaN`.
+     *
+     * If only one operand is zero, the other is non-zero and not `NaN`, so its sign bit alone decides the order.
+     *
+     * @param [bothZero] the result when [arg1] and [arg2] are both zero, hence equal.
+     * @param [less] the result when [arg1] < [arg2].
+     * @param [greater] the result when [arg1] > [arg2].
+     **/
+    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+    private fun zeroCases(
+        arg1: TACSymbol,
+        arg2: TACSymbol,
+        bothZero: TACExpr.Sym,
+        less: TACExpr.Sym,
+        greater: TACExpr.Sym
+    ): Array<Pair<TACExpr, TACExpr>> = with(sbfTacB) {
+        arrayOf<Pair<TACExpr, TACExpr>>(
+            isf64Zero(arg1) and isf64Zero(arg2) to bothZero,
+            isf64Zero(arg1) and isf64Positive(arg2) to less,
+            isf64Zero(arg1) to greater,
+            isf64Zero(arg2) and isf64Negative(arg1) to less,
+            isf64Zero(arg2) to greater
+        )
     }
 }
