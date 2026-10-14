@@ -98,6 +98,8 @@ object SbfMeta {
     val UNREACHABLE_FROM_COI = MetaKey<Unit>("unreachable_from_coi")
     val SAFE_MATH = MetaKey<Unit>("safe_math")
     val NARROWED_LOAD = MetaKey<Unit>("narrowed_load")
+    // the assert comes from an assertion of the user, and not from one that the Prover inserted itself
+    val USER_ASSERT = MetaKey<Unit>("user_assert")
 }
 
 data class MetaKey<T>(val name: String)

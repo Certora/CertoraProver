@@ -636,11 +636,18 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         check(inst is SbfInstruction.Assert)
 
         val cmd = translateCond(inst.cond)
+        // An assert that the Prover inserted itself, e.g. for an unresolved CPI call, gets an id of its own like any
+        // other, so that it is reported as the assert that it is, but it is not an assertion of the user.
+        val userDefined = if (inst.metaData.getVal(SbfMeta.USER_ASSERT) != null) {
+            tac.MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT)
+        } else {
+            tac.MetaMap()
+        }
         return listOf(
             cmd,
             Calltrace.assert(inst, cmd.lhs),
             assert(cmd.lhs, inst.metaData.getVal(SbfMeta.COMMENT) ?: "assertion failed",
-                tac.MetaMap(TACMeta.ASSERT_ID to mkFreshAssertId()))
+                userDefined + (TACMeta.ASSERT_ID to mkFreshAssertId()))
         )
     }
 
@@ -656,7 +663,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
             assign(condVar, cond),
             Calltrace.satisfy(condVar),
             assert(condVar, inst.metaData.getVal(SbfMeta.COMMENT) ?: "satisfy reached",
-                tac.MetaMap(TACMeta.SATISFY_ID to mkFreshSatisfyId()))
+                tac.MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) + (TACMeta.SATISFY_ID to mkFreshSatisfyId()))
         )
     }
 

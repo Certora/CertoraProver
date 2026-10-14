@@ -1,0 +1,20 @@
+[package]
+name = "satisfy_rules"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[features]
+certora = []
+
+[dependencies]
+cvlr = "0.4"
+
+[package.metadata.certora]
+sources = ["Cargo.toml", "src/**/*.rs"]
+solana_inlining = ["./cvlr_inlining.txt"]
+solana_summaries = ["./cvlr_summaries.txt"]

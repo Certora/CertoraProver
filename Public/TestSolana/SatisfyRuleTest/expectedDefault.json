@@ -1,0 +1,9 @@
+{
+    "assertMessages": {},
+    "rules": {
+        "rule_satisfy_with_assert": "SUCCESS",
+        "rule_satisfy_unreachable_by_assert": "FAIL",
+        "rule_assert_passes_vacuity": "SUCCESS",
+        "rule_assert_fails_vacuity": "SANITY_FAIL"
+    }
+}

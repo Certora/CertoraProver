@@ -19,6 +19,7 @@
 package vc.data
 
 import com.certora.collect.*
+import cli.Ecosystem
 import config.Config
 import config.DestructiveOptimizationsModeEnum
 import datastructures.stdcollections.*
@@ -1329,8 +1330,15 @@ sealed class TACCmd : Serializable, ITACCmd {
                 }
             }
 
+            /**
+             * [trim] compensates for the way that the CVL compiler builds a description, so it does not apply to
+             * the Solana flow: its front-end words the description itself, and regularly longer than [trim] keeps -
+             * the name of a function it could not resolve, for one.
+             */
             val msg: String get() {
-                return if (meta.containsKey(TACMeta.CVL_USER_DEFINED_ASSERT)) {
+                return if (meta.containsKey(TACMeta.CVL_USER_DEFINED_ASSERT) &&
+                    Config.ActiveEcosystem.getOrNull() != Ecosystem.SOLANA
+                ) {
                     trim(description)
                 } else {
                     description

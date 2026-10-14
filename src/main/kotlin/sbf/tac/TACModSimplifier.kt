@@ -59,6 +59,9 @@ val CANNOT_OVERFLOW_64_REASON = tac.MetaKey<String>("sbf.tac.cannot.overflow")
 object TACModSimplifier {
     private val optimistic = SolanaConfig.TACOptimisticOverflowOptimization.get()
 
+    /** Whether [removeNoOverflow] may add asserts to a program. */
+    val mayAddAsserts get() = SolanaConfig.TACSoundSignedMath.get() && !optimistic
+
     /**
         Transforms to be applied prior to loop unrolling.  We do this before unrolling because the unroller may have
         a better chance of guessing loop constants if we can eliminate the mod operations first.

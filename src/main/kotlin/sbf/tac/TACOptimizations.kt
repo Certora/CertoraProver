@@ -33,6 +33,7 @@ import instrumentation.transformers.TACDSA
 import instrumentation.transformers.optimizeAssignments
 import log.*
 import optimizer.Pruner
+import rules.assumeAssertsOfSatisfyRule
 import sbf.SolanaConfig
 import sbf.dwarf.DWARFEdgeLabelAnnotator
 import sbf.support.timeIt
@@ -49,7 +50,6 @@ import vc.data.tacexprutil.TACExprUtils.contains
 import verifier.BlockMerger
 import verifier.CoreToCoreTransformer
 import verifier.SimpleMemoryOptimizer
-import wasm.WasmEntryPoint
 import datastructures.stdcollections.*
 
 fun solanaOptimize(coreTAC: CoreTACProgram, rule: EcosystemAgnosticRule): CoreTACProgram {
@@ -294,7 +294,7 @@ fun levelZeroOptimizations(coreTAC: CoreTACProgram, isSatisfyRule: Boolean): Cor
                 DumpTime.AGNOSTIC
             )
         }
-        .mapIf(isSatisfyRule, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, WasmEntryPoint::rewriteAsserts))
+        .mapIf(isSatisfyRule, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, ::assumeAssertsOfSatisfyRule))
         .map(CoreToCoreTransformer(ReportTypes.PATTERN_REWRITER) {
             PatternRewriter.rewrite(it, PatternRewriter::solanaPatternsList)
         }).ref

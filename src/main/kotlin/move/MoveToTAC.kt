@@ -41,6 +41,7 @@ import java.nio.ByteBuffer
 import log.*
 import move.analysis.*
 import optimizer.*
+import rules.assumeAssertsOfSatisfyRule
 import org.jetbrains.annotations.TestOnly
 import sbf.tac.RESERVED_NUM_OF_ASSERTS
 import tac.*
@@ -104,7 +105,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.HOIST_LOOPS, LoopHoistingOptimization::hoistLoopComputations))
             .map(CoreToCoreTransformer(ReportTypes.UNROLL, CoreTACProgram::convertToLoopFreeCode))
             .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_CONDITIONAL_TRAPS, ConditionalTrapRevert::materialize))
-            .mapIf(isSatisfy, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, wasm.WasmEntryPoint::rewriteAsserts))
+            .mapIf(isSatisfy, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, ::assumeAssertsOfSatisfyRule))
             // This is needed for IntervalsAnalysis to work, which we use before optimization sometimes (e.g., two-stage checking)
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) { ConstantPropagatorAndSimplifier(it).rewrite() })
             .ref
