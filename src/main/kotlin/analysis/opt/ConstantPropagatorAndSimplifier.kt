@@ -50,8 +50,15 @@ private val logger = Logger(LoggerTypes.PROPAGATOR_SIMPLIFIER)
  *
  * [handleLeinoVars] should be true when this is called late in the pipeline, as these necessitate special treatment
  * if this optimization erases blocks.
+ *
+ * [cutAfterLastAsserts] lets the patching erase whatever no assert can be reached from (see
+ * [PatchingProgramWrapper.toCode]); only for a run after `OverflowPatternRewriter`.
  */
-class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val handleLeinoVars: Boolean = false) {
+class ConstantPropagatorAndSimplifier(
+    val code: CoreTACProgram,
+    private val handleLeinoVars: Boolean = false,
+    private val cutAfterLastAsserts: Boolean = false
+) {
 
     private val g = code.analysisCache.graph
     private val dom = code.analysisCache.domination
@@ -68,7 +75,7 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
             patcher.debugPrinter().toString(code, javaClass.simpleName)
         }
         //patcher.debugPrinter().print(code)
-        return patcher.toCode(handleLeinoVars)
+        return patcher.toCode(handleLeinoVars, cutAfterLastAsserts)
     }
 
     private inner class BlockWorker(val nbid: NBId, val patcher: PatchingProgramWrapper) {

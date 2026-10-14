@@ -453,7 +453,8 @@ open class CompiledRule<R: SingleRule> protected constructor(val rule: R, val ta
                     intervalsRewriter,
                     bytemapOptimizer(3, bmcAware = false),
                     ternarySimplifier,
-                    constantPropagatorAndSimplifier(mergeBlocks = true)
+                    // past `overflowPatternRewriter`, so whatever no assert can be reached from may go
+                    constantPropagatorAndSimplifier(mergeBlocks = true, cutAfterLastAsserts = true)
                 ).runOn(tacToCheck)
             }
         }

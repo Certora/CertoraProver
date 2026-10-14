@@ -120,9 +120,10 @@ fun optimize(coreTAC: CoreTACProgram): CoreTACProgram {
         })
         // Simplify diamonds after interval rewriter. This time we fold assumes
         .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { DiamondSimplifier.simplifyDiamonds(it, iterative = true) })
-        // after pruning infeasible paths, there are more constants to propagate
+        // after pruning infeasible paths, there are more constants to propagate.
+        // Past `OverflowPatternRewriter`, so whatever no assert can be reached from may go
         .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) {
-            ConstantPropagatorAndSimplifier(it).rewrite().let {
+            ConstantPropagatorAndSimplifier(it, cutAfterLastAsserts = true).rewrite().let {
                 optimizeAssignments(it, FilteringFunctions.default(it, keepRevertManagment = true))
             }.let(BlockMerger::mergeBlocks)
         })
@@ -133,9 +134,10 @@ fun optimize(coreTAC: CoreTACProgram): CoreTACProgram {
         .mapIf(optLevel >= 4, CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE) {
             IntervalsRewriter.rewrite(it, handleLeinoVars = false, removeRemovableAsserts = true)
         })
-        // after pruning infeasible paths, there are more constants to propagate
+        // after pruning infeasible paths, there are more constants to propagate.
+        // Past `OverflowPatternRewriter`, so whatever no assert can be reached from may go
         .mapIf(optLevel >= 4, CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) {
-            ConstantPropagatorAndSimplifier(it).rewrite().let {
+            ConstantPropagatorAndSimplifier(it, cutAfterLastAsserts = true).rewrite().let {
                 optimizeAssignments(it, FilteringFunctions.default(it, keepRevertManagment = true))
             }.let(BlockMerger::mergeBlocks)
         })

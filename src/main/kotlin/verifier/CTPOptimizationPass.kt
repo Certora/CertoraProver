@@ -51,9 +51,12 @@ interface CTPOptimizationPass {
 
         val snippetRemoval = make(ANNOTATION_REMOVAL, AnnotationRemovers::rewrite)
 
-        fun constantPropagatorAndSimplifier(mergeBlocks: Boolean) = make(PROPAGATOR_SIMPLIFIER) { ctp ->
-            ConstantPropagatorAndSimplifier(ctp).rewrite().letIf(mergeBlocks, BlockMerger::mergeBlocks)
-        }
+        fun constantPropagatorAndSimplifier(mergeBlocks: Boolean, cutAfterLastAsserts: Boolean = false) =
+            make(PROPAGATOR_SIMPLIFIER) { ctp ->
+                ConstantPropagatorAndSimplifier(ctp, cutAfterLastAsserts = cutAfterLastAsserts)
+                    .rewrite()
+                    .letIf(mergeBlocks, BlockMerger::mergeBlocks)
+            }
 
         val noUnderOverflowUnderApprox = make(NO_UNDEROVERFLOW_UNDERAPPROX) { code ->
             code.letIf(Config.AssumeNoUnderOverflows.get()) {

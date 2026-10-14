@@ -20,7 +20,6 @@ package verifier
 import algorithms.getReachable1
 import algorithms.topologicalOrder
 import analysis.CmdPointer
-import analysis.LTACCmd
 import analysis.SimpleCmdsWithDecls
 import analysis.TACProgramPrinter
 import com.certora.collect.*
@@ -32,29 +31,71 @@ import tac.NBId
 import utils.*
 import utils.Color.Companion.green
 import vc.data.*
+import java.math.BigInteger
 
 
 /**
  * A simple wrapper for [SimplePatchingProgram] which supports good debug printing and easy erasing of blocks
  * via setting of a blocks new successors.
  *
- *  1. automatically removes all unreachable blocks.
- *  2. fixes annotations if an assert was erased.
- *  3. fixes leino block vars when their blocks were erased.
+ *  1. erases whatever follows a constant-false assume, and the block's successors (see [cutAfterAssumeFalse]).
+ *  2. automatically removes all unreachable blocks.
+ *  3. when asked to (see [toCode]), and under cone-of-influence optimizations, erases whatever follows the last
+ *     assert of a leaf block, and leaf blocks with no assert at all (see [cutAfterLastAsserts]).
+ *  4. fixes annotations if an assert was erased.
+ *  5. fixes leino block vars when their blocks were erased.
+ *
+ * Edits are recorded as replacements of the original commands and as new successor sets, and the program they
+ * describe is the *current* program (see [current], [currentSuccs]); everything that erases code is a [cut] of a
+ * block at some position of its current commands.
  */
 class PatchingProgramWrapper(private val code: CoreTACProgram) {
     private val graph = code.analysisCache.graph
     private val replacements = mutableMapOf<CmdPointer, List<TACCmd.Simple>>()
     private val succs = mutableMapOf<NBId, TreapSet<NBId>>()
     private val root = graph.rootBlocks.single().id
-    private val replacedVars = mutableMapOf<TACSymbol.Var, TACSymbol.Var>()
     private val newVars = mutableSetOf<TACSymbol.Var>()
-    private var eraseAll: Boolean = false
 
-    fun replaceVarDefinition(oldVar : TACSymbol.Var, newVar : TACSymbol.Var) {
-        val previous = replacedVars.put(oldVar, newVar)
-        check(previous == null || previous == newVar) {
-            "Replacing the same variable $oldVar with different new variables : $previous, $newVar"
+    /** the commands currently standing at [ptr]: its replacement, or the original command */
+    private fun current(ptr: CmdPointer): List<TACCmd.Simple> =
+        replacements[ptr] ?: listOf(graph.toCommand(ptr))
+
+    /** the current commands of block [b] */
+    private fun current(b: NBId): List<TACCmd.Simple> =
+        graph.lcmdSequence(b).flatMap { current(it.ptr) }.toList()
+
+    /** the current successors of block [b] */
+    private fun currentSuccs(b: NBId): TreapSet<NBId> =
+        succs[b] ?: graph.succ(b)
+
+    /** the pointer holding the last current command of [b], or null if nothing is left of it */
+    private fun currentLastPtr(b: NBId): CmdPointer? =
+        graph.lcmdSequence(b, reverse = true).firstOrNull { current(it.ptr).isNotEmpty() }?.ptr
+
+    /** It's the responsibility of the caller to make sure this is consistent with changes in jump commands */
+    private fun setSuccs(nbid: NBId, nexts: TreapSet<NBId>) {
+        succs[nbid] = nexts
+    }
+
+    /**
+     * Keeps the first [keep] current commands of [b], erases the rest, and cuts its successors: [b] is a leaf from
+     * here on. With `keep = 0` nothing is left of [b].
+     */
+    private fun cut(b: NBId, keep: Int) {
+        var seen = 0
+        for ((ptr, _) in graph.lcmdSequence(b)) {
+            val cmds = current(ptr)
+            when {
+                seen >= keep -> if (cmds.isNotEmpty()) {
+                    delete(ptr)
+                }
+
+                seen + cmds.size > keep -> replacements[ptr] = cmds.take(keep - seen)
+            }
+            seen += cmds.size
+        }
+        if (currentSuccs(b).isNotEmpty()) {
+            setSuccs(b, treapSetOf())
         }
     }
 
@@ -73,70 +114,78 @@ class PatchingProgramWrapper(private val code: CoreTACProgram) {
     fun delete(where: CmdPointer) =
         replace(where, emptyList())
 
-    fun deleteAll(lcmds : Sequence<LTACCmd>) {
-        for (lcmd in lcmds) {
-            delete(lcmd.ptr)
-        }
-    }
-
-    fun toCode(handleLeinoVars: Boolean = false) =
-        toPatchingProgram(handleLeinoVars).toCode(code)
-
-    fun toCode(newName : String, handleLeinoVars: Boolean = false) =
-        toPatchingProgram(handleLeinoVars, newName).toCode(code)
-
     fun addBefore(where: CmdPointer, newCmds: List<TACCmd.Simple>) {
-        replacements[where] = newCmds +
-            (replacements[where] ?: listOf(graph.toCommand(where)))
+        replacements[where] = newCmds + current(where)
     }
 
     fun addBefore(where: CmdPointer, newCmd : TACCmd.Simple) =
         addBefore(where, listOf(newCmd))
 
     fun addAfter(where: CmdPointer, newCmds: List<TACCmd.Simple>) {
-        replacements[where] =
-            (replacements[where] ?: listOf(graph.toCommand(where))) + newCmds
+        replacements[where] = current(where) + newCmds
     }
 
     fun addAfter(where: CmdPointer, newCmd : TACCmd.Simple) =
         addAfter(where, listOf(newCmd))
 
+    /**
+     * With [cutAfterLastAsserts], and under cone-of-influence optimizations, whatever no assert can be reached from is
+     * erased (see the private function of that name). It is opt-in because it rewrites conditional jumps into
+     * assert-free arms, and `OverflowPatternRewriter` must still see those as they are: only a pass that runs after
+     * it should ask for this.
+     */
+    fun toCode(handleLeinoVars: Boolean = false, cutAfterLastAsserts: Boolean = false) =
+        toPatchingProgram(handleLeinoVars, cutAfterLastAsserts).toCode(code)
 
-    /** It's the responsibility of the caller to make sure this is consistent with changes in jump commands */
-    private fun setSuccs(nbid: NBId, nexts: TreapSet<NBId>) {
-        succs[nbid] = nexts
-    }
+    fun toCode(newName : String, handleLeinoVars: Boolean = false, cutAfterLastAsserts: Boolean = false) =
+        toPatchingProgram(handleLeinoVars, cutAfterLastAsserts, newName).toCode(code)
 
+    /** The conditional jump ending [src] (as it currently stands) becomes an assumption of its branch to [dst]. */
     fun jumpiTojump(src: NBId, dst: NBId) {
-        val (ptr, cmd) = graph.elab(src).commands.last()
-        require(cmd is TACCmd.Simple.JumpiCmd)
+        require(currentSuccs(src).isNotEmpty()) { "$src is already a leaf (a sink?), its jump cannot be rewritten" }
+        val ptr = currentLastPtr(src) ?: error("Nothing is left of $src")
+        val cmds = current(ptr)
+        val cmd = cmds.last()
+        require(cmd is TACCmd.Simple.JumpiCmd) { "$src does not end with a conditional jump: $cmd" }
         val assumeCmd = when {
             cmd.dst == dst -> TACCmd.Simple.AssumeCmd(cmd.cond, "jumpiTojump")
             cmd.elseDst == dst -> TACCmd.Simple.AssumeNotCmd(cmd.cond)
             else -> error("$dst is not one of the destinations of $cmd")
         }
-        replace(
-            ptr,
-            listOf(
-                assumeCmd,
-                TACCmd.Simple.JumpCmd(dst, meta = cmd.meta)
-            )
-        )
+        replacements[ptr] = cmds.dropLast(1) + assumeCmd + TACCmd.Simple.JumpCmd(dst, meta = cmd.meta)
         setSuccs(src, treapSetOf(dst))
     }
 
+    /**
+     * Turns block [b] into a sink: [cmds] (typically an `assume false`) is all that is left of it, and its successors
+     * are cut, so whatever only [b] reached becomes unreachable and is erased along with the rest. When [toCode] is
+     * asked to cut after the last asserts, a sink with no assert is itself erased, and the jumps into it become
+     * assumptions.
+     */
+    fun replaceBlockWithSink(b: NBId, cmds: List<TACCmd.Simple>) {
+        require(cmds.isNotEmpty()) { "A sink block must keep at least one command" }
+        cut(b, 0)
+        replace(CmdPointer(b, 0), cmds)
+    }
+
+    /** Nothing is left of the program but its (empty) root block. */
+    fun eraseAll() =
+        cut(root, 0)
 
     private fun reachedBlocks() =
-        if (eraseAll) {
-            setOf(root)
-        } else {
-            getReachable1(root) {
-                succs[it] ?: graph.succ(it)
-            }
-        }
+        getReachable1(root, ::currentSuccs)
 
-    fun eraseAll() {
-        eraseAll = true
+    /**
+     * Erases whatever follows the last non-trivial assert of [b], which becomes a leaf; returns false, leaving [b] as
+     * it is, if it has no such assert.
+     */
+    private fun truncateAfterLastAssert(b: NBId): Boolean {
+        val i = current(b).indexOfLast(::isNonTrivialAssert)
+        if (i < 0) {
+            return false
+        }
+        cut(b, i + 1)
+        return true
     }
 
     /** Fixes assert annotations */
@@ -146,37 +195,44 @@ class PatchingProgramWrapper(private val code: CoreTACProgram) {
 
         val (start, end) = assertAnnotations(code, where) ?: return
 
-        require( // annotation shouldn't really be touched, but they may be erased by "accident".
-            replacements[start.ptr].isNullOrEmpty() && replacements[end.ptr].isNullOrEmpty()
-        )
-
         val newCmds = replacements[where]
-        if (newCmds == null) {
-            // if the assert wasn't changed, neither should the annotations.
-            replacements -= end.ptr
-            replacements -= start.ptr
-            return
-        }
-
         val newAssert = newCmds
-            .filterIsInstance<TACCmd.Simple.AssertCmd>()
-            .also {
+            ?.filterIsInstance<TACCmd.Simple.AssertCmd>()
+            ?.also {
                 check(it.size <= 1) {
                     "don't know how to handle the replacement of an assert with more than one assert"
                 }
             }
-            .singleOrNull()
+            ?.singleOrNull()
 
-        if (newAssert == null) {
-            // if the assert was erased, then so should the annotations.
-            delete(start.ptr)
-            delete(end.ptr)
-        } else {
-            // if it was changed, then the start annotation should change, and the end should remain as is.
-            start.cmd.mapCond(newAssert.o)
-                ?.let { replace(start.ptr, it) }
-                ?: run { replacements -= start.ptr }
-            replacements -= end.ptr
+        /** annotations shouldn't really be touched, but they may be erased by "accident" (e.g. [cutAfterLastAsserts]) */
+        fun requireAnnotationsUntouched() =
+            require(replacements[start.ptr].isNullOrEmpty() && replacements[end.ptr].isNullOrEmpty())
+
+        when {
+            newCmds == null -> {
+                // if the assert wasn't changed, neither should the annotations.
+                requireAnnotationsUntouched()
+                replacements -= end.ptr
+                replacements -= start.ptr
+            }
+
+            newAssert == null -> {
+                // if the assert was erased, then so should the annotations, wherever they now stand: a sink may have
+                // replaced the first command of the block, which can be the start annotation.
+                for (annot in listOf(start, end)) {
+                    replacements[annot.ptr] = replacements[annot.ptr]?.filter { it != annot.cmd }.orEmpty()
+                }
+            }
+
+            else -> {
+                // if it was changed, then the start annotation should change, and the end should remain as is.
+                requireAnnotationsUntouched()
+                start.cmd.mapCond(newAssert.o)
+                    ?.let { replace(start.ptr, it) }
+                    ?: run { replacements -= start.ptr }
+                replacements -= end.ptr
+            }
         }
     }
 
@@ -206,29 +262,95 @@ class PatchingProgramWrapper(private val code: CoreTACProgram) {
     }
 
 
-    private fun toPatchingProgram(handleLeinoVars: Boolean, newName: String = code.name): SimplePatchingProgram {
+    /**
+     * Whatever follows a constant-false assume is unreachable, whatever the mode: each block is cut right after its
+     * first such assume and its successors are dropped. This runs before reachability is computed, so whatever hung
+     * only off the dead tail goes with it. The assume itself stays, as the sink; under cone-of-influence
+     * optimizations [cutAfterLastAsserts] then trims the block back to the last assert before it, or drops it.
+     */
+    private fun cutAfterAssumeFalse() {
+        fun TACCmd.Simple.isAssumeFalse() =
+            this is TACCmd.Simple.Assume && condExpr.evalAsConst() == BigInteger.ZERO
+
+        for (b in graph.blockIds) {
+            val i = current(b).indexOfFirst { it.isAssumeFalse() }
+            if (i >= 0) {
+                cut(b, i + 1)
+            }
+        }
+    }
+
+    /**
+     * Under cone-of-influence optimizations only asserts matter, so whatever follows the last non-trivial assert of a
+     * leaf block cannot affect the result and is erased, and a leaf block with no such assert is dead altogether: it
+     * is dropped from [reached], a conditional jump into it becomes an assumption of the other branch, and a block that
+     * thereby loses its last successor becomes a leaf itself and is treated the same way. When this reaches the root,
+     * the whole program is erased.
+     *
+     * A dead leaf is dropped only if every predecessor can be detached from it by editing a plain jump: one that ends
+     * with a summary (which carries its own successors) keeps its dead leaf, but emptied (the patcher fills it with a
+     * nop).
+     *
+     * [sinksFirst] is a topological order of the original graph, which is one of the current graph too, as the
+     * wrapper only ever removes edges.
+     */
+    private fun cutAfterLastAsserts(sinksFirst: List<NBId>, reached: MutableSet<NBId>) {
+        fun currentPreds(b: NBId) =
+            graph.pred(b).filter { it in reached && b in currentSuccs(it) }
+
+        /** can the edge from [p] to a dead successor be removed by editing [p]'s jump? */
+        fun canDetach(p: NBId) =
+            current(p).lastOrNull() !is TACCmd.Simple.SummaryCmd
+
+        /** [p] lost all its successors: it becomes a leaf, and its jump, if any, goes */
+        fun makeLeaf(p: NBId) {
+            val cmds = current(p)
+            val last = cmds.lastOrNull()
+            cut(p, cmds.size - (if (last is TACCmd.Simple.JumpCmd || last is TACCmd.Simple.JumpiCmd) { 1 } else { 0 }))
+        }
+
+        for (b in sinksFirst) {
+            if (b !in reached) {
+                continue
+            }
+            val all = currentSuccs(b)
+            val live = all.filter { it in reached }
+            if (live.isNotEmpty()) {
+                if (live.size < all.size) {
+                    // a conditional jump lost one arm (a dead leaf is dropped only if this is possible, see `canDetach`)
+                    jumpiTojump(b, live.single())
+                }
+                continue
+            }
+            if (all.isNotEmpty()) {
+                makeLeaf(b)
+            }
+            if (!truncateAfterLastAssert(b)) {
+                // nothing of [b] matters; it is dropped too, unless it is the root or a summary jumps into it
+                cut(b, 0)
+                if (b != root && currentPreds(b).all(::canDetach)) {
+                    reached -= b
+                }
+            }
+        }
+    }
+
+
+    private fun toPatchingProgram(
+        handleLeinoVars: Boolean,
+        cutAfterLastAsserts: Boolean,
+        newName: String = code.name
+    ): SimplePatchingProgram {
         val patcher = code.toPatchingProgram(newName)
-        val reachedBlocks by lazy { reachedBlocks() }
-        val erased = graph.blockIds.toSet() - reachedBlocks
         patcher.addVarDecls(newVars)
 
-        /** must be the last step, because the jump commands must be update first */
-        fun eraseBlocks() =
-            topologicalOrder(graph.blockSucc)
-                .filter { it !in reachedBlocks }
-                .asReversed()
-                .forEach(patcher::removeBlock)
-
-        if (eraseAll) {
-            graph.rootBlocks.forEach { (nbid, cmds) ->
-                for (i in 0..<cmds.lastIndex) {
-                    patcher.delete(CmdPointer(nbid, i))
-                }
-                patcher.replaceCommand(CmdPointer(nbid, cmds.lastIndex), emptyList(), treapSetOf())
-            }
-            eraseBlocks()
-            return patcher
+        val sinksFirst = topologicalOrder(graph.blockSucc)
+        cutAfterAssumeFalse()
+        val reachedBlocks = reachedBlocks().toMutableSet()
+        if (cutAfterLastAsserts && code.coiOptimizations) {
+            cutAfterLastAsserts(sinksFirst, reachedBlocks)
         }
+        val erased = graph.blockIds.toSet() - reachedBlocks
 
         val remapper by lazy { LeinoVarRemapper(erased) }
 
@@ -244,10 +366,6 @@ class PatchingProgramWrapper(private val code: CoreTACProgram) {
             graph.lcmdSequence(b)
                 .filter { it.cmd is TACCmd.Simple.AssertCmd }
                 .forEach { updateAssertSnippetsOf(it.ptr) }
-        }
-
-        replacedVars.forEachEntry { (old, new) ->
-            patcher.replaceVarDecl(old, new)
         }
 
         /** used to mark commands for processing later on */
@@ -271,23 +389,25 @@ class PatchingProgramWrapper(private val code: CoreTACProgram) {
             .filter { it in reachedBlocks }
             .forEach { fakeReplace(graph.elab(it).commands.last().ptr) }
 
-        // debugPrinter().print(code)
-
         replacements
             .filter { (ptr, _) -> ptr.block in reachedBlocks }
             .forEachEntry { (ptr, newCmds) ->
                 val (nbid, pos) = ptr
-                val succs = runIf(pos == graph.elab(nbid).commands.lastIndex) {
+                val newSuccs = runIf(pos == graph.elab(nbid).commands.lastIndex) {
                     if (newCmds.isEmpty()) {
                         treapSetOf()
                     } else {
-                        succs[nbid] ?: graph.succ(nbid)
+                        currentSuccs(nbid)
                     }
                 }
-                patcher.replaceCommand(ptr, remap(newCmds), succs)
+                patcher.replaceCommand(ptr, remap(newCmds), newSuccs)
             }
 
-        eraseBlocks()
+        /** the last step, because the jump commands must be updated first */
+        sinksFirst
+            .filter { it !in reachedBlocks }
+            .asReversed()
+            .forEach(patcher::removeBlock)
         return patcher
     }
 
@@ -314,29 +434,23 @@ class PatchingProgramWrapper(private val code: CoreTACProgram) {
             eraseAll()
             return
         }
-        val origG = code.analysisCache.graph
 
         fun processBlock(g: MultiMap<NBId, NBId>, b : NBId) {
-            val succs = g[b].orEmpty()
-            when (succs.size) {
+            val newSuccs = g[b].orEmpty()
+            when (newSuccs.size) {
                 0 -> {
                     // If we're doing cone-of-influence optimizations, or if some block was erased anyway (eg. it had an
                     // `assume false`), we search backwards for a non-trivial assert and remove all code after it.
-                    if (code.coiOptimizations || origG.succ(b).isNotEmpty()) {
-                        val lastAssert =
-                            origG.blockCmdsBackwardSeq(b).firstOrNull { (ptr, cmd) ->
-                                (replacements[ptr] ?: listOf(cmd)).any { isNonTrivialAssert(it) }
-                            } ?: error("No assert in leaf block $b, so why is it not erased?")
-                        val (block, eraseFrom) = lastAssert.ptr + 1
-                        deleteAll(graph.lcmdSequence(block, low = eraseFrom))
-                        setSuccs(block, treapSetOf())
+                    if (code.coiOptimizations || graph.succ(b).isNotEmpty()) {
+                        check(truncateAfterLastAssert(b)) { "No assert in leaf block $b, so why is it not erased?" }
                     } else {
-                        setSuccs(b, treapSetOf())
+                        // an original leaf, kept whole: nothing can have given it successors
+                        check(currentSuccs(b).isEmpty()) { "Leaf block $b has successors ${currentSuccs(b)}" }
                     }
                 }
 
-                1 -> if (origG.succ(b).size == 2) {
-                    jumpiTojump(b, succs.single())
+                1 -> if (graph.succ(b).size == 2) {
+                    jumpiTojump(b, newSuccs.single())
                 }
             }
         }
@@ -344,8 +458,7 @@ class PatchingProgramWrapper(private val code: CoreTACProgram) {
         if (assumeFalseOnDroppedLeaves) {
             val droppedLeaves = blocks.flatMapToSet { graph.succ(it) } - blocks
             for (b in droppedLeaves) {
-                deleteAll(graph.lcmdSequence(b))
-                replacements[CmdPointer(b, 0)] = listOf(TACCmd.Simple.AssumeCmd(TACSymbol.False, "deadLeaf"))
+                replaceBlockWithSink(b, listOf(TACCmd.Simple.AssumeCmd(TACSymbol.False, "deadLeaf")))
             }
             val augmentedG = g.toMutableMultiMap()
             droppedLeaves.forEach { leaf ->
@@ -354,7 +467,6 @@ class PatchingProgramWrapper(private val code: CoreTACProgram) {
                 }
             }
             blocks.forEach { processBlock(augmentedG, it) }
-            droppedLeaves.forEach { setSuccs(it, treapSetOf()) }
         } else {
             blocks.forEach { processBlock(g, it) }
         }
@@ -378,7 +490,7 @@ class PatchingProgramWrapper(private val code: CoreTACProgram) {
                 }
             }
             .extraBlockInfo {
-                runIf(it !in reachable || eraseAll) { "ERASED" }.orEmpty()
+                runIf(it !in reachable) { "ERASED" }.orEmpty()
             }
     }
 
