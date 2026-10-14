@@ -363,7 +363,11 @@ class ArrayGenerator(
                         val i = rhs.loc // store location
                         val j = locs.singleOrNull() ?:  // select location
                         throw UnsupportedOperationException("multi dim store for bytemaps not supported")
-                        val v = rhs.value
+                        // A bytemap cell is a `Bit256` (see [computeFinalArraySignature]), but the value argument
+                        // of a store is only required to be an integer (`IFixedFunctionSignatures.storeSignature`),
+                        // and e.g. a hash converted back from a storage key arrives here tagged `Tag.Int`. The
+                        // shifts below need the cell's bit width, so coerce the value to the cell sort.
+                        val v = rhs.value.letIf(rhs.value.tag !is Tag.Bits) { it safeMathNarrow Tag.Bit256 }
 
                         val selectAJ = applyArray(_a, locs)
 

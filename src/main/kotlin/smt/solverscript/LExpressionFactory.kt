@@ -1050,7 +1050,12 @@ class LExpressionFactory private constructor(
             ?: applyExp(AxiomatizedFunctionSymbol.Bitwise.BinarySignExtend(tag), this, other)
 
     infix fun LExpression.shl(other: LExpression) =
-        applyExp(NonSMTInterpretedFunctionSymbol.Binary.ShiftLeft(tag as Tag.Bits), this, other)
+        applyExp(
+            NonSMTInterpretedFunctionSymbol.Binary.ShiftLeft(
+                // shift-left is modelled modulo 2^bitwidth, so the shifted operand must carry a bit width
+                tag as? Tag.Bits ?: error("shift-left needs a bit width, but \"$this\" has tag \"$tag\"")
+            ), this, other
+        )
 
     /** Use this to give the shift amount in number of bytes rather than bits. */
     infix fun LExpression.shlBytes(other: LExpression) = shl(8 * other)
