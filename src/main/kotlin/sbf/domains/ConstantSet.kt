@@ -23,12 +23,30 @@ import sbf.cfg.CondOp
 @Suppress("DataClassPrivateConstructor")
 data class ConstantSet private constructor(
     private val values: Set<Constant>,
-    private val maxNumDisjuncts: ULong
+    private val maxNumDisjuncts: ULong,
+    /**
+     * Marker that makes the private constructor hard to call by accident. The private constructor
+     * is visible inside the class body and wins overload resolution over the companion's [invoke],
+     * so without this parameter `ConstantSet(someSet, maxNumDisjuncts)` compiles inside the class
+     * and silently bypasses [normalize]. Only [normalize] is expected to pass it.
+     */
+    private val normalizedMarker: NormalizedMarker
     ): INumValue<ConstantSet>, IOffset<ConstantSet> {
+
+    private object NormalizedMarker
 
     init {
         check(maxNumDisjuncts >= 1UL) { "ConstantSet expects maxNumDisjuncts >= 1" }
         check(values.isNotEmpty()) { "ConstantSet must have a non-empty list" }
+        // The private constructor is visible inside the class, so internal calls of the form
+        // `ConstantSet(someSet, maxNumDisjuncts)` bind to it rather than to `invoke`, bypassing
+        // `normalize`. This guards against re-introducing a non-normalized value: clients that
+        // observe such a value see `isTop() == false` while `toLongList()` returns an empty list,
+        // which breaks the invariant "not top and not bottom implies a non-empty list of numbers".
+        check(values.size.toULong() <= maxNumDisjuncts) {
+            "ConstantSet with ${values.size} disjuncts exceeds maxNumDisjuncts=$maxNumDisjuncts. " +
+                "It should have been normalized to top"
+        }
     }
 
     companion object {
@@ -46,7 +64,11 @@ data class ConstantSet private constructor(
                     }
                 }
             }
-            return if (ys.isEmpty()) { mkBottom(maxNumDisjuncts) } else { ConstantSet(ys, maxNumDisjuncts) }
+            return if (ys.isEmpty()) {
+                mkBottom(maxNumDisjuncts)
+            } else {
+                ConstantSet(ys, maxNumDisjuncts, NormalizedMarker)
+            }
         }
 
         operator fun invoke(values: Set<Constant>, maxNumDisjuncts: ULong) = normalize(values, maxNumDisjuncts)
@@ -54,7 +76,7 @@ data class ConstantSet private constructor(
         fun mkBottom(maxNumDisjuncts: ULong) = ConstantSet(Constant.makeBottom(), maxNumDisjuncts)
     }
 
-    constructor(c: Constant, maxNumDisjuncts: ULong) : this(setOf(c), maxNumDisjuncts)
+    constructor(c: Constant, maxNumDisjuncts: ULong) : this(setOf(c), maxNumDisjuncts, NormalizedMarker)
     constructor(c: Long, maxNumDisjuncts: ULong) : this(Constant(c), maxNumDisjuncts)
 
     /** Reduce `values` to a singleton set **/
@@ -92,7 +114,7 @@ data class ConstantSet private constructor(
                     }
                     res
                 }
-            }.toSet().let { ConstantSet(it, maxNumDisjuncts) }
+            }.toSet().let { normalize(it, maxNumDisjuncts) }
         }
     }
 
@@ -148,7 +170,7 @@ data class ConstantSet private constructor(
             if (other.values.size.toULong() > other.maxNumDisjuncts) {
                 val smashedLeft  = smash().single()
                 val smashedRight = other.smash().single()
-                ConstantSet(setOf(smashedLeft.widen(smashedRight)), maxNumDisjuncts)
+                normalize(setOf(smashedLeft.widen(smashedRight)), maxNumDisjuncts)
             } else {
                 join(other)
             }
@@ -166,7 +188,7 @@ data class ConstantSet private constructor(
             if (res.isEmpty()) {
                 mkBottom(maxNumDisjuncts)
             } else {
-                ConstantSet(res, maxNumDisjuncts)
+                normalize(res, maxNumDisjuncts)
             }
         }
     }
@@ -275,13 +297,13 @@ data class ConstantSet private constructor(
             when {
                 op == CondOp.EQ ->
                     this.meet(other)
-                n != null && n in 0..maxNumDisjuncts.toLong() && op == CondOp.LE ->
-                    this.meet(ConstantSet((0..n).map { Constant(it) }.toSet(), maxNumDisjuncts))
+                n != null && n in 0..<maxNumDisjuncts.toLong() && op == CondOp.LE ->
+                    this.meet(normalize((0..n).map { Constant(it) }.toSet(), maxNumDisjuncts))
                 n != null && n in 0..maxNumDisjuncts.toLong() && op == CondOp.LT -> {
                     if (n == 0L) {
                         mkBottom(maxNumDisjuncts)
                     } else {
-                        this.meet(ConstantSet((0..<n).map { Constant(it) }.toSet(), maxNumDisjuncts))
+                        this.meet(normalize((0..<n).map { Constant(it) }.toSet(), maxNumDisjuncts))
                     }
                 }
                 else -> {
@@ -296,7 +318,7 @@ data class ConstantSet private constructor(
                             if (it.isEmpty()) {
                                 mkBottom(maxNumDisjuncts)
                             } else {
-                                ConstantSet(it, maxNumDisjuncts)
+                                normalize(it, maxNumDisjuncts)
                             }
                         }
                     }
