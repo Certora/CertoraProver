@@ -200,11 +200,22 @@ data class CallInput(
 
     constructor(_base: TACExpr.Sym.Var, _offset: TACExpr.Sym, _size: TACExpr.Sym) : this(_base, _offset, null, _size, null, mapOf(), null)
 
+    /**
+     * The value the callee sees at [byteOffset] of this input buffer, where [sighashSize] is the size of the
+     * selector in the callee's calldata layout.
+     *
+     * Accepted offsets are the ABI argument offsets `sighashSize + n*32` (0, the selector itself, included) and
+     * whole word offsets `n*32`. The latter belong to the calldata-forwarding proxy shape: a callee that copies
+     * its entire calldata buffer over the scratch pad reads that buffer at word granularity rather than at its
+     * argument offsets, so its calldata layout holds word-aligned ranges as well (see
+     * [instrumentation.calls.CalldataEncoding]). Such a range straddles two arguments, so it usually has no
+     * counterpart in [rangeToDecomposedArg] and is read straight out of the buffer. A caller which forwards its
+     * own calldata the same way does decompose such ranges, and then we use the decomposed argument.
+     */
     fun inputArgAtOffset(byteOffset: BigInteger, sighashSize: BigInteger): TACExpr {
         check(
-            byteOffset == BigInteger.ZERO || (byteOffset >= sighashSize && byteOffset.mod(
-                32.toBigInteger()
-            ) == sighashSize)
+            byteOffset.mod(EVM_WORD_SIZE) == BigInteger.ZERO ||
+                (byteOffset >= sighashSize && byteOffset.mod(EVM_WORD_SIZE) == sighashSize)
         ) { "Expected to get a valid scratch memory offset, but instead got $byteOffset" }
 
         val byteRange = if (byteOffset == BigInteger.ZERO) {
