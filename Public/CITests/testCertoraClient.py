@@ -20,6 +20,7 @@ import json
 import os
 import shutil
 import sys
+import tempfile
 import unittest
 from unittest import mock
 from pathlib import Path
@@ -1234,6 +1235,24 @@ class TestClient(unittest.TestCase):
             suite.expect_success(description="ERC7201 storage extension harnesses normal flow",
                                  run_flags=['--disable_local_typechecking', '--storage_extension_annotation'])
             result = suite.expect_checkpoint(description="test_automatic_storage_extension_harnesses:  mapping",
+                                             run_flags=['--disable_local_typechecking', '--storage_extension_annotation'])
+            assert len(result) == 1, "test_automatic_storage_extension_harnesses: expected only one mapping"
+            assert list(result.keys())[0][1] == 'Test_ERC7201'
+
+        # Test a contract whose namespaced storage is in a package outside the working directory,
+        # which is one level below Test_ERC7201.sol, so the path to it from there starts with '../'
+        with tempfile.TemporaryDirectory(dir='Public/TestEVM/StorageExtensions') as working_dir, \
+                Util.change_working_directory(working_dir):
+            Path('Main.sol').write_text('import "storage_extensions/Test_ERC7201.sol";\n\ncontract Main is Test_ERC7201 {}\n')
+            Path('Main.conf').write_text(json.dumps({
+                "files": ["Main.sol"],
+                "packages": ["storage_extensions=.."],
+                "verify": "Main:../Dummy.spec",
+                "storage_extension_annotation": True,
+            }))
+            suite = TestUtil.ProverTestSuite(conf_file_template='Main.conf',
+                                    test_attribute=str(Util.TestValue.STORAGE_EXTENSION_LAYOUT))
+            result = suite.expect_checkpoint(description="ERC7201 storage extension harnesses in an outside package",
                                              run_flags=['--disable_local_typechecking', '--storage_extension_annotation'])
             assert len(result) == 1, "test_automatic_storage_extension_harnesses: expected only one mapping"
             assert list(result.keys())[0][1] == 'Test_ERC7201'
