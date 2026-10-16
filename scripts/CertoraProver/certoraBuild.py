@@ -468,6 +468,15 @@ def convert_pathname_to_posix(json_dict: Dict[str, Any], entry: str, compiler_co
         json_dict[entry] = json_dict_posix_paths
 
 
+def relative_import_path(importer_dir: Path, target: str) -> str:
+    """
+    The path under which a Solidity file in [importer_dir] imports [target].
+    solc resolves an import starting with `./` or `../` against the importing file's directory.
+    """
+    rel = Util.as_posix(os.path.relpath(Util.abs_posix_path(target), Util.abs_posix_path(importer_dir)))
+    return rel if rel.startswith("../") else f"./{rel}"
+
+
 class CertoraBuildGenerator:
     # 12,14,04,06,00,04,10 is 0xce4604a aka certora.
     CONSTRUCTOR_STRING = "constructor"
@@ -3115,7 +3124,7 @@ class CertoraBuildGenerator:
             # Note we import and don't inline the file's contents since that's how the
             # original file is accessed also in the actual code, and compiling it
             # directly can cause issues.
-            tmp_file.write(f"import \"{original_file}\";\n\n")
+            tmp_file.write(f"import \"{relative_import_path(file_dir, original_file)}\";\n\n")
             rel_path = os.path.relpath(tmp_file.name, Path.cwd())
             tmp_abs_path = Util.abs_posix_path(tmp_file.name)
             # Add the temp file to all map attributes so that map lookups
@@ -3179,7 +3188,7 @@ class CertoraBuildGenerator:
                 current_content = tmp_file.read()
 
                 # Prepare modified content with target import at the beginning
-                rel_target_path = os.path.relpath(target_file, Path.cwd())
+                rel_target_path = relative_import_path(file_dir, target_file)
                 modified_content = f'import "{rel_target_path}";\n{current_content}'
 
                 # Write modified content

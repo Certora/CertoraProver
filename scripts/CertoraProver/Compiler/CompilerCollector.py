@@ -190,6 +190,20 @@ class CompilerCollector(ABC):
     def compiler_version(self) -> CompilerVersion:
         pass
 
+    # Full version identifier from the compiler's `--version` output
+    # (e.g. solc '0.8.34+commit.80d5c536.Darwin.appleclang'), recording the exact
+    # compiler build. None when it could not be extracted. Set by the factory after
+    # construction so subclass constructors need not change.
+    _compiler_version_full: Optional[str] = None
+
+    @property
+    def compiler_version_full(self) -> Optional[str]:
+        return self._compiler_version_full
+
+    @compiler_version_full.setter
+    def compiler_version_full(self, value: Optional[str]) -> None:
+        self._compiler_version_full = value
+
     def normalize_file_compiler_path_name(self, file_abs_path: str) -> str:
         """
         Normalizes the absolute path name [file_abs_path] of a file, given to the compiler.
