@@ -196,6 +196,18 @@ class BytemapConeOfInf private constructor(
                 else -> Unit
             }
 
+            /**
+             * If one of the queries here may read any location, of this bytemap and of every one above it
+             * ([TermFactory.mayReadAnything]), none of these can go, so this one is taken whole, and so is everything
+             * it is made of, instead of comparing every query at every store up the chain.
+             */
+            fun takeWholeIfReadAnywhere() {
+                if (ptr !in mustTakeBytemap && allQueries[ptr].orEmpty().any { tf.mayReadAnything(it, ptr) }) {
+                    mustTakeBytemap += ptr
+                    stat(READ_ANYWHERE_STAT)
+                }
+            }
+
             fun addToNeeded(vararg syms: TACSymbol?) =
                 syms.forEach { s ->
                     s?.asVarOrNull?.let { newNeeded += it }
@@ -274,6 +286,7 @@ class BytemapConeOfInf private constructor(
             }
 
             override fun store(lhs: TACSymbol.Var, rhsBase: TACSymbol.Var, loc: TACSymbol, value: TACSymbol) {
+                takeWholeIfReadAnywhere()
                 if (ptr in mustTakeBytemap || !erasableCmd) {
                     addQueriesTo(rhsBase)
                     addToNeeded(loc, value)
@@ -327,6 +340,7 @@ class BytemapConeOfInf private constructor(
                 dstMap: TACSymbol.Var,
                 length: TACSymbol
             ) {
+                takeWholeIfReadAnywhere()
                 if (ptr in mustTakeBytemap) {
                     blindlyAdd()
                     return
@@ -405,8 +419,15 @@ class BytemapConeOfInf private constructor(
     }
 
     companion object {
+        /** The stat counting bytemap definitions taken whole because a query may read any location of them. */
+        internal const val READ_ANYWHERE_STAT = "taken whole: read anywhere"
+
         fun go(code: CoreTACProgram, filteringFunctions: FilteringFunctions) =
             BytemapConeOfInf(code, filteringFunctions).rewrite()
+
+        /** [go], together with the stats it collected. */
+        internal fun goWithStats(code: CoreTACProgram, filteringFunctions: FilteringFunctions) =
+            BytemapConeOfInf(code, filteringFunctions).let { it.rewrite() to it.stats.toMap() }
     }
 
 }
