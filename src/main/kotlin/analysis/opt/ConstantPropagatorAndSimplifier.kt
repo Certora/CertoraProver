@@ -87,21 +87,8 @@ class ConstantPropagatorAndSimplifier(
                 ?.takeIf { dom.dominates(it, nbid) }
                 ?.let { blockConstants[it]!![v] }
 
-        private fun simplifyExp(exp: TACExpr): TACExpr {
-            when (exp) {
-                is TACExpr.Sym.Const -> return exp
-                is TACExpr.Sym.Var -> return (constants[exp.s] ?: getPrevConstant(exp.s))?.asTACExpr(exp.s.tag) ?: exp
-                is TACExpr.QuantifiedFormula ->
-                    if (exp.quantifiedVars.any { it in constants }) {
-                        return exp
-                    }
-
-                else -> Unit
-            }
-            return simplifyTop(
-                exp.rebuild(exp.getOperands().map(::simplifyExp))
-            )
-        }
+        private fun simplifyExp(exp: TACExpr) =
+            Companion.simplifyExp(exp) { v -> (constants[v] ?: getPrevConstant(v))?.asTACExpr(v.tag) }
 
         private val mapper = object : DefaultTACCmdMapper() {
             override fun mapSymbol(t: TACSymbol): TACSymbol =
@@ -244,6 +231,30 @@ class ConstantPropagatorAndSimplifier(
          * then call this).
          */
         fun simplifyTop(e: TACExpr) = simplifyTopOrNull(e) ?: e
+
+        /**
+         * [e] simplified bottom-up by [simplifyTop], with each free variable `v` for which [valOf] gives a value
+         * replaced by it. A value is put under a quantifier as is, so it must have no free variables (e.g. a
+         * constant). Map definitions are not touched.
+         */
+        fun simplifyExp(e: TACExpr, valOf: (TACSymbol.Var) -> TACExpr?): TACExpr =
+            when (e) {
+                is TACExpr.Sym.Const -> e
+                is TACExpr.Sym.Var -> valOf(e.s) ?: e
+                is TACExpr.QuantifiedFormula -> simplifyTop(
+                    e.copy(
+                        body =
+                            simplifyExp(e.body) { v -> runIf(v !in e.quantifiedVars) { valOf(v) } }
+                    )
+                )
+
+                // left as is: later passes (e.g. Soroban's map handling) recognize map updates by their definition's shape
+                is TACExpr.MapDefinition -> e
+
+                else -> simplifyTop(
+                    e.rebuild(e.getOperands().map { simplifyExp(it, valOf) })
+                )
+            }
 
         /**
          * Given a possibly partial list of constant values for the operands of [e], tries to calculate a constant
