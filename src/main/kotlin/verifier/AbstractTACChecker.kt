@@ -243,7 +243,6 @@ abstract class AbstractTACChecker {
                 .mapIfAllowed(CoreToCoreTransformer(ReportTypes.UNUSED_ASSIGNMENTS) {
                     optimizeAssignments(it, default(it)).let(BlockMerger::mergeBlocks)
                 })
-                .map(CoreToCoreTransformer(ReportTypes.INSERT_SCALAR_DEFINITION, InsertScalarDefinitions::transform))
             if (enableHeuristicalFolding) {
                 // get rid of annotation commands, those generate false uses
                 if (linear.ref.destructiveOptimizations) {

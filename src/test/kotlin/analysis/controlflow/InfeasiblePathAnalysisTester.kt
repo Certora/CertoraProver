@@ -24,10 +24,15 @@ import org.junit.jupiter.api.Test
 import tac.Tag
 import testing.ttl.TACMockLanguage
 import vc.data.CoreTACProgram
+import vc.data.TACBuilderAuxiliaries
+import vc.data.TACCmd
+import vc.data.TACExpr
+import vc.data.TACProgramBuilder
+import vc.data.asTACExpr
 import vc.data.TACSymbol
 import verifier.CoreToCoreTransformer
 
-class InfeasiblePathAnalysisTester {
+class InfeasiblePathAnalysisTester : TACBuilderAuxiliaries() {
 
     private fun run(p: CoreTACProgram): CoreTACProgram {
         return CoreTACProgram.Linear(p).map(CoreToCoreTransformer(ReportTypes.OPTIMIZE_INFEASIBLE_PATHS) { c ->
@@ -550,6 +555,39 @@ class InfeasiblePathAnalysisTester {
         Assertions.assertEquals(6, pOptimized.blockgraph.size) // not sure we expect this
     }
 
+
+    /**
+     * The assume's condition goes through a builtin: `!(safe_math_narrow(i) == 5)`. Fixing `i` to the value an arm
+     * assigns closes it, and simplifying it then folds the builtin: the arm assigning `5` cannot reach the assume and
+     * is pruned, the one assigning `7` stays.
+     */
+    @Test
+    fun builtinInTheConditionIsFolded() {
+        val prog = TACProgramBuilder {
+            havoc(x)
+            jumpCond(x)
+            jump {
+                i assign 5
+                jump(1)
+            }
+            jump {
+                i assign 7
+                jump(1)
+            }
+            jumpDest(1) {
+                b assign safeMathNarrow(iS, Tag.Bit256)
+                y assign Eq(bS, 5.asTACExpr)
+                assumeNot(y)
+                assert(y)
+            }
+        }
+        val optimized = run(prog.code)
+        val assigned = optimized.code.values.flatten()
+            .filterIsInstance<TACCmd.Simple.AssigningCmd.AssignExpCmd>()
+            .filter { it.lhs == i }
+            .map { it.rhs }
+        Assertions.assertEquals(listOf<TACExpr>(7.asTACExpr), assigned)
+    }
 
     // currently commented out because we need to use a more stable TAC format.
     // see CER-1111

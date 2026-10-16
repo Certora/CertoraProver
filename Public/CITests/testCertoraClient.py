@@ -1239,6 +1239,35 @@ class TestClient(unittest.TestCase):
             assert len(result) == 1, "test_automatic_storage_extension_harnesses: expected only one mapping"
             assert list(result.keys())[0][1] == 'Test_ERC7201'
 
+        # Test a file with namespaced storage that reaches Types.sol both relatively ('./Types.sol') and through
+        # the package ('pkg/Base.sol' imports './Types.sol'). The harness must import NS.sol under the name the
+        # main build gave it ('pkg/NS.sol'), otherwise solc loads Types.sol twice and reports
+        # 'Identifier already declared'
+        with tempfile.TemporaryDirectory(dir='Public/TestEVM/StorageExtensions') as working_dir, \
+                Util.change_working_directory(working_dir):
+            Path('pkg').mkdir()
+            Path('pkg/Types.sol').write_text('struct T { uint a; }\n')
+            Path('pkg/Base.sol').write_text('import "./Types.sol";\n\n'
+                                            'abstract contract Base { function f(T memory) internal {} }\n')
+            Path('pkg/NS.sol').write_text('import "./Types.sol";\nimport "pkg/Base.sol";\n\n'
+                                          'abstract contract NS is Base {\n'
+                                          '    /** @custom:storage-location erc7201:test.mixed */\n'
+                                          '    struct NSStorage { uint x; }\n'
+                                          '}\n')
+            Path('Main.sol').write_text('import "pkg/NS.sol";\n\ncontract Main is NS {}\n')
+            Path('Main.conf').write_text(json.dumps({
+                "files": ["Main.sol"],
+                "packages": ["pkg=pkg"],
+                "verify": "Main:../Dummy.spec",
+                "storage_extension_annotation": True,
+            }))
+            suite = TestUtil.ProverTestSuite(conf_file_template='Main.conf',
+                                    test_attribute=str(Util.TestValue.STORAGE_EXTENSION_LAYOUT))
+            result = suite.expect_checkpoint(description="ERC7201 storage extension harnesses with mixed imports",
+                                             run_flags=['--disable_local_typechecking', '--storage_extension_annotation'])
+            assert len(result) == 1, "test_automatic_storage_extension_harnesses: expected only one mapping"
+            assert list(result.keys())[0][1] == 'NS'
+
         # Test a contract whose namespaced storage is in a package outside the working directory,
         # which is one level below Test_ERC7201.sol, so the path to it from there starts with '../'
         with tempfile.TemporaryDirectory(dir='Public/TestEVM/StorageExtensions') as working_dir, \

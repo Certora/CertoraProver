@@ -26,6 +26,7 @@ import vc.data.TACBuilderAuxiliaries
 import vc.data.TACExpr
 import vc.data.TACProgramBuilder
 import vc.data.TACProgramBuilder.Companion.testProgString
+import vc.data.TACSymbol
 import vc.data.asTACExpr
 import java.math.BigInteger
 
@@ -174,6 +175,31 @@ class ConstantPropagatorAndSimplifierTest : TACBuilderAuxiliaries() {
         assertEquals(
             testProgString(expected.code),
             testProgString(ConstantPropagatorAndSimplifier(prog.code).rewrite())
+        )
+    }
+
+    /**
+     * A quantified variable is not replaced, even when [ConstantPropagatorAndSimplifier.simplifyExp] has a value for it,
+     * and a quantifier that no longer binds anything is simplified away. Map definitions are left as they are.
+     */
+    @Test
+    fun simplifyExpLeavesBoundVariablesAlone() {
+        val values = mapOf(a to 1.asTACExpr, b to 2.asTACExpr)
+        fun simplify(e: TACExpr) = ConstantPropagatorAndSimplifier.simplifyExp(e) { values[it] }
+
+        fun eq(l: TACExpr, r: TACExpr) = TACExpr.BinRel.Eq(l, r, Tag.Bool)
+        assertEquals(
+            TACExpr.QuantifiedFormula(true, listOf(a), eq(aS, 2.asTACExpr), Tag.Bool),
+            simplify(TACExpr.QuantifiedFormula(true, listOf(a), eq(aS, bS), Tag.Bool))
+        )
+        fun mapDef(c: TACExpr) =
+            TACExpr.MapDefinition(listOf(aS), TACExpr.TernaryExp.Ite(eq(aS, c), aS, 5.asTACExpr), Tag.WordMap)
+        assertEquals(mapDef(bS), simplify(mapDef(bS)))
+        assertEquals(TACExpr.Sym.Const(TACSymbol.True), simplify(eq(aS, 1.asTACExpr)))
+        // the body folds to `true`, which no longer uses `c`, so the quantifier goes
+        assertEquals(
+            TACExpr.Sym.Const(TACSymbol.True),
+            simplify(TACExpr.QuantifiedFormula(true, listOf(c), eq(bS, 2.asTACExpr), Tag.Bool))
         )
     }
 }

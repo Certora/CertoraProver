@@ -123,36 +123,18 @@ class TermFactory(val code: CoreTACProgram, val intervals: IntervalsCalculator?)
             val relevant1 = defs1 containsAll defs
             val relevant2 = defs2 containsAll defs
 
-            /** If we can't figure out anything about `v` from [ptr1] and [ptr2] */
-            fun default() = if (intervals == null) {
-                intervalOfTag(v.tag)
-            } else {
-                defs.monadicMap(intervals::getLhs)
-                    ?.reduce(Intervals::union)
-                    ?: intervalOfTag(v.tag)
-            }
-
-            /**
-             * We are considering only paths between [ptr1] and [ptr2]. Therefore, if there is no assignment to `v`
-             * between the two, then it must actually be the exact same variable.
-             */
-            val noneBetween = defs2.filterNotNull().none {
-                reachability.canReach(ptr1, it)
-            }
-
-            val i = if (noneBetween) {
+            val i = if (noneBetween(ptr1, defs2)) {
                 when {
                     // knowing we are actually talking of the same variable, it's enough if one of the ptrs is
                     // relevant.
                     relevant1 || relevant2 -> at1 intersect at2
-                    else -> default()
+                    else -> fallbackInterval(unique)
                 }
             } else {
                 when {
                     relevant1 && relevant2 -> at1 intersect at2
                     relevant1 -> at1
-                    relevant2 -> at2
-                    else -> default()
+                    else -> sideInterval(unique, ptr2, defs2)
                 }
             }
             i * (coef1 - coef2) + acc
@@ -160,6 +142,70 @@ class TermFactory(val code: CoreTACProgram, val intervals: IntervalsCalculator?)
         }.mod(Tag.Bit256)
     }
 
+
+    /** What [diff] bounds [unique] by when neither side tells: the union of what its definitions assign. */
+    private fun fallbackInterval(unique: UniqueVar) =
+        intervals?.let { unique.defSites.monadicMap(it::getLhs)?.reduce(Intervals::union) }
+            ?: intervalOfTag(unique.v.tag)
+
+    /**
+     * What [diff] bounds [unique] by when only the side at [ptr], where its variable's definitions are [defsAtPtr],
+     * can tell: its value there if those definitions are its own, and [fallbackInterval] otherwise.
+     */
+    private fun sideInterval(unique: UniqueVar, ptr: CmdPointer, defsAtPtr: Set<CmdPointer?>) =
+        if (defsAtPtr containsAll unique.defSites) {
+            intervals!!.getAtRhs(ptr, unique.v)
+        } else {
+            fallbackInterval(unique)
+        }
+
+    /**
+     * Whether no definition in [defs2] (those of a variable at a point reachable from [ptr1]) is reachable from
+     * [ptr1]. On the paths between the two points the variable is then the exact same variable.
+     */
+    private fun noneBetween(ptr1: CmdPointer, defs2: Set<CmdPointer?>) =
+        defs2.filterNotNull().none { reachability.canReach(ptr1, it) }
+
+    /**
+     * Whether, as far as [diff] can tell, [query] may read any location of the bytemap defined at [ptr], and of every
+     * bytemap definition above it in the chain.
+     *
+     * An atom of the query's term none of whose definitions reaches [ptr] can't be in the location of anything defined
+     * at [ptr] or above it. If also a definition of its variable at the query is reachable from [ptr], then [diff]
+     * bounds it, at [ptr] and at every point above, by the query's side alone. These conditions only get stronger
+     * going up. So if what these atoms add to the location already takes every value, every [diff] against [query]
+     * from [ptr] up takes every value too.
+     */
+    fun mayReadAnything(query: Query, ptr: CmdPointer): Boolean {
+        if (intervals == null) {
+            return false
+        }
+        val outlived = query.t.support.filter { unique ->
+            // not an input, which is the same everywhere, and so may be in locations above `ptr` too
+            unique.defSites.isNotEmpty() &&
+                // assigned on every path, so never the initial value, which also exists above `ptr`
+                null !in unique.defSites &&
+                // none of its definitions reaches `ptr`, so no location at `ptr` or above can have it
+                unique.defSites.none { reachability.canReach(it!!, ptr) } &&
+                // some assignment of its variable reaching the query is below `ptr` (`diff`'s `noneBetween` is false),
+                // so `diff` bounds it by the query's side alone, here and above
+                !noneBetween(ptr, defsAtQuery(unique.v, query.ptr))
+        }
+        if (outlived.isEmpty()) {
+            return false
+        }
+        return outlived.fold(Intervals(BigInteger.ZERO)) { acc, unique ->
+            querySideInterval(unique, query.ptr) * query.t.literals[unique]!! + acc
+        }.mod(Tag.Bit256) == intervalOfTag(Tag.Bit256)
+    }
+
+    /** The definitions of a variable at a query. [mayReadAnything] asks this at every store the query passes. */
+    private val defsAtQuery = memoized { v: TACSymbol.Var, queryPtr: CmdPointer -> def.defSitesOf(v, queryPtr) }
+
+    /** [sideInterval] at a query, the same at every store the query passes. */
+    private val querySideInterval = memoized { unique: UniqueVar, queryPtr: CmdPointer ->
+        sideInterval(unique, queryPtr, defsAtQuery(unique.v, queryPtr))
+    }
 
     /**
      * Returns the possible values for `[t1] - [t2]`
@@ -172,13 +218,7 @@ class TermFactory(val code: CoreTACProgram, val intervals: IntervalsCalculator?)
             if (coef1 == coef2) {
                 return@fold acc
             }
-            val (v, defs) = unique
-
-            val i = defs.monadicMap(intervals::getLhs)
-                ?.reduce(Intervals::union)
-                ?: intervalOfTag(v.tag)
-
-            i * (coef1 - coef2) + acc
+            fallbackInterval(unique) * (coef1 - coef2) + acc
         }.mod(Tag.Bit256)
     }
 

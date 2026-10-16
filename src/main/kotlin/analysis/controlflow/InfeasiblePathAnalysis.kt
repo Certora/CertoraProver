@@ -19,8 +19,7 @@ package analysis.controlflow
 
 import algorithms.dominates
 import analysis.*
-import analysis.smtblaster.IBlaster
-import analysis.smtblaster.Z3Blaster
+import analysis.opt.ConstantPropagatorAndSimplifier
 import analysis.worklist.StepResult
 import analysis.worklist.WorklistIteration
 import datastructures.stdcollections.*
@@ -28,17 +27,12 @@ import log.*
 import parallel.*
 import parallel.ParallelPool.Companion.runInherit
 import parallel.Scheduler.complete
-import parallel.Scheduler.rpc
 import tac.NBId
-import tac.Tag
 import utils.*
 import vc.data.*
 import vc.data.TACCmd.Simple.AssumeCmd
 import vc.data.TACCmd.Simple.AssumeNotCmd
 import vc.data.tacexprutil.TACExprFreeVarsCollector
-import vc.data.tacexprutil.TACExprUtils
-import vc.data.tacexprutil.subs
-import vc.data.tacexprutil.toConstSet
 import java.math.BigInteger
 import java.util.stream.Collectors
 
@@ -49,7 +43,7 @@ private val logger = Logger(LoggerTypes.PRUNING)
  * and trivial assignments.
  */
 object InfeasiblePathAnalysis {
-    private class Worker(private val g: TACCommandGraph, private val blaster: IBlaster) {
+    private class Worker(private val g: TACCommandGraph) {
         // We work on the program's assume commands that use a variable
         private val work = g.commands.parallelStream().filter {
             (it.cmd is AssumeCmd && it.cmd.cond is TACSymbol.Var) ||
@@ -233,66 +227,44 @@ object InfeasiblePathAnalysis {
             )?.let { expr ->
                 // we assume the defining equation of the condition contains only one free variable
                 val freeVar = TACExprFreeVarsCollector.getFreeVars(expr).singleOrNull() ?: return@let null
-                // we collect all constants that appear in the defining equation
-                val consts = expr.subs.toConstSet().mapToSet { it.value }
+                // `conditionGen(expr)` holds exactly when the assume (or the pruned branch's condition) is violated
+                val violated = conditionGen(expr)
 
-                if(freeVar.tag == Tag.Bool && consts.isEmpty()) {
-                    val cond = conditionGen(expr)
-                    // this is kind of a hack! let's try to find the constant valuation of `freeVar` that evaluates to false
-                    return@let listOf(TACSymbol.True, TACSymbol.False).singleOrNull {
-                        TACExprUtils.Substitutor(mapOf(freeVar.asSym() to it.asSym())).transform(cond).evalAsConst() != BigInteger.ZERO
-                    }?.let {
-                        findImpossibleBranches(
-                            freeVar, it.value, assumeCmd.ptr.block
-                        )
+                // Is `freeVar = value` impossible here, i.e. does it make the assume fail? This is all the
+                // pruning needs: a path that assigns `freeVar := value` and then reaches the assume is infeasible.
+                // With one free variable the condition is closed once `freeVar` is fixed, so simplifying it gives its
+                // truth value - and when it does not, nothing is pruned, which only costs precision.
+                // (This replaces a solver query `(violated) <=> (freeVar == c)` per constant `c` of the expression: a
+                // stronger question than needed -- it also demanded that `c` be the ONLY violating value -- which on
+                // unrolled code was asked hundreds of times per variable and often timed out.)
+                val isImpossibleValue = { value: BigInteger ->
+                    val closed = ConstantPropagatorAndSimplifier.simplifyExp(violated) { v ->
+                        runIf(v == freeVar) { value.asTACSymbol(freeVar.tag).asSym() }
+                    }
+                    when (val truth = closed.getAsConst()) {
+                        null -> false.also {
+                            logger.debug { "pruneTransitive: inconclusive for $freeVar = $value: $closed" }
+                        }
+                        else -> truth != BigInteger.ZERO
                     }
                 }
-
-                // note that the defining equation can be either a simple assignment x = c, but it can also be something more elaborate
-                // for us, it does not matter. We only use the constants to improve our guess...
-                // and the guess is regarding whether our free variable, if equal to some constant, means the assume does not hold.
-                // If that is a valid statement, then if the free variable gets assigned this constant, then on this path
-                // the assume is invalid and thus the assignment is infeasible.
-                // for example: if we assume !lastReverted, in any revert path we will see an assignment lastReverted = true,
-                // which is by this logic infeasible.
-                // here we check which of our guessed constants get the assume expression to be false.
-                consts.map { const ->
-                    rpc {
-                        LogicalEquivalence.equiv(
-                                listOf(),
-                                conditionGen(expr),
-                                TACExpr.BinRel.Eq(
-                                        freeVar.asSym(),
-                                        const.asTACSymbol(Tag.Int).asSym()
-                                ),
-                                blaster
-                        )
-                    }.bindFalseAsNull {
-                        complete(const)
-                    }
-                }.pcompute().map {
-                    // there can be at most one such constant
-                    it.mapNotNull { it }.singleOrNull()
-                }.maybeBind {
-                    // for the constant that makes the freeVar invalidate the assume, we check if we can find such assignments
-                    // that can be pruned. Note we need to look such assignments up from before the point where we
-                    // defined the condition
-                    findImpossibleBranches(freeVar, it, assumeCmd.ptr.block)
-                }.map {
-                    it ?: listOf()
-                }
+                findImpossibleBranches(freeVar, isImpossibleValue, assumeCmd.ptr.block)
             } ?: complete(listOf())
         }
 
         private val nonTrivialDefAnalysis = NonTrivialDefAnalysis(g)
 
         /**
-         * Given a variable [someVar], we check whether there's an assignment of pruned value [mustNotEqual] to it
-         * before [where].
-         * I.e., if at [where] we know that [someVar] must not equal [mustNotEqual], then the command pointer of the definition
-         * assigning [mustNotEqual] to [someVar] is also infeasible.
+         * Given a variable [someVar], we check whether there's an assignment of an impossible value (per
+         * [isImpossibleValue]) to it before [where].
+         * I.e., if at [where] we know that [someVar] must not hold such a value, then the command pointer of the
+         * definition assigning it to [someVar] is also infeasible.
          */
-        private fun findImpossibleBranches(someVar: TACSymbol.Var, mustNotEqual: BigInteger, where: NBId): Parallel<List<PruneNode>> {
+        private fun findImpossibleBranches(
+            someVar: TACSymbol.Var,
+            isImpossibleValue: (BigInteger) -> Boolean,
+            where: NBId
+        ): Parallel<List<PruneNode>> {
             val blockStart = g.elab(where).commands.first()
             val defs = nonTrivialDefAnalysis.nontrivialDef(someVar, blockStart.ptr).map(g::elab)
             return defs.mapNotNull {
@@ -300,13 +272,13 @@ object InfeasiblePathAnalysis {
             }.filter {
                 it.cmd.rhs is TACExpr.Sym.Const
             }.filter {
-                it.wrapped.enarrow<TACExpr.Sym.Const>().exp.s.value == mustNotEqual
+                isImpossibleValue(it.wrapped.enarrow<TACExpr.Sym.Const>().exp.s.value)
             }.map { infeasibleAssign ->
                 /**
                  * Then someVar MUST end up holding the value which is infeasible.
                  */
                 val isDominatingMustAssignment = defs.size == 1 && g.cache.domination.dominates(infeasibleAssign.ptr, blockStart.ptr)
-                logger.debug { "Def of variable $someVar (used in ${where}) in $infeasibleAssign is equal to $mustNotEqual which it must not be equal to, pruning" }
+                logger.debug { "Def of variable $someVar (used in ${where}) in $infeasibleAssign assigns a value it must not hold, pruning" }
                 traverseTo(TraversalStart.BlockStart(
                     where
                 ), traceMode = if(isDominatingMustAssignment) {
@@ -691,8 +663,8 @@ object InfeasiblePathAnalysis {
 
     data class PrunedBlock(val prunedBlock: NBId) : PruneNode()
 
-    private fun findPrunedBranchesAsync(g: CoreTACProgram, blaster : IBlaster = Z3Blaster) : Parallel<List<PruneNode>> =
-        Worker(g.analysisCache.graph, blaster).doAnalysis()
+    private fun findPrunedBranchesAsync(g: CoreTACProgram) : Parallel<List<PruneNode>> =
+        Worker(g.analysisCache.graph).doAnalysis()
 
-    fun findPrunedBranches(g: CoreTACProgram, blaster : IBlaster = Z3Blaster) : List<PruneNode> = findPrunedBranchesAsync(g, blaster).runInherit()
+    fun findPrunedBranches(g: CoreTACProgram) : List<PruneNode> = findPrunedBranchesAsync(g).runInherit()
 }

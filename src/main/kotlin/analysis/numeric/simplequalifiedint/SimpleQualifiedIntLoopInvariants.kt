@@ -90,12 +90,12 @@ interface SimpleQualifiedIntLoopInvariants<T, U, V, G, S> : LoopInvariantHeurist
                 }
             }
             // We have a symbol s1 and its abstraction v1. If v1 is constant,
-            // We can look for c1 and c2 s.t. v1 < c2 and c1 divides (c2 - v1).
+            // We can look for c1 > 0 and c2 s.t. v1 < c2 and c1 divides (c2 - v1).
             // Then c2 is a modular upper bound of v1 with modulus c1.
             if (v1.x.isConstant) {
                 consts.forEachElement { c1 -> // c1 should divide the difference between c2 and v1
                     consts.forEachElement { c2 ->
-                        if (c1.value != BigInteger.ZERO && v1.x.c <= c2.value && c1.value < c2.value) {
+                        if (c1.value > BigInteger.ZERO && v1.x.c <= c2.value && c1.value < c2.value) {
                             if ((c2.value - v1.x.c).rem(c1.value) == BigInteger.ZERO) {
                                 q.add(SimpleIntQualifier.ModularUpperBound(c2, c1.value, false))
                             }

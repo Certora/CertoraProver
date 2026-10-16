@@ -17,24 +17,14 @@
 
 package analysis.controlflow
 
-import analysis.smtblaster.Z3BlasterPool
-import parallel.ParallelPool
 import vc.data.CoreTACProgram
 import verifier.BlockMerger
 
 object InfeasiblePaths {
-    fun doInfeasibleBranchAnalysisAndPruning(c: CoreTACProgram): CoreTACProgram {
-        // Deep pruning of paths based on assumes and simple assignments
-        // uses a pool of Z3 blaster pools and thus may incur a performance impact
-        return ParallelPool.allocInScope({ Z3BlasterPool() }) {
-            // we first identify a list of pruned branches
-            InfeasiblePathAnalysis.findPrunedBranches(c, it).let {
-                // then do the actual pruning, including removal of related blocks
-                InfeasibleBranchPruning.pruneBranches(c, it).let {
-                    // merge blocks to get a more tidy graph
-                    BlockMerger.mergeBlocks(it)
-                }
-            }
-        }
-    }
+    fun doInfeasibleBranchAnalysisAndPruning(c: CoreTACProgram): CoreTACProgram =
+        // Deep pruning of paths based on assumes and simple assignments: we first identify a list of pruned branches,
+        // then do the actual pruning, including removal of related blocks, and merge blocks to get a more tidy graph
+        InfeasiblePathAnalysis.findPrunedBranches(c)
+            .let { InfeasibleBranchPruning.pruneBranches(c, it) }
+            .let(BlockMerger::mergeBlocks)
 }

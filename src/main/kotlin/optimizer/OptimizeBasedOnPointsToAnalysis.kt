@@ -1664,6 +1664,7 @@ object OptimizeBasedOnPointsToAnalysis {
 
         var nodeNameCounter = 0
         val baseName = "certora!Split!${Allocator.getFreshNumber()}"
+        val cells = mutableListOf<TACSymbol.Var>()
         for ((_, d) in ref) {
             val nodeName = "$baseName!${nodeNameCounter++}"
             // Make sure we remember this new var represents scalarized memory
@@ -1704,9 +1705,14 @@ object OptimizeBasedOnPointsToAnalysis {
                 }
             }
             patching.addVarDecl(nodeVar)
+            cells += nodeVar
         }
         Logger.regression { "Memory splitting of ${p.name} succeeded" }
-        return patching.toCode(p)
+        // Memory is zeroed at the start of each call frame, and so is each cell scalarized out of it. Cells written
+        // before they are read get a dead assignment here, which unused-assignment removal later deletes.
+        return patching.toCode(p).prependToBlock0(
+            cells.map { TACCmd.Simple.AssigningCmd.AssignExpCmd(it, TACSymbol.Zero) }
+        )
     }
 
     fun validateLengthUpdates(m: IBoundTACMethod): CoreTACProgram {
