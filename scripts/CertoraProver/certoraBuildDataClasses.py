@@ -194,6 +194,10 @@ class ContractInSDC:
             "solidityTypes": [x.as_dict() for x in self.types],
             "compilerName": "" if not self.compiler_collector else self.compiler_collector.compiler_name,
             "compilerVersion": self.compiler_version,
+            # Full compiler build identifier from `--version` (e.g.
+            # '0.8.34+commit.80d5c536.Darwin.appleclang'); additive alongside the
+            # triplet-only compilerVersion above. None if unavailable.
+            "compilerVersionFull": None if not self.compiler_collector else self.compiler_collector.compiler_version_full,
             "compilerParameters": None if not self.compiler_parameters else self.compiler_parameters.as_dict(),
             "sourceBytes": None if self.source_bytes is None else self.source_bytes.as_dict(),
             "extensionContracts": [e.as_dict() for e in self.extension_contracts],

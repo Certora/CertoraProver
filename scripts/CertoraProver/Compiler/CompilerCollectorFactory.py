@@ -18,7 +18,7 @@ import os
 from Shared import certoraUtils as Util
 from pathlib import Path
 from functools import lru_cache
-from typing import Set, Callable
+from typing import Set, Callable, Tuple, Optional
 import re
 import logging
 from CertoraProver.Compiler.CompilerCollector import CompilerLang, CompilerCollector
@@ -94,44 +94,48 @@ class CompilerCollectorFactory:
         @param path: path of the file to create [CompilerCollector] for
         """
         if str(path).endswith(".vy"):
-            version = self.__get_vyper_version(path)
-            return CompilerCollectorVy(version)
+            version, full_version = self.__get_vyper_version(path)
+            collector: CompilerCollector = CompilerCollectorVy(version)
         elif str(path).endswith(".sol"):
-            version = self.__get_solc_version(path)
-
-            return CompilerCollectorSol(version, CompilerLangSol(), not self.context.no_memory_safe_autofinders)
+            version, full_version = self.__get_solc_version(path)
+            collector = CompilerCollectorSol(version, CompilerLangSol(), not self.context.no_memory_safe_autofinders)
         elif str(path).endswith(".yul"):
-            version = self.__get_solc_version(path)
-            return CompilerCollectorYul(version, CompilerLangYul())
+            version, full_version = self.__get_solc_version(path)
+            collector = CompilerCollectorYul(version, CompilerLangYul())
         else:
             raise RuntimeError(f'expected {path} to represent a Solidity, Yul, or Vyper file')
 
-    def __get_vyper_version(self, contract_file_path: Path) -> Util.CompilerVersion:
+        collector.compiler_version_full = full_version
+        return collector
+
+    def __get_vyper_version(self, contract_file_path: Path) -> Tuple[Util.CompilerVersion, Optional[str]]:
         """
         @param contract_file_path: the contract that we are working on
-        @return: the running Vyper version
+        @return: the running Vyper version (triplet, full identifier)
         """
         vyper_exec_to_run = get_relevant_compiler(contract_file_path, self.context)
-        version = self.__get_compiler_exe_version(vyper_exec_to_run, self.__version_string_handler_vyper)
-        return version
+        return self.__get_compiler_exe_version(vyper_exec_to_run, self.__version_string_handler_vyper)
 
-    def __get_solc_version(self, contract_file_path: Path) -> Util.CompilerVersion:
+    def __get_solc_version(self, contract_file_path: Path) -> Tuple[Util.CompilerVersion, Optional[str]]:
         """
         @param contract_file_path: the contract that we are working on
-        @return: the running solc version
+        @return: the running solc version (triplet, full identifier)
         """
         compiler_logger.debug(f"visiting contract file {contract_file_path}")
         solc_path = get_relevant_compiler(contract_file_path, self.context)
-        version = self.__get_compiler_exe_version(solc_path, self.__version_string_handler_solc)
-        return version
+        return self.__get_compiler_exe_version(solc_path, self.__version_string_handler_solc)
 
     @lru_cache(maxsize=32)
     def __get_compiler_exe_version(self, compiler_name: str,
                                    version_string_handler:
-                                   Callable[[str], Util.CompilerVersion]) -> Util.CompilerVersion:
+                                   Callable[[str], Util.CompilerVersion]) -> Tuple[Util.CompilerVersion, Optional[str]]:
         """
         @param compiler_name: name of the solc we want to run on this contract
-        @return: the running compiler version
+        @return: a tuple of (the running compiler version triplet, the full version
+                 identifier string from `--version` such as
+                 '0.8.34+commit.80d5c536.Darwin.appleclang', or None if it could not
+                 be extracted). The triplet is used for behavioural checks; the full
+                 identifier records the exact compiler build for reproducibility.
         """
         out_name = f"version_check_{Path(compiler_name).name}"
         stdout_path = get_certora_config_dir() / f'{out_name}.stdout'
@@ -146,7 +150,23 @@ class CompilerCollectorFactory:
 
         with stdout_path.open() as r:
             version_string = r.read(-1)
-        return version_string_handler(version_string)
+        return version_string_handler(version_string), self.__extract_full_version(version_string)
+
+    @staticmethod
+    def __extract_full_version(version_string: str) -> Optional[str]:
+        """
+        Extracts the full version identifier from a compiler's `--version` output.
+        solc prints a `Version: <id>` line (e.g. 'Version: 0.8.34+commit.80d5c536.Darwin.appleclang');
+        vyper prints the bare identifier. Returns the identifier token, or None if not found.
+        """
+        version_matches = re.findall(r'^Version:\s*(\S+)', version_string, re.MULTILINE)
+        if version_matches:
+            return version_matches[0]
+        for line in version_string.splitlines():
+            line = line.strip()
+            if line:
+                return line
+        return None
 
     @staticmethod
     def __version_string_handler_vyper(version_string: str) -> Util.CompilerVersion:
