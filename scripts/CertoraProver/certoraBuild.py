@@ -477,6 +477,16 @@ def relative_import_path(importer_dir: Path, target: str) -> str:
     return rel if rel.startswith("../") else f"./{rel}"
 
 
+def harness_import_path(importer_dir: Path, target: str) -> str:
+    """
+    The path under which a harness in [importer_dir] imports [target], a solc source unit name from the main build.
+    A name that does not start with `./` or `../` is imported as is, so solc gives the file the same name as in the
+    main build and loads it once even if the harness also reaches it through other imports. A name that does would be
+    resolved against the harness's directory, so it is rewritten relative to it.
+    """
+    return relative_import_path(importer_dir, target) if target.startswith(("./", "../")) else target
+
+
 class CertoraBuildGenerator:
     # 12,14,04,06,00,04,10 is 0xce4604a aka certora.
     CONSTRUCTOR_STRING = "constructor"
@@ -3124,7 +3134,7 @@ class CertoraBuildGenerator:
             # Note we import and don't inline the file's contents since that's how the
             # original file is accessed also in the actual code, and compiling it
             # directly can cause issues.
-            tmp_file.write(f"import \"{relative_import_path(file_dir, original_file)}\";\n\n")
+            tmp_file.write(f"import \"{harness_import_path(file_dir, original_file)}\";\n\n")
             rel_path = os.path.relpath(tmp_file.name, Path.cwd())
             tmp_abs_path = Util.abs_posix_path(tmp_file.name)
             # Add the temp file to all map attributes so that map lookups
@@ -3188,7 +3198,7 @@ class CertoraBuildGenerator:
                 current_content = tmp_file.read()
 
                 # Prepare modified content with target import at the beginning
-                rel_target_path = relative_import_path(file_dir, target_file)
+                rel_target_path = harness_import_path(file_dir, target_file)
                 modified_content = f'import "{rel_target_path}";\n{current_content}'
 
                 # Write modified content
