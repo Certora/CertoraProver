@@ -48,8 +48,8 @@ class BvOverflowChecksViaDefineFuns(private val lxf: LExpressionFactory) : Axiom
                         (y eq zero) or (((x bvMul y) bvUDiv y) eq x)
                     // MIN * -1 wraps to MIN, and MIN sdiv -1 wraps back to MIN, so it passes the round trip.
                     is AxiomatizedFunctionSymbol.BvOverflowChecks.NoSMulOverUnderflow -> {
-                        val min = lit(java.math.BigInteger.ONE.shiftLeft(f.tag.bitwidth - 1), f.tag)
-                        val minusOne = lit(java.math.BigInteger.ONE.shiftLeft(f.tag.bitwidth) - java.math.BigInteger.ONE, f.tag)
+                        val min = lit(f.tag.minSigned2s, f.tag)
+                        val minusOne = lit(f.tag.maxUnsigned, f.tag)
                         (y eq zero) or ((((x bvMul y) bvSDiv y) eq x) and not((x eq min) and (y eq minusOne)))
                     }
                     is AxiomatizedFunctionSymbol.BvOverflowChecks.NoSAddOverUnderflow ->
