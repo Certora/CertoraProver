@@ -44,7 +44,7 @@ abstract class SolverInfo(val name: String) : Serializable {
         get() = "--version"
 
     private val defaultCommandVersionInfo: String? by lazy {
-        RuntimeEnvInfo.getSolverVersionIfAvailable(this, versionQuery).let { it?.first + it?.second }
+        RuntimeEnvInfo.getSolverVersionIfAvailable(this, versionQuery)?.let { (stdout, stderr) -> stdout + stderr }
     }
 
     fun isAvailable() = defaultCommandVersionInfo != null
