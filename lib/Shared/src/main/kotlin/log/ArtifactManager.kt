@@ -243,9 +243,6 @@ interface IArtifactsManager {
      *  is short enough.
      */
     fun fitFileLength(name: String, suffix: String): String {
-        if (maxFilenameLength == null) {
-            return name
-        }
         if (name.length <= maxFilenameLength) {
             return name
         }
@@ -258,10 +255,7 @@ interface IArtifactsManager {
     }
 
     companion object {
-        private const val COMMON_FILENAME_LENGTH_LIMIT = 255
-        private val maxFilenameLength: Int? =
-            System.getenv("CERTORA_MAX_FILENAME")?.let(String::toInt) ?: COMMON_FILENAME_LENGTH_LIMIT
-
+        private val maxFilenameLength = ArtifactFileUtils.MAX_FILE_NAME_LENGTH
     }
 }
 
