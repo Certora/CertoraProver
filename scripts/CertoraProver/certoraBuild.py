@@ -13,6 +13,7 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import copy
 import enum
 import json
 import logging
@@ -2953,6 +2954,9 @@ class CertoraBuildGenerator:
                 try:
                     Ctx.run_local_spec_check(False, context, ["-listCalls",  tmp_file.name], print_errors=False)
                     spec_calls = tmp_file.read().split("\n")
+                    for instance, contract in (getattr(context, 'contract_instance', None) or {}).items():
+                        spec_calls += [contract + call[len(instance):] for call in spec_calls
+                                       if call.startswith(instance + '.')]
                 except Exception as e:
                     instrumentation_logger.debug(f"Failed to get calls from spec\n{e}")
 
@@ -3098,12 +3102,47 @@ class CertoraBuildGenerator:
 
         if self.context.dump_asts:
             self.dump_asts()
+        self.add_contract_instances()
         self.handle_links()
         self.handle_struct_links()
         self.handle_contract_extensions()
         if self.context.storage_extension_annotation:
             self.handle_erc7201_annotations()
         self.handle_storage_extension_harnesses()
+
+    def add_contract_instances(self) -> None:
+        """Copy compiled contracts before linking, with independent names, addresses, and mutable build data."""
+        instances = getattr(self.context, 'contract_instance', None)
+        if not instances:
+            return
+        sources = {sdc.primary_contract: sdc for sdc in self.SDCs.values()}
+        addresses = {int(sdc.primary_contract_address, 16) for sdc in self.SDCs.values()}
+        reserved = {int(address, 0) for address in self.context.address.values()}
+        for instance, source in instances.items():
+            if instance in sources:
+                raise Util.CertoraUserInputError(f"contract_instance name {instance} conflicts with a compiled contract")
+            sdc = copy.deepcopy(sources[source])
+            contract = sdc.find_contract_with_exception(source)
+            is_static = instance in self.context.address
+            if is_static:
+                address = int(self.context.address[instance], 0)
+                if not 0 < address < 2 ** 160 or address in addresses:
+                    raise Util.CertoraUserInputError(f"contract_instance {instance} needs a unique, nonzero 160-bit address")
+            else:
+                address = self.generate_address()
+                while address in addresses or address in reserved:
+                    address = self.generate_address()
+            addresses.add(address)
+            contract.name = sdc.primary_contract = instance
+            contract.address = sdc.primary_contract_address = self.address_as_str(address)
+            contract.is_static_address = is_static
+            sdc.sdc_name = self.get_sdc_key(instance, contract.address)
+            sdc.prototypes = self.input_config.prototypes.get(instance, []).copy()
+            for function in (list(contract.methods) + list(contract.internal_funcs) + list(contract.public_funcs)
+                             + contract.all_funcs + [finder.func for finder in contract.function_finders.values()]):
+                if function.contractName == source:
+                    function.contractName = instance
+            self.SDCs[self.get_sdc_key(instance, contract.address)] = sdc
 
     def extract_slayout(self, original_file: str, ns_storage: Set[NameSpacedStorage], compiler_version: str, target_file: str) -> NewStorageInfo:
         """
@@ -3814,6 +3853,7 @@ class CertoraBuildGenerator:
         why the link is impossible. This is friendlier than saying that the name reference_to_replace_with_link
         is not defined as neither as a storage slot or as an immutable, as we show here it is declared, just unused.
         """
+        src_contract = (getattr(self.context, 'contract_instance', None) or {}).get(src_contract, src_contract)
         appears_in_asts_as_immutable = False
         for name in self.asts.keys():
             if appears_in_asts_as_immutable:
@@ -3878,7 +3918,7 @@ class CertoraBuildGenerator:
         return len(candidates) > 0
 
     def __get_matching_sdc_names_for_SDCs_iterator(self, contract: str) -> Iterator[str]:
-        return (k for k, v in self.SDCs.items() if k.startswith(f"{contract}_"))
+        return (k for k, v in self.SDCs.items() if v.primary_contract == contract)
 
     def get_one_sdc_name_from_SDCs(self, contract: str) -> str:
         return next(self.__get_matching_sdc_names_for_SDCs_iterator(contract))
@@ -3977,9 +4017,10 @@ class CertoraBuildGenerator:
         if self.context.packages is not None:
             asm_collect_cmd = f"{asm_collect_cmd} {' '.join(self.context.packages)}"
 
-        Util.run_compiler_cmd(asm_collect_cmd, f"{primary_contract}.asm", Path.cwd())
+        source_contract = (getattr(self.context, 'contract_instance', None) or {}).get(primary_contract, primary_contract)
+        Util.run_compiler_cmd(asm_collect_cmd, f"{source_contract}.asm", Path.cwd())
 
-        evm_file_path = Util.get_certora_config_dir() / f'{primary_contract}.evm'
+        evm_file_path = Util.get_certora_config_dir() / f'{source_contract}.evm'
         with evm_file_path.open() as asm_file:
             build_logger.debug(f"Got asm {asm_file}")
             saw_match = False

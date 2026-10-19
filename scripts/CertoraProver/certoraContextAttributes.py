@@ -681,6 +681,18 @@ class EvmAttributes(AttrUtil.Attributes):
         )
     )
 
+    CONTRACT_INSTANCE = AttrUtil.AttributeDefinition(
+        arg_type=AttrUtil.AttrArgType.LIST,
+        help_msg="Add a separately named instance of a Solidity contract: <Contract>:<Instance>. "
+                 "The original contract remains available. Each instance has separate storage and an address.",
+        argparse_args={
+            'nargs': AttrUtil.ONE_OR_MORE_OCCURRENCES,
+            'action': AttrUtil.APPEND
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False
+    )
+
     ADDRESS = AttrUtil.AttributeDefinition(
         attr_validation_func=Vf.validate_address,
         arg_type=AttrUtil.AttrArgType.LIST,
@@ -1919,7 +1931,7 @@ class ConcordAttributes(EvmProverAttributes):
                 cls.INDEPENDENT_SATISFY, cls.MULTI_ASSERT_CHECK, cls.MULTI_EXAMPLE, cls.PROJECT_SANITY,
                 cls.RULE_SANITY, cls.ADDRESS, cls.CONTRACT_EXTENSIONS, cls.CONTRACT_RECURSION_LIMIT, cls.LINK,
                 cls.OPTIMISTIC_CONTRACT_RECURSION, cls.STRUCT_LINK, cls.DYNAMIC_BOUND, cls.DYNAMIC_DISPATCH,
-                cls.PROTOTYPE, cls.METHOD]
+                cls.PROTOTYPE, cls.METHOD, cls.CONTRACT_INSTANCE]
 
 
 class RangerAttributes(EvmProverAttributes):
