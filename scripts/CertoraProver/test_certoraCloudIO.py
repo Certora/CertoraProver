@@ -65,7 +65,7 @@ class TestSendVerificationRequestMessage(unittest.TestCase):
 
 APP_REPORT = "https://app.example.com/jobs/run1"
 APP_JOBS = "https://app.example.com/jobs"
-CLI_REPORT = "https://app.certora.com/output/1/run1?anonymousKey=k"
+CLI_REPORT = "https://prover.certora.com/output/1/run1?anonymousKey=k"
 
 
 def verified_cloud(**app_fields: Any) -> certoraCloudIO.CloudVerification:

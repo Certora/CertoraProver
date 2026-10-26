@@ -503,7 +503,7 @@ class CloudVerification:
             cloud_logger.debug(f"setting {url_attr}: runName is not defined.")
         else:
             resource_req = f"{'/' + requested_resource if requested_resource is not None else ''}"
-            url = f"{self.get_link_domain()}/{index}/{user_id}/{self.runName}{resource_req}?anonymousKey={anonymousKey}"
+            url = f"{self.get_domain()}/{index}/{user_id}/{self.runName}{resource_req}?anonymousKey={anonymousKey}"
             setattr(self, url_attr, url)
 
     def __set_api_url(self, url_attr: str, suffix: str = "") -> None:
@@ -716,7 +716,7 @@ class CloudVerification:
 
     def get_group_id_url(self) -> str:
         # The group view is on the legacy dashboard for now: the app has no page for it, so this link stays on
-        # the site host and does not use get_link_domain().
+        # the site host.
         return f"{self.get_domain()}/?groupIds={self.context.group_id}"
 
     def print_group_id_url(self) -> None:
@@ -724,7 +724,7 @@ class CloudVerification:
         print(f"See all jobs generated from splitting the rules at {group_id_url}", flush=True)
 
     def print_output_links(self) -> None:
-        print(f"Manage your jobs at {self.app_jobs_url or self.get_link_domain()}")
+        print(f"Manage your jobs at {self.app_jobs_url or Util.get_app_url(self.get_domain())}")
         print(f"Follow your job and see verification results at {self.printed_report_url()}", flush=True)
 
     def print_verification_summary(self) -> None:
@@ -764,8 +764,8 @@ class CloudVerification:
             self.msg = auth_data.get("msg", "")
             app_report_url = json_response.get("reportUrl")
             app_jobs_url = json_response.get("jobsUrl")
-            self.app_report_url = app_report_url if isinstance(app_report_url, str) else ""
-            self.app_jobs_url = app_jobs_url if isinstance(app_jobs_url, str) else ""
+            self.app_report_url = Util.get_app_url(app_report_url) if isinstance(app_report_url, str) else ""
+            self.app_jobs_url = Util.get_app_url(app_jobs_url) if isinstance(app_jobs_url, str) else ""
             start_message = json_response.get("message")
             if start_message:
                 Util.print_completion_message(start_message)
@@ -1248,12 +1248,6 @@ class CloudVerification:
             domain = Util.SupportedServers.PRODUCTION.value
 
         return domain
-
-    def get_link_domain(self) -> str:
-        """
-        @return: the base URL of the links that a user opens in a browser. See Util.APP_HOSTS.
-        """
-        return Util.get_app_domain(self.get_domain())
 
     @lru_cache(maxsize=1)
     def privatize_url(self) -> str:

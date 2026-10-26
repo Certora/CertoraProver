@@ -193,13 +193,18 @@ def get_api_domain(site_domain: str) -> str:
     return replace_host(site_domain, API_HOSTS)
 
 
-def get_app_domain(site_domain: str) -> str:
+def get_app_url(url: str) -> str:
     """
-    @param site_domain: a site base URL, for example "https://prover.certora.com"
-    @return: the base URL for links that a user opens in a browser, for example "https://app.certora.com".
-    A site host that is not in APP_HOSTS is returned unchanged.
+    @param url: a full browser URL on a site host, for example a report or jobs link.
+    @return: the same URL with its host swapped to the app host (see APP_HOSTS), keeping the path and query.
+    A host that is not in APP_HOSTS is returned unchanged.
     """
-    return replace_host(site_domain, APP_HOSTS)
+    parsed = urllib3.util.parse_url(url)
+    new_host = APP_HOSTS.get(parsed.host or "")
+    if new_host is None:
+        return url
+    rest = (parsed.path or "") + (f"?{parsed.query}" if parsed.query else "")
+    return f"{parsed.scheme}://{new_host}{rest}"
 
 
 def get_build_dir() -> Path:
