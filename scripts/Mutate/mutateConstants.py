@@ -69,10 +69,8 @@ DEV = "vaas-dev"
 CONF = "conf"
 ORIG_RUN_PROVER_CONF = Path("cvt_conf_for_certoraMutate.conf")
 PROVER_DOTCOM = "prover.certora.com"
-APP_DOTCOM = "app.certora.com"
 STAGING_DOTCOM = "vaas-stg.certora.com"
 DEV_DOTCOM = "vaas-dev.certora.com"
-# The mutation dashboard is on the legacy dashboard for now, also on production: the app has no page for it.
 MUTATION_DASHBOARD_PRODUCTION = "https://prover.certora.com/mutations"
 MUTATION_DASHBOARD_STAGING = "https://vaas-stg.certora.com/mutations"
 MUTATION_DASHBOARD_DEV = "https://vaas-dev.certora.com/mutations"
