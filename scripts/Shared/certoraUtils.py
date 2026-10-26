@@ -158,7 +158,30 @@ API_HOSTS = {
     "prover.certora.com": "data-api.certora.com",
     "vaas-stg.certora.com": "data-api-stg.certora.com",
     "vaas-dev.certora.com": "data-api-dev.certora.com",
+    # Report links on production use the app host (see APP_HOSTS). Code that derives the API host from a
+    # printed link, for example the mutation tester, finds it here.
+    "app.certora.com": "data-api.certora.com",
 }
+
+# The host for links that a user opens in a browser, for each site host whose browser pages moved to the app.
+# The app serves the report pages (`/output/...`). A site host that is not listed keeps its own links.
+APP_HOSTS = {
+    "prover.certora.com": "app.certora.com",
+}
+
+
+def replace_host(site_domain: str, hosts: Dict[str, str]) -> str:
+    """
+    @param site_domain: a site base URL, for example "https://prover.certora.com"
+    @param hosts: maps a site host to the host that replaces it
+    @return: site_domain with its host replaced by the matching value in hosts. A host that is not in hosts is
+    returned unchanged.
+    """
+    parsed_url = urllib3.util.parse_url(site_domain)
+    new_host = hosts.get(parsed_url.host or "")
+    if new_host is None:
+        return site_domain
+    return f"{parsed_url.scheme}://{new_host}"
 
 
 def get_api_domain(site_domain: str) -> str:
@@ -167,11 +190,21 @@ def get_api_domain(site_domain: str) -> str:
     @return: the matching API base URL, for example "https://data-api.certora.com". A site host that is not in
     API_HOSTS is returned unchanged, because each site host also serves the API routes.
     """
-    parsed_url = urllib3.util.parse_url(site_domain)
-    api_host = API_HOSTS.get(parsed_url.host or "")
-    if api_host is None:
-        return site_domain
-    return f"{parsed_url.scheme}://{api_host}"
+    return replace_host(site_domain, API_HOSTS)
+
+
+def get_app_url(url: str) -> str:
+    """
+    @param url: a full browser URL on a site host, for example a report or jobs link.
+    @return: the same URL with its host swapped to the app host (see APP_HOSTS), keeping the path and query.
+    A host that is not in APP_HOSTS is returned unchanged.
+    """
+    parsed = urllib3.util.parse_url(url)
+    new_host = APP_HOSTS.get(parsed.host or "")
+    if new_host is None:
+        return url
+    rest = (parsed.path or "") + (f"?{parsed.query}" if parsed.query else "")
+    return f"{parsed.scheme}://{new_host}{rest}"
 
 
 def get_build_dir() -> Path:

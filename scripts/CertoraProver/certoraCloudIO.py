@@ -715,6 +715,8 @@ class CloudVerification:
         return auth_data
 
     def get_group_id_url(self) -> str:
+        # The group view is on the legacy dashboard for now: the app has no page for it, so this link stays on
+        # the site host.
         return f"{self.get_domain()}/?groupIds={self.context.group_id}"
 
     def print_group_id_url(self) -> None:
@@ -722,7 +724,7 @@ class CloudVerification:
         print(f"See all jobs generated from splitting the rules at {group_id_url}", flush=True)
 
     def print_output_links(self) -> None:
-        print(f"Manage your jobs at {self.app_jobs_url or self.get_domain()}")
+        print(f"Manage your jobs at {self.app_jobs_url or Util.get_app_url(self.get_domain())}")
         print(f"Follow your job and see verification results at {self.printed_report_url()}", flush=True)
 
     def print_verification_summary(self) -> None:
@@ -762,8 +764,8 @@ class CloudVerification:
             self.msg = auth_data.get("msg", "")
             app_report_url = json_response.get("reportUrl")
             app_jobs_url = json_response.get("jobsUrl")
-            self.app_report_url = app_report_url if isinstance(app_report_url, str) else ""
-            self.app_jobs_url = app_jobs_url if isinstance(app_jobs_url, str) else ""
+            self.app_report_url = Util.get_app_url(app_report_url) if isinstance(app_report_url, str) else ""
+            self.app_jobs_url = Util.get_app_url(app_jobs_url) if isinstance(app_jobs_url, str) else ""
             start_message = json_response.get("message")
             if start_message:
                 Util.print_completion_message(start_message)
@@ -1227,7 +1229,7 @@ class CloudVerification:
     def printed_report_url(self) -> str:
         """
         @return: the report link to print to the user. This is the app link from the server if there is one,
-                 else the legacy report URL.
+                 else the report URL that the CLI builds (see set_report_url()).
         """
         return self.app_report_url or self.url_print_format()
 
