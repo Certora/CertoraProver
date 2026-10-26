@@ -503,7 +503,7 @@ class CloudVerification:
             cloud_logger.debug(f"setting {url_attr}: runName is not defined.")
         else:
             resource_req = f"{'/' + requested_resource if requested_resource is not None else ''}"
-            url = f"{self.get_domain()}/{index}/{user_id}/{self.runName}{resource_req}?anonymousKey={anonymousKey}"
+            url = f"{self.get_link_domain()}/{index}/{user_id}/{self.runName}{resource_req}?anonymousKey={anonymousKey}"
             setattr(self, url_attr, url)
 
     def __set_api_url(self, url_attr: str, suffix: str = "") -> None:
@@ -715,6 +715,8 @@ class CloudVerification:
         return auth_data
 
     def get_group_id_url(self) -> str:
+        # The group view is on the legacy dashboard for now: the app has no page for it, so this link stays on
+        # the site host and does not use get_link_domain().
         return f"{self.get_domain()}/?groupIds={self.context.group_id}"
 
     def print_group_id_url(self) -> None:
@@ -722,7 +724,7 @@ class CloudVerification:
         print(f"See all jobs generated from splitting the rules at {group_id_url}", flush=True)
 
     def print_output_links(self) -> None:
-        print(f"Manage your jobs at {self.app_jobs_url or self.get_domain()}")
+        print(f"Manage your jobs at {self.app_jobs_url or self.get_link_domain()}")
         print(f"Follow your job and see verification results at {self.printed_report_url()}", flush=True)
 
     def print_verification_summary(self) -> None:
@@ -1227,7 +1229,7 @@ class CloudVerification:
     def printed_report_url(self) -> str:
         """
         @return: the report link to print to the user. This is the app link from the server if there is one,
-                 else the legacy report URL.
+                 else the report URL that the CLI builds (see set_report_url()).
         """
         return self.app_report_url or self.url_print_format()
 
@@ -1246,6 +1248,12 @@ class CloudVerification:
             domain = Util.SupportedServers.PRODUCTION.value
 
         return domain
+
+    def get_link_domain(self) -> str:
+        """
+        @return: the base URL of the links that a user opens in a browser. See Util.APP_HOSTS.
+        """
+        return Util.get_app_domain(self.get_domain())
 
     @lru_cache(maxsize=1)
     def privatize_url(self) -> str:
