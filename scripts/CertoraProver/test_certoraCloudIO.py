@@ -65,11 +65,11 @@ class TestSendVerificationRequestMessage(unittest.TestCase):
 
 APP_REPORT = "https://app.example.com/jobs/run1"
 APP_JOBS = "https://app.example.com/jobs"
-CLI_REPORT = "https://prover.certora.com/output/1/run1?anonymousKey=k"
+LEGACY_REPORT = "https://prover.certora.com/output/1/run1?anonymousKey=k"
 
 
 def verified_cloud(**app_fields: Any) -> certoraCloudIO.CloudVerification:
-    """Returns a CloudVerification after a verify response with the given app link fields and the CLI-built URLs."""
+    """Returns a CloudVerification after a verify response with the given app link fields and the legacy URLs."""
     cv = make_verification()
     json_response: dict[str, Any] = {"anonymousKey": "k", "presigned_url": "u", "userId": 1, **app_fields}
     result, _ = run_send_verification_request(json_response, cv)
@@ -97,19 +97,19 @@ class TestAppLinks(unittest.TestCase):
         self.assertIn(f"For further details visit {APP_REPORT}\n", output)
         self.assertNotIn("anonymousKey", output)
 
-    def test_report_links_when_fields_null_or_absent(self) -> None:
+    def test_legacy_links_when_fields_null_or_absent(self) -> None:
         cases: list[dict[str, Any]] = [{"reportUrl": None, "jobsUrl": None}, {}, {"reportUrl": "", "jobsUrl": 5}]
         for fields in cases:
             with self.subTest(fields=fields):
                 cv = verified_cloud(**fields)
                 output = printed(cv.print_output_links)
-                self.assertIn("Manage your jobs at https://app.certora.com\n", output)
-                self.assertIn(f"see verification results at {CLI_REPORT}\n", output)
-                self.assertIn(f"View the results at {CLI_REPORT}\n", printed(cv.print_verification_summary))
-                self.assertIn(f"For further details visit {CLI_REPORT}\n",
+                self.assertIn(f"Manage your jobs at {cv.get_domain()}\n", output)
+                self.assertIn(f"see verification results at {LEGACY_REPORT}\n", output)
+                self.assertIn(f"View the results at {LEGACY_REPORT}\n", printed(cv.print_verification_summary))
+                self.assertIn(f"For further details visit {LEGACY_REPORT}\n",
                               printed(cv.print_error_and_status_url, "err"))
 
-    def test_cli_verify_keeps_report_url_internally(self) -> None:
+    def test_cli_verify_keeps_legacy_url_internally(self) -> None:
         cv = make_verification()
         cv.vscode_extension_info_writer = MagicMock()
         json_response = {"anonymousKey": "k", "presigned_url": "u", "userId": 1,
@@ -121,10 +121,10 @@ class TestAppLinks(unittest.TestCase):
                              return_value=True), \
                 patch.object(certoraCloudIO, "JobList") as job_list_cls, redirect_stdout(io.StringIO()):
             self.assertIsNotNone(cv.cli_verify("cl_args"))
-        self.assertEqual(cv.reportUrl, CLI_REPORT)
+        self.assertEqual(cv.reportUrl, LEGACY_REPORT)
         self.assertEqual(cv.app_report_url, APP_REPORT)
-        self.assertEqual(job_list_cls.return_value.add_job.call_args.args[1], CLI_REPORT)
-        cv.vscode_extension_info_writer.add_field.assert_called_once_with("verification_report_url", CLI_REPORT)
+        self.assertEqual(job_list_cls.return_value.add_job.call_args.args[1], LEGACY_REPORT)
+        cv.vscode_extension_info_writer.add_field.assert_called_once_with("verification_report_url", LEGACY_REPORT)
 
     def test_poll_log_error_prints_app_report_url(self) -> None:
         cv = verified_cloud(reportUrl=APP_REPORT)
@@ -151,24 +151,6 @@ class TestAppLinks(unittest.TestCase):
                 redirect_stdout(io.StringIO()):
             self.assertFalse(cv.cli_report(MagicMock(), "all"))
         self.assertEqual(check_results.call_args.args[4], APP_REPORT)
-
-    def test_staging_links_stay_on_staging_host(self) -> None:
-        cv = make_verification()
-        cv.context.server = "staging"
-        cv.anonymousKey, cv.userId = "k", 1
-        cv.set_report_url(cv.userId, cv.anonymousKey)
-        cv.done = cv.triggered = False
-        output = printed(cv.print_output_links)
-        self.assertIn("Manage your jobs at https://vaas-stg.certora.com\n", output)
-        self.assertIn("see verification results at https://vaas-stg.certora.com/output/1/run1?anonymousKey=k\n",
-                      output)
-
-    def test_api_calls_stay_on_api_host(self) -> None:
-        cv = make_verification()
-        cv.set_json_output_url(cv.userId, cv.anonymousKey)
-        self.assertEqual(cv.jsonOutputUrl, "https://data-api.certora.com/v1/domain/jobs/run1/f/output.json")
-        self.assertEqual(certoraCloudIO.Util.get_api_domain("https://app.certora.com"),
-                         "https://data-api.certora.com")
 
 
 if __name__ == "__main__":

@@ -765,7 +765,7 @@ class MutateApp:
         if self.orig_run is not None:
             if MConstants.STAGING_DOTCOM in self.orig_run:
                 return MConstants.STAGING
-            elif MConstants.PROVER_DOTCOM in self.orig_run or MConstants.APP_DOTCOM in self.orig_run:
+            elif MConstants.PROVER_DOTCOM in self.orig_run:
                 return default
             elif MConstants.DEV_DOTCOM in self.orig_run:
                 return MConstants.DEV
