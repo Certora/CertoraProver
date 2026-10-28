@@ -464,6 +464,27 @@ def check_contract_name_arg_inputs(context: CertoraContext) -> None:
     @raise CertoraUserInputError if a contract name argument was expected, but not given.
     """
     contract_names, file_paths, contract_to_file, file_to_contract = warn_validate_file_args(context.files)
+    instances: Dict[str, str] = {}
+    for entry in getattr(context, 'contract_instance', None) or []:
+        if entry.count(':') != 1:
+            raise Util.CertoraUserInputError(f"contract_instance expects <Contract>:<Instance>, got {entry}")
+        contract, instance = entry.split(':')
+        Vf.validate_contract_name(instance)
+        if contract not in contract_names:
+            raise Util.CertoraUserInputError(f"contract_instance source {contract} is not an input contract")
+        if not contract_to_file[contract].endswith('.sol'):
+            raise Util.CertoraUserInputError("contract_instance requires a Solidity source contract")
+        if instance in contract_names or instance in instances:
+            raise Util.CertoraUserInputError(f"contract_instance name {instance} is already in use")
+        instances[instance] = contract
+    if instances:
+        for option in ('contract_extensions', 'storage_extension_harnesses', 'storage_extension_annotation'):
+            if getattr(context, option, None):
+                raise Util.CertoraUserInputError(f"contract_instance cannot be combined with {option}")
+    context.contract_instance = instances
+    for instance, contract in instances.items():
+        contract_to_file[instance] = contract_to_file[contract]
+    contract_names.update(instances)
     context.contracts = contract_names
     context.file_paths = file_paths
     context.file_to_contract = file_to_contract

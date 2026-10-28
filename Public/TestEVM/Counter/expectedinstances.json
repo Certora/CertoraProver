@@ -1,0 +1,9 @@
+{
+  "rules": {
+    "separateAddresses": "SUCCESS",
+    "separateStorage": "SUCCESS",
+    "envfreeFuncsStaticCheck": {
+      "SUCCESS": ["Counter1.getCount()", "getCount()"]
+    }
+  }
+}

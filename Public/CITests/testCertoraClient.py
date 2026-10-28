@@ -26,6 +26,7 @@ from unittest import mock
 from pathlib import Path
 from typing import List, Any, Dict, Optional
 from collections import OrderedDict
+from types import SimpleNamespace
 
 
 # Add the path to the Test directory to the system path
@@ -67,6 +68,8 @@ from Shared import certoraUtils as Util
 from CertoraProver.Compiler.CompilerCollectorFactory import get_relevant_compiler
 from Shared import certoraValidateFuncs as Vf
 from CertoraProver.certoraContextClass import CertoraContext
+from CertoraProver.certoraBuild import CertoraBuildGenerator
+from CertoraProver.certoraBuildDataClasses import SDC
 import CertoraProver.certoraContext as Ctx
 from Shared import certoraAttrUtil as AttrUtil
 
@@ -88,6 +91,66 @@ def test_simple_args(attr: AttrUtil.AttributeDefinition = Attrs.EvmProverAttribu
     return args
 
 class TestClient(unittest.TestCase):
+    def test_contract_instances(self) -> None:
+        context = CertoraContext(files=['Counter.sol'], contract_instance=['Counter:First', 'Counter:Second'],
+                                 link=['First:0=Second'], verify='First:instances.spec',
+                                 address=['Second:0x123'], struct_link=['First:1=Second'])
+        Cv.check_contract_name_arg_inputs(context)
+        self.assertEqual(context.contract_instance, {'First': 'Counter', 'Second': 'Counter'})
+        self.assertEqual(context.file_to_contract, {'Counter.sol': {'Counter'}})
+        self.assertEqual(context.contract_to_file['First'], 'Counter.sol')
+        self.assertEqual(context.contracts, {'Counter', 'First', 'Second'})
+        self.assertEqual(context.verified_contract_files, ['Counter.sol'])
+        self.assertEqual(context.address, {'Second': '0x123'})
+
+    def test_invalid_contract_instances(self) -> None:
+        for entries in (['Counter'], ['Counter:'], ['Counter:1Bad'], ['Counter:First:Extra'],
+                        ['Missing:First'], ['Counter:Counter'], ['Counter:First', 'Counter:First'],
+                        ['Counter:First', 'First:Second']):
+            with self.subTest(entries=entries), self.assertRaises(Util.CertoraUserInputError):
+                Cv.check_contract_name_arg_inputs(CertoraContext(files=['Counter.sol'], contract_instance=entries))
+        for option in ('contract_extensions', 'storage_extension_harnesses', 'storage_extension_annotation'):
+            with self.subTest(option=option), self.assertRaises(Util.CertoraUserInputError):
+                Cv.check_contract_name_arg_inputs(CertoraContext(
+                    files=['Counter.sol'], contract_instance=['Counter:First'], **{option: True}))
+        with self.assertRaises(Util.CertoraUserInputError):
+            Cv.check_contract_name_arg_inputs(CertoraContext(files=['V.vy'], contract_instance=['V:First']))
+
+    def test_contract_instance_build(self) -> None:
+        method = SimpleNamespace(contractName='Counter')
+        contract = SimpleNamespace(name='Counter', address='01', is_static_address=True, methods=[method],
+                                   internal_funcs=[], public_funcs=[], all_funcs=[method], function_finders={})
+        source = SDC('Counter', None, '01', 'Counter.sol', {}, {}, 'source', [contract], ['02'], {}, {}, {}, set())
+        generator = object.__new__(CertoraBuildGenerator)
+        generator._CertoraBuildGenerator__compiled_artifacts_to_clean = set()
+        generator.SDCs = {'Counter_01': source}
+        generator.context = CertoraContext(contract_instance={'Counter_First': 'Counter', 'Second': 'Counter'},
+                                           address={'Second': '0x123'})
+        generator.input_config = SimpleNamespace(prototypes={})
+        with mock.patch.object(generator, 'generate_address', side_effect=[1, 0x123, 0x456]):
+            generator.add_contract_instances()
+        first = generator.SDCs[generator.get_one_sdc_name_from_SDCs('Counter_First')]
+        second = generator.SDCs[generator.get_one_sdc_name_from_SDCs('Second')]
+        self.assertEqual(len({s.primary_contract_address for s in generator.SDCs.values()}), 3)
+        self.assertEqual(first.contracts[0].methods[0].contractName, 'Counter_First')
+        self.assertEqual(generator.get_matching_sdc_names_from_SDCs('Counter'), ['Counter_01'])
+        self.assertEqual(first.primary_contract_address, generator.address_as_str(0x456))
+        self.assertEqual(second.primary_contract_address, generator.address_as_str(0x123))
+        self.assertTrue(second.contracts[0].is_static_address)
+        self.assertFalse(first.contracts[0].is_static_address)
+        self.assertEqual(first.library_addresses, ['02'])
+        first.state['0'] = second.primary_contract_address
+        self.assertEqual(source.state, {})
+        self.assertEqual(second.state, {})
+        self.assertEqual(contract.name, 'Counter')
+        self.assertEqual(method.contractName, 'Counter')
+        for address in ('0', '1', '-1', str(2 ** 160)):
+            with self.subTest(address=address), self.assertRaises(Util.CertoraUserInputError):
+                generator.SDCs = {'Counter_01': source}
+                generator.context.contract_instance = {'First': 'Counter'}
+                generator.context.address = {'First': address}
+                generator.add_contract_instances()
+
 
     def test_auth_data(self) -> None:
         def auth_data_run(more_args: List[str] = []) -> List[str]:
