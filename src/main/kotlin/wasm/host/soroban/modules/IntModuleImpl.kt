@@ -69,7 +69,7 @@ internal object IntModuleImpl : ModuleImpl() {
             "i256_sub" -> subSigned(retVar!!, args[0], args[1])
             "i256_mul" -> mulSigned(retVar!!, args[0], args[1])
             "i256_div" -> divSigned(retVar!!, args[0], args[1])
-            "i256_rem_euclid" -> modSigned(retVar!!, args[0], args[1])
+            "i256_rem_euclid" -> remEuclidSigned(retVar!!, args[0], args[1])
             "i256_pow" -> null // TODO CERT-7016
             "i256_shl" -> shlSigned(retVar!!, args[0], args[1])
             "i256_shr" -> shrSigned(retVar!!, args[0], args[1])
@@ -147,10 +147,22 @@ internal object IntModuleImpl : ModuleImpl() {
             assign(dest) { a.asSym() mod b.asSym() }
         )
 
-    fun modSigned(dest: TACSymbol.Var, a: TACSymbol, b: TACSymbol) =
+    fun remEuclidSigned(dest: TACSymbol.Var, a: TACSymbol, b: TACSymbol) =
         mergeMany(
             Trap.assert("division by zero") { b.asSym() neq 0.asTACExpr },
-            assign(dest) { a.asSym() sMod b.asSym() }
+            Trap.assert("overflow") { (a.asSym() neq I256_MIN) or (b.asSym() neq I256_NEGATIVE_ONE) },
+            assign(dest) {
+                val remainder = a.asSym() sMod b.asSym()
+                ite(
+                    remainder sLt 0.asTACExpr,
+                    ite(
+                        b.asSym() sLt 0.asTACExpr,
+                        remainder sub b.asSym(),
+                        remainder add b.asSym(),
+                    ),
+                    remainder,
+                )
+            }
         )
 
     fun shlUnsigned(dest: TACSymbol.Var, a: TACSymbol, b: TACSymbol) =
