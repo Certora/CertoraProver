@@ -320,6 +320,18 @@ object BytesKCastRewriter {
                                         "Illegal byte load $lc"
                                     }
                                 }
+                                if (definedVars.add(lc.cmd.loc)) {
+                                    if (lc.ptr == cand.dataLoadLocation.ptr) {
+                                        // The matcher established this address as loadBase + 32.
+                                        // Its computation can precede the translated fragment.
+                                        scriptBuilder.define(lc.cmd.loc.namePrefix) {
+                                            dataStart()
+                                        }
+                                    } else {
+                                        // Other incoming addresses are unconstrained inputs.
+                                        scriptBuilder.declare(lc.cmd.loc.namePrefix)
+                                    }
+                                }
                                 scriptBuilder.define(
                                     lc.cmd.lhs.namePrefix
                                 ) {
